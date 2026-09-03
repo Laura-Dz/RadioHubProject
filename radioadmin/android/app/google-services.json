@@ -1,0 +1,86 @@
+{
+  "project_info": {
+    "project_number": "615367902140",
+    "project_id": "radiohub12",
+    "storage_bucket": "radiohub12.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615367902140:android:7fbec8ffe5624b055661b9",
+        "android_client_info": {
+          "package_name": "com.example.host"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAI62h1xD6drEiyn8BMUbo1MQOIc_kCBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615367902140:android:5a58fef61b10462f5661b9",
+        "android_client_info": {
+          "package_name": "com.example.listener"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAI62h1xD6drEiyn8BMUbo1MQOIc_kCBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615367902140:android:941b8364eb368b875661b9",
+        "android_client_info": {
+          "package_name": "com.example.radioadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAI62h1xD6drEiyn8BMUbo1MQOIc_kCBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615367902140:android:c887920be466328d5661b9",
+        "android_client_info": {
+          "package_name": "com.example.technician"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAI62h1xD6drEiyn8BMUbo1MQOIc_kCBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

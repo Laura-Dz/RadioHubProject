@@ -1,0 +1,136 @@
+import 'package:flutter/foundation.dart';
+import '../../core/models/channel_model.dart';
+import '../../core/services/channel_service.dart';
+
+class ChannelsViewModel extends ChangeNotifier {
+  final ChannelService _channelService;
+
+  List<ChannelModel> _channels = [];
+  List<ChannelModel> _featuredChannels = [];
+  List<ChannelModel> _trendingChannels = [];
+  List<String> _categories = ['all'];
+
+  bool _isLoading = false;
+  bool _hasMore = true;
+  String? _error;
+
+  String? _selectedCategory;
+  String? _searchQuery;
+
+  ChannelsViewModel(this._channelService);
+
+  List<ChannelModel> get channels => _channels;
+  List<ChannelModel> get featuredChannels => _featuredChannels;
+  List<ChannelModel> get trendingChannels => _trendingChannels;
+  List<String> get categories => _categories;
+  bool get isLoading => _isLoading;
+  bool get hasMore => _hasMore;
+  String? get error => _error;
+  String? get selectedCategory => _selectedCategory;
+  String? get searchQuery => _searchQuery;
+
+  Future<void> loadInitialData() async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      final results = await Future.wait([
+        _channelService.getCategories(),
+        _channelService.getFeaturedChannels(limit: 5),
+        _channelService.getTrendingChannels(limit: 10),
+        _channelService.getChannels(limit: 20),
+      ]);
+
+      _categories = ['all', ...results[0]];
+      _featuredChannels = results[1];
+      _trendingChannels = results[2];
+      _channels = results[3];
+      _hasMore = results[3].length >= 20;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> loadChannels() async {
+    if (_isLoading || !_hasMore) return;
+
+    _setLoading(true);
+    _error = null;
+
+    try {
+      final newChannels = await _channelService.getChannels(
+        category: _selectedCategory,
+        searchQuery: _searchQuery,
+        limit: 20,
+      );
+
+      if (newChannels.isEmpty) {
+        _hasMore = false;
+      } else {
+        _channels.addAll(newChannels);
+        _hasMore = newChannels.length >= 20;
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> refresh() async {
+    _hasMore = true;
+    _channels = [];
+    await loadInitialData();
+  }
+
+  Future<void> setCategory(String? category) async {
+    if (_selectedCategory == category) return;
+    _selectedCategory = category;
+    _channels = [];
+    _hasMore = true;
+    notifyListeners();
+    await loadChannels();
+  }
+
+  Future<void> setSearchQuery(String query) async {
+    _searchQuery = query.isEmpty ? null : query;
+    _channels = [];
+    _hasMore = true;
+    notifyListeners();
+    await loadChannels();
+  }
+
+  Future<void> toggleFollow(String channelId, bool follow) async {
+    await _channelService.toggleFollowChannel(channelId, follow);
+
+    _channels = _channels.map((c) {
+      if (c.id == channelId) {
+        return ChannelModel(
+          id: c.id,
+          name: c.name,
+          description: c.description,
+          category: c.category,
+          imageUrl: c.imageUrl,
+          listenerCount: c.listenerCount,
+          showCount: c.showCount,
+          isLive: c.isLive,
+          isFollowed: follow,
+          followerCount: follow ? c.followerCount + 1 : c.followerCount - 1,
+          isFeatured: c.isFeatured,
+          website: c.website,
+          socialLinks: c.socialLinks,
+        );
+      }
+      return c;
+    }).toList();
+
+    notifyListeners();
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+}

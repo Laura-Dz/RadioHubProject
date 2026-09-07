@@ -11,6 +11,9 @@ import 'core/services/radio_service.dart';
 import 'core/services/schedule_service.dart';
 import 'core/services/channel_service.dart';
 import 'core/services/timetable_service.dart';
+import 'core/services/storage_service.dart';
+import 'core/services/metadata_service.dart';
+import 'core/services/realtime_database_service.dart';
 import 'core/models/language_model.dart';
 import 'view_models/language_selection_view_model.dart';
 import 'view_models/auth_view_model.dart';
@@ -40,6 +43,9 @@ void main() async {
   final prefsService = SharedPreferencesService(prefs);
   final localizationService = LocalizationService();
   final firestoreService = FirestoreService();
+  final storageService = StorageService();
+  final metadataService = MetadataService();
+  final realtimeDbService = RealtimeDatabaseService();
 
   final savedLanguage = prefsService.getLanguage();
   if (savedLanguage != null) {
@@ -54,6 +60,9 @@ void main() async {
     prefsService: prefsService,
     localizationService: localizationService,
     firestoreService: firestoreService,
+    storageService: storageService,
+    metadataService: metadataService,
+    realtimeDbService: realtimeDbService,
   ));
 }
 
@@ -61,12 +70,18 @@ class MyApp extends StatelessWidget {
   final SharedPreferencesService prefsService;
   final LocalizationService localizationService;
   final FirestoreService firestoreService;
+  final StorageService storageService;
+  final MetadataService metadataService;
+  final RealtimeDatabaseService realtimeDbService;
 
   const MyApp({
     Key? key,
     required this.prefsService,
     required this.localizationService,
     required this.firestoreService,
+    required this.storageService,
+    required this.metadataService,
+    required this.realtimeDbService,
   }) : super(key: key);
 
   @override
@@ -76,6 +91,9 @@ class MyApp extends StatelessWidget {
         Provider.value(value: prefsService),
         Provider.value(value: localizationService),
         Provider.value(value: firestoreService),
+        Provider.value(value: storageService),
+        Provider.value(value: metadataService),
+        Provider.value(value: realtimeDbService),
         ChangeNotifierProvider(
           create: (_) => LanguageSelectionViewModel(
             prefsService: prefsService,

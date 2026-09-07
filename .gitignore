@@ -1,0 +1,51 @@
+# Environment variables
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Firebase / Google service account keys
+*.json
+!*.json.example
+**/serviceAccount*.json
+**/firebase-*.json
+google-services.json
+GoogleService-Info.plist
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.envrc
+
+# Django
+db.sqlite3
+*.log
+local_settings.py
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

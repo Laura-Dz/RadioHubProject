@@ -1,0 +1,35 @@
+# Environment variables
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Firebase / Google service account keys
+*.json
+!*.json.example
+**/serviceAccount*.json
+**/firebase-*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Django
+db.sqlite3
+*.log
+local_settings.py
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

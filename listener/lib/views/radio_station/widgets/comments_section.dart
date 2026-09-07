@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/schedule_service.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/realtime_database_service.dart';
+import '../../../core/models/live_comment_model.dart';
 
 class CommentsSection extends StatefulWidget {
   final String radioId;
@@ -13,7 +15,6 @@ class CommentsSection extends StatefulWidget {
 
 class _CommentsSectionState extends State<CommentsSection> {
   final TextEditingController _controller = TextEditingController();
-  final ScheduleService _scheduleService = ScheduleService();
 
   @override
   void dispose() {
@@ -30,6 +31,8 @@ class _CommentsSectionState extends State<CommentsSection> {
       );
     }
 
+    final realtimeDb = context.watch<RealtimeDatabaseService>();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -41,10 +44,25 @@ class _CommentsSectionState extends State<CommentsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('💬 Comments', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('💬 Live Chat', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text('LIVE', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+            ],
+          ),
           const SizedBox(height: 8),
-          StreamBuilder<List<Comment>>(
-            stream: _scheduleService.streamComments(widget.programId!),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: realtimeDb.streamComments(widget.programId!),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Text('Error loading comments');
@@ -52,7 +70,9 @@ class _CommentsSectionState extends State<CommentsSection> {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final comments = snapshot.data!;
+              final comments = snapshot.data!
+                  .map((m) => LiveComment.fromMap(m))
+                  .toList();
               if (comments.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
@@ -70,9 +90,9 @@ class _CommentsSectionState extends State<CommentsSection> {
                       child: Text(comment.userName.substring(0, 1).toUpperCase()),
                     ),
                     title: Text(comment.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(comment.text),
+                    subtitle: Text(comment.message),
                     trailing: Text(
-                      _formatTime(comment.createdAt),
+                      _formatTime(comment.timestamp),
                       style: TextStyle(fontSize: 10, color: Colors.grey),
                     ),
                   );
@@ -87,15 +107,15 @@ class _CommentsSectionState extends State<CommentsSection> {
                 child: TextField(
                   controller: _controller,
                   decoration: const InputDecoration(
-                    hintText: 'Write a comment...',
+                    hintText: 'Write a live comment...',
                     border: InputBorder.none,
                   ),
-                  onSubmitted: (value) => _sendComment(),
+                  onSubmitted: (value) => _sendComment(realtimeDb),
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.send, color: Colors.blue),
-                onPressed: _sendComment,
+                onPressed: () => _sendComment(realtimeDb),
               ),
             ],
           ),
@@ -104,17 +124,19 @@ class _CommentsSectionState extends State<CommentsSection> {
     );
   }
 
-  void _sendComment() async {
-    if (_controller.text.isEmpty || widget.programId == null) return;
+  void _sendComment(RealtimeDatabaseService realtimeDb) async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || widget.programId == null) return;
     try {
-      await _scheduleService.addComment(
-        widget.programId!,
-        'dummy_user',
-        'You',
-        _controller.text,
+      await realtimeDb.addComment(
+        programId: widget.programId!,
+        userId: 'current_user',
+        userName: 'You',
+        message: text,
       );
       _controller.clear();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to send comment')),
       );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../view_models/channels_view_model.dart';
-import '../../core/theme/app_colors.dart';
+import '../../../view_models/channels_view_model.dart';
+import '../../../core/theme/app_colors.dart';
 
 class ChannelsTab extends StatefulWidget {
   const ChannelsTab({Key? key}) : super(key: key);
@@ -226,7 +226,7 @@ class _ChannelsTabState extends State<ChannelsTab> with AutomaticKeepAliveClient
                   ),
                 ),
                 child: channel.isLive == true
-                    ? const Positioned(
+                    ? Positioned(
                         top: 8,
                         left: 8,
                         child: Container(

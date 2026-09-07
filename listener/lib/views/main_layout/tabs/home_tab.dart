@@ -48,7 +48,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final homeViewModel = context.watch<HomeViewModel>();
 
     return RefreshIndicator(
-      onRefresh: () => homeViewModel.refreshData(),
+      onRefresh: () async => await homeViewModel.refreshData(),
       color: AppColors.primary,
       child: CustomScrollView(
         controller: _scrollController,

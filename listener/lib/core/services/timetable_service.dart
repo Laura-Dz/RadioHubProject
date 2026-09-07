@@ -30,7 +30,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting recurring shows: $e');
@@ -51,7 +51,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting recurring shows for day: $e');
@@ -69,7 +69,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting weekday shows: $e');
@@ -87,7 +87,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting weekend shows: $e');
@@ -105,7 +105,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting shows by host: $e');
@@ -123,7 +123,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting shows by category: $e');
@@ -152,7 +152,7 @@ class TimetableService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting followed recurring shows: $e');
@@ -165,7 +165,7 @@ class TimetableService {
       final snapshot = await _firestore.collection(_collection).get();
       final hosts = <String>{};
       for (final doc in snapshot.docs) {
-        final host = doc.data()['host'] as String?;
+        final host = (doc.data() as Map<String, dynamic>)['host'] as String?;
         if (host != null) hosts.add(host);
       }
       return hosts.toList()..sort();
@@ -188,7 +188,7 @@ class TimetableService {
         .orderBy('startTime')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
+            .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
             .toList());
   }
 }

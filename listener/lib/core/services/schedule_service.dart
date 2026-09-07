@@ -19,7 +19,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting schedule: $e');
@@ -64,7 +64,7 @@ class ScheduleService {
           .get();
 
       if (snapshot.docs.isEmpty) return null;
-      return ScheduleItem.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
+      return ScheduleItem.fromFirestore(snapshot.docs.first.data() as Map<String, dynamic>, snapshot.docs.first.id);
     } catch (e) {
       print('Error getting now playing: $e');
       return null;
@@ -83,7 +83,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting upcoming shows: $e');
@@ -103,7 +103,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting special events: $e');
@@ -124,7 +124,7 @@ class ScheduleService {
           .get();
 
       if (snapshot.docs.isEmpty) return null;
-      return ScheduleItem.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
+      return ScheduleItem.fromFirestore(snapshot.docs.first.data() as Map<String, dynamic>, snapshot.docs.first.id);
     } catch (e) {
       print('Error getting current program: $e');
       return null;
@@ -144,7 +144,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting upcoming programs: $e');
@@ -163,7 +163,7 @@ class ScheduleService {
         .orderBy('startTime')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+            .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
             .toList());
   }
 
@@ -174,8 +174,8 @@ class ScheduleService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => Comment.fromFirestore(doc.data(), doc.id))
-            .toList());
+             .map((doc) => Comment.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+             .toList());
   }
 
   Future<List<FlashProgram>> getActiveFlashes() async {
@@ -189,7 +189,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => FlashProgram.fromFirestore(doc.data(), doc.id))
+          .map((doc) => FlashProgram.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
       print('Error getting active flashes: $e');
@@ -209,7 +209,7 @@ class ScheduleService {
         .orderBy('startTime')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+            .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
             .toList());
   }
 

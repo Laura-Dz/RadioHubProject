@@ -50,7 +50,7 @@ class SettingsTab extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.quality),
+                  leading: const Icon(Icons.high_quality),
                   title: const Text('Stream Quality'),
                   subtitle: const Text('High (320kbps)'),
                   trailing: const Icon(Icons.chevron_right),

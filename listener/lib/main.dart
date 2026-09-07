@@ -25,6 +25,7 @@ import 'view_models/radio_station_view_model.dart';
 import 'views/splash_screen.dart';
 import 'views/main_layout/main_layout_screen.dart';
 import 'views/radio_station/radio_station_page.dart';
+import 'views/auth/auth_choice_screen.dart';
 
 import 'firebase_options.dart';
 

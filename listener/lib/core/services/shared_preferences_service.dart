@@ -12,6 +12,8 @@ class SharedPreferencesService {
   static const String KEY_CURRENT_STATION = 'current_station';
   static const String KEY_DARK_MODE = 'dark_mode';
 
+  final SharedPreferences _prefs;
+
   SharedPreferencesService(this._prefs);
 
   Future<void> setLanguage(String code) async =>

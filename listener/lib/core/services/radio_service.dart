@@ -9,7 +9,7 @@ class RadioService {
     try {
       final doc = await _firestore.collection('radios').doc(radioId).get();
       if (!doc.exists) return null;
-      return RadioModel.fromFirestore(doc.data()!, doc.id);
+      return RadioModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
     } catch (e) {
       print('Error getting radio: $e');
       return null;
@@ -36,7 +36,7 @@ class RadioService {
           .limit(1)
           .get();
       if (snapshot.docs.isEmpty) return null;
-      return AnnouncementPricing.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
+      return AnnouncementPricing.fromFirestore(snapshot.docs.first.data() as Map<String, dynamic>, snapshot.docs.first.id);
     } catch (e) {
       print('Error getting pricing: $e');
       return null;
@@ -72,7 +72,7 @@ class RadioService {
         .snapshots()
         .map((doc) {
           if (!doc.exists) return null;
-          return RadioModel.fromFirestore(doc.data()!, doc.id);
+          return RadioModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
         });
   }
 }

@@ -65,19 +65,20 @@ class ProfileTab extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(child: _buildStatCard('Following', '24')),
+              Expanded(child: _buildStatCard(context, 'Following', '24')),
               const SizedBox(width: 12),
-              Expanded(child: _buildStatCard('Listen Time', '42h')),
+              Expanded(child: _buildStatCard(context, 'Listen Time', '42h')),
               const SizedBox(width: 12),
-              Expanded(child: _buildStatCard('Favorites', '18')),
+              Expanded(child: _buildStatCard(context, 'Favorites', '18')),
             ],
           ),
           const SizedBox(height: 24),
-          _buildMenuItem(icon: Icons.history, title: 'Listening History', subtitle: 'Last 7 days', onTap: () {}),
-          _buildMenuItem(icon: Icons.bookmark, title: 'Saved Shows', subtitle: 'Your bookmarks', onTap: () {}),
-          _buildMenuItem(icon: Icons.download, title: 'Downloads', subtitle: 'Offline content', onTap: () {}),
-          _buildMenuItem(icon: Icons.volume_up, title: 'Audio Quality', subtitle: 'High (320kbps)', onTap: () {}),
+          _buildMenuItem(context, icon: Icons.history, title: 'Listening History', subtitle: 'Last 7 days', onTap: () {}),
+          _buildMenuItem(context, icon: Icons.bookmark, title: 'Saved Shows', subtitle: 'Your bookmarks', onTap: () {}),
+          _buildMenuItem(context, icon: Icons.download, title: 'Downloads', subtitle: 'Offline content', onTap: () {}),
+          _buildMenuItem(context, icon: Icons.volume_up, title: 'Audio Quality', subtitle: 'High (320kbps)', onTap: () {}),
           _buildMenuItem(
+            context,
             icon: Icons.logout,
             title: 'Sign Out',
             subtitle: 'Logout from account',
@@ -94,7 +95,7 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(String label, String value) {
+  Widget _buildStatCard(BuildContext context, String label, String value) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -111,7 +112,7 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem({
+  Widget _buildMenuItem(BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,

@@ -25,12 +25,12 @@ class HomeScreen extends StatelessWidget {
             ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authViewModel.logout();
-              if (!authViewModel.hasError && mounted) {
-                Navigator.pushReplacementNamed(context, '/auth');
-              }
-            },
+             onPressed: () async {
+               await authViewModel.logout();
+               if (!authViewModel.hasError && context.mounted) {
+                 Navigator.pushReplacementNamed(context, '/auth');
+               }
+             },
           ),
         ],
       ),

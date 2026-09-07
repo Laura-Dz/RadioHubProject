@@ -345,7 +345,7 @@ class HomeViewModel extends BaseViewModel {
     ];
   }
 
-  void refreshData() => loadHomeData();
+  Future<void> refreshData() => loadHomeData();
 
   @override
   void dispose() {

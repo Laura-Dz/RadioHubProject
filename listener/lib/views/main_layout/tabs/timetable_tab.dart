@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../view_models/timetable_view_model.dart';
-import '../../core/theme/app_colors.dart';
+import '../../../view_models/timetable_view_model.dart';
+import '../../../core/theme/app_colors.dart';
 
 class TimetableTab extends StatefulWidget {
   const TimetableTab({Key? key}) : super(key: key);

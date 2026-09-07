@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/enums/navigation_tabs.dart';
+import 'package:listener/core/theme/app_colors.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -26,7 +25,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.secondary,
                 shape: BoxShape.circle,
               ),
@@ -43,7 +42,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 4),
             if (isStationPage)
-              const Icon(Icons.volume_up, size: 16, color: AppColors.primary),
+              Icon(Icons.volume_up, size: 16, color: AppColors.primary),
           ] else ...[
             Text(
               title,
@@ -88,7 +87,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               child: Container(
                 width: 18,
                 height: 18,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.secondary,
                   shape: BoxShape.circle,
                 ),

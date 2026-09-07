@@ -169,7 +169,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                           ? null
                           : () async {
                               await viewModel.saveLanguageSelection();
-                              if (!viewModel.hasError && mounted) {
+                              if (!viewModel.hasError && context.mounted) {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(builder: (_) => const AuthChoiceScreen()),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChannelModel {
   final String id;
@@ -36,6 +37,27 @@ class ChannelModel {
     this.createdAt,
     this.lastActive,
   });
+
+  factory ChannelModel.fromFirestore(Map<String, dynamic> data, String id) {
+    return ChannelModel(
+      id: id,
+      name: data['name'] ?? 'Unnamed Channel',
+      description: data['description'] ?? '',
+      imageUrl: data['imageUrl'],
+      logoUrl: data['logoUrl'],
+      category: data['category'] ?? 'general',
+      host: data['host'] ?? 'Unknown',
+      followerCount: data['followerCount'] ?? 0,
+      isFollowed: data['isFollowed'] ?? false,
+      isLive: data['isLive'] ?? false,
+      listenerCount: data['listenerCount'] ?? 0,
+      rating: (data['rating'] ?? 0.0).toDouble(),
+      tags: List<String>.from(data['tags'] ?? []),
+      scheduleNote: data['scheduleNote'],
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      lastActive: (data['lastActive'] as Timestamp?)?.toDate(),
+    );
+  }
 
   ChannelModel copyWith({
     String? id,

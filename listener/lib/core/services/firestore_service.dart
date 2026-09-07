@@ -100,6 +100,14 @@ class FirestoreService {
     return UserModel.fromFirestore(doc.data()!, user.uid);
   }
 
+  String? getCurrentUserId() {
+    return _auth.currentUser?.uid;
+  }
+
+  String? getCurrentUserName() {
+    return _auth.currentUser?.displayName;
+  }
+
   Future<List<Map<String, dynamic>>> getActiveShows() async {
     final snapshot = await _firestore
         .collection('shows')

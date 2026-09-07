@@ -167,7 +167,7 @@ class _ScheduleTabState extends State<ScheduleTab> with AutomaticKeepAliveClient
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.radio_off, size: 48, color: Colors.grey.shade400),
+                        Icon(Icons.radio_button_off, size: 48, color: Colors.grey.shade400),
                         const SizedBox(height: 12),
                         Text('No live show at the moment', style: TextStyle(color: Colors.grey.shade600)),
                         const SizedBox(height: 4),

@@ -34,18 +34,16 @@ class ChannelsViewModel extends ChangeNotifier {
     _error = null;
 
     try {
-      final results = await Future.wait([
-        _channelService.getCategories(),
-        _channelService.getFeaturedChannels(limit: 5),
-        _channelService.getTrendingChannels(limit: 10),
-        _channelService.getChannels(limit: 20),
-      ]);
+      final categories = await _channelService.getCategories();
+      final featuredChannels = await _channelService.getFeaturedChannels(limit: 5);
+      final trendingChannels = await _channelService.getTrendingChannels(limit: 10);
+      final channels = await _channelService.getChannels(limit: 20);
 
-      _categories = ['all', ...results[0]];
-      _featuredChannels = results[1];
-      _trendingChannels = results[2];
-      _channels = results[3];
-      _hasMore = results[3].length >= 20;
+      _categories = ['all', ...categories];
+      _featuredChannels = featuredChannels;
+      _trendingChannels = trendingChannels;
+      _channels = channels;
+      _hasMore = channels.length >= 20;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -111,16 +109,19 @@ class ChannelsViewModel extends ChangeNotifier {
           id: c.id,
           name: c.name,
           description: c.description,
-          category: c.category,
           imageUrl: c.imageUrl,
-          listenerCount: c.listenerCount,
-          showCount: c.showCount,
-          isLive: c.isLive,
-          isFollowed: follow,
+          logoUrl: c.logoUrl,
+          category: c.category,
+          host: c.host,
           followerCount: follow ? c.followerCount + 1 : c.followerCount - 1,
-          isFeatured: c.isFeatured,
-          website: c.website,
-          socialLinks: c.socialLinks,
+          isFollowed: follow,
+          isLive: c.isLive,
+          listenerCount: c.listenerCount,
+          rating: c.rating,
+          tags: c.tags,
+          scheduleNote: c.scheduleNote,
+          createdAt: c.createdAt,
+          lastActive: c.lastActive,
         );
       }
       return c;

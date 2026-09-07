@@ -38,17 +38,15 @@ class TimetableViewModel extends ChangeNotifier {
     _error = null;
 
     try {
-      final results = await Future.wait([
-        _timetableService.getWeekdayShows(),
-        _timetableService.getWeekendShows(),
-        _timetableService.getHosts(),
-        _timetableService.getShowsByCategory('music'),
-      ]);
+      final weekdayShows = await _timetableService.getWeekdayShows();
+      final weekendShows = await _timetableService.getWeekendShows();
+      final hosts = await _timetableService.getHosts();
+      final musicShows = await _timetableService.getShowsByCategory('music');
 
-      _weekdayShows = results[0];
-      _weekendShows = results[1];
-      _hosts = results[2] as List<String>;
-      _categories = ['all', ...(results[3] as List<ShowModel>).map((s) => s.category).toSet().toList()];
+      _weekdayShows = weekdayShows;
+      _weekendShows = weekendShows;
+      _hosts = hosts;
+      _categories = ['all', ...musicShows.map((s) => s.category.label).toSet().toList()];
       _filteredShows = [..._weekdayShows, ..._weekendShows];
       _hasMore = false;
     } catch (e) {
@@ -129,15 +127,11 @@ class TimetableViewModel extends ChangeNotifier {
           imageUrl: s.imageUrl,
           startTime: s.startTime,
           endTime: s.endTime,
-          dayType: s.dayType,
           listenerCount: s.listenerCount,
-          isLive: s.isLive,
+          rating: s.rating,
+          status: s.status,
           isFollowed: follow,
-          followerCount: follow ? s.followerCount + 1 : s.followerCount - 1,
-          channelId: s.channelId,
-          channelName: s.channelName,
           tags: s.tags,
-          episodes: s.episodes,
         );
       }
       return s;

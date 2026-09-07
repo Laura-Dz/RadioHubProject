@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FlashProgram {
   final String id;
@@ -32,6 +33,31 @@ class FlashProgram {
     required this.createdAt,
     this.expiresAt,
   });
+
+  factory FlashProgram.fromFirestore(Map<String, dynamic> data, String id) {
+    return FlashProgram(
+      id: id,
+      title: data['title'] ?? 'Untitled Flash',
+      description: data['description'] ?? '',
+      type: FlashType.values.firstWhere(
+        (e) => e.toString() == data['type'],
+        orElse: () => FlashType.systemUpdate,
+      ),
+      status: FlashStatus.values.firstWhere(
+        (e) => e.toString() == data['status'],
+        orElse: () => FlashStatus.pending,
+      ),
+      broadcastTime: (data['broadcastTime'] as Timestamp?)?.toDate(),
+      durationSeconds: data['durationSeconds'] ?? 180,
+      host: data['host'],
+      isActive: data['isActive'] ?? false,
+      interruptedShow: data['interruptedShow'] ?? false,
+      interruptedShowId: data['interruptedShowId'],
+      recordingUrl: data['recordingUrl'],
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      expiresAt: (data['expiresAt'] as Timestamp?)?.toDate(),
+    );
+  }
 
   String get durationDisplay {
     final minutes = durationSeconds ~/ 60;

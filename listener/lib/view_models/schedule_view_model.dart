@@ -30,17 +30,15 @@ class ScheduleViewModel extends ChangeNotifier {
     _error = null;
 
     try {
-      final results = await Future.wait([
-        _scheduleService.getNowPlaying(),
-        _scheduleService.getScheduleForDate(_selectedDate),
-        _scheduleService.getUpcomingShows(limit: 10),
-        _scheduleService.getActiveFlashes(),
-      ]);
+      final nowPlaying = await _scheduleService.getNowPlaying();
+      final todaySchedule = await _scheduleService.getScheduleForDate(_selectedDate);
+      final upcomingShows = await _scheduleService.getUpcomingShows(limit: 10);
+      final activeFlashes = await _scheduleService.getActiveFlashes();
 
-      _nowPlaying = results[0] as ScheduleItem?;
-      _todaySchedule = results[1] as List<ScheduleItem>;
-      _upcomingShows = results[2] as List<ScheduleItem>;
-      _activeFlashes = results[3] as List<FlashProgram>;
+      _nowPlaying = nowPlaying;
+      _todaySchedule = todaySchedule;
+      _upcomingShows = upcomingShows;
+      _activeFlashes = activeFlashes;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -67,7 +65,7 @@ class ScheduleViewModel extends ChangeNotifier {
     return _scheduleService.streamTodaySchedule();
   }
 
-  Future<List<ScheduleItem>> getScheduleForWeek(DateTime startDate) async {
+  Future<Map<DateTime, List<ScheduleItem>>> getScheduleForWeek(DateTime startDate) async {
     return await _scheduleService.getScheduleForWeek(startDate);
   }
 

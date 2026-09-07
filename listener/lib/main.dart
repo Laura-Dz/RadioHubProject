@@ -2,10 +2,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/shared_preferences_service.dart';
 import 'core/services/localization_service.dart';
 import 'core/services/firestore_service.dart';
+import 'core/services/radio_service.dart';
+import 'core/services/schedule_service.dart';
+import 'core/services/channel_service.dart';
+import 'core/services/timetable_service.dart';
+import 'core/models/language_model.dart';
 import 'view_models/language_selection_view_model.dart';
 import 'view_models/auth_view_model.dart';
 import 'view_models/login_view_model.dart';
@@ -15,8 +21,10 @@ import 'view_models/home_view_model.dart';
 import 'view_models/channels_view_model.dart';
 import 'view_models/schedule_view_model.dart';
 import 'view_models/timetable_view_model.dart';
+import 'view_models/radio_station_view_model.dart';
 import 'views/splash_screen.dart';
 import 'views/main_layout/main_layout_screen.dart';
+import 'views/radio_station/radio_station_page.dart';
 
 import 'firebase_options.dart';
 
@@ -100,7 +108,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => HomeViewModel(
             firestoreService: firestoreService,
-            prefsService: prefsService,
           ),
         ),
         ChangeNotifierProvider(
@@ -116,6 +123,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => TimetableViewModel(
             TimetableService(),
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => RadioStationViewModel(
+            radioService: RadioService(),
+            scheduleService: ScheduleService(),
+            firestoreService: firestoreService,
           ),
         ),
       ],

@@ -111,6 +111,73 @@ class ScheduleService {
     }
   }
 
+  Future<ScheduleItem?> getCurrentProgram(String radioId) async {
+    try {
+      final now = DateTime.now();
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('channelId', isEqualTo: radioId)
+          .where('startTime', isLessThanOrEqualTo: now)
+          .where('endTime', isGreaterThanOrEqualTo: now)
+          .orderBy('startTime', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return null;
+      return ScheduleItem.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
+    } catch (e) {
+      print('Error getting current program: $e');
+      return null;
+    }
+  }
+
+  Future<List<ScheduleItem>> getUpcomingPrograms(String radioId) async {
+    try {
+      final now = DateTime.now();
+      final tomorrow = now.add(const Duration(hours: 24));
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('channelId', isEqualTo: radioId)
+          .where('startTime', isGreaterThanOrEqualTo: now)
+          .where('startTime', isLessThanOrEqualTo: tomorrow)
+          .orderBy('startTime')
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+          .toList();
+    } catch (e) {
+      print('Error getting upcoming programs: $e');
+      return [];
+    }
+  }
+
+  Stream<List<ScheduleItem>> streamScheduleForRadio(String radioId) {
+    final now = DateTime.now();
+    final tomorrow = now.add(const Duration(hours: 24));
+    return _firestore
+        .collection(_collection)
+        .where('channelId', isEqualTo: radioId)
+        .where('startTime', isGreaterThanOrEqualTo: now)
+        .where('startTime', isLessThanOrEqualTo: tomorrow)
+        .orderBy('startTime')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
+            .toList());
+  }
+
+  Stream<List<Comment>> streamComments(String programId) {
+    return _firestore
+        .collection('comments')
+        .where('programId', isEqualTo: programId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Comment.fromFirestore(doc.data(), doc.id))
+            .toList());
+  }
+
   Future<List<FlashProgram>> getActiveFlashes() async {
     try {
       final now = DateTime.now();
@@ -180,5 +247,46 @@ class ScheduleService {
     } catch (e) {
       print('Error updating schedule item: $e');
     }
+  }
+
+  Future<void> addComment(String programId, String userId, String userName, String text) async {
+    try {
+      await _firestore.collection('comments').add({
+        'programId': programId,
+        'userId': userId,
+        'userName': userName,
+        'text': text,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error adding comment: $e');
+      rethrow;
+    }
+  }
+}
+
+class Comment {
+  final String id;
+  final String userId;
+  final String userName;
+  final String text;
+  final DateTime createdAt;
+
+  Comment({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    required this.text,
+    required this.createdAt,
+  });
+
+  factory Comment.fromFirestore(Map<String, dynamic> data, String id) {
+    return Comment(
+      id: id,
+      userId: data['userId'] ?? '',
+      userName: data['userName'] ?? 'Anonymous',
+      text: data['text'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+    );
   }
 }

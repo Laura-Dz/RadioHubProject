@@ -29,37 +29,37 @@ class CustomBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(
+            _buildNavItem(context,
               icon: Icons.home_outlined,
               activeIcon: Icons.home,
               label: 'Home',
               tab: NavigationTabs.home,
             ),
-            _buildNavItem(
+            _buildNavItem(context,
               icon: Icons.radio_button_off,
               activeIcon: Icons.radio_button_checked,
               label: 'Channels',
               tab: NavigationTabs.channels,
             ),
-            _buildNavItem(
+            _buildNavItem(context,
               icon: Icons.calendar_today_outlined,
               activeIcon: Icons.calendar_today,
               label: 'Schedule',
               tab: NavigationTabs.schedule,
             ),
-            _buildNavItem(
+            _buildNavItem(context,
               icon: Icons.event_outlined,
               activeIcon: Icons.event,
               label: 'Timetable',
               tab: NavigationTabs.timetable,
             ),
-            _buildNavItem(
+            _buildNavItem(context,
               icon: Icons.person_outline,
               activeIcon: Icons.person,
               label: 'Profile',
               tab: NavigationTabs.profile,
             ),
-            _buildNavItem(
+            _buildNavItem(context,
               icon: Icons.settings_outlined,
               activeIcon: Icons.settings,
               label: 'Settings',
@@ -71,13 +71,14 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem({
+  Widget _buildNavItem(BuildContext context, {
     required IconData icon,
     required IconData activeIcon,
     required String label,
     required NavigationTabs tab,
   }) {
     final isSelected = currentTab == tab;
+    final theme = Theme.of(context);
     return Expanded(
       child: Material(
         color: Colors.transparent,
@@ -93,14 +94,14 @@ class CustomBottomNavBar extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                    color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     isSelected ? activeIcon : icon,
                     color: isSelected
                         ? AppColors.primary
-                        : Theme.of(context).bottomNavigationBarTheme.unselectedItemColor,
+                        : theme.bottomNavigationBarTheme.unselectedItemColor,
                     size: 26,
                   ),
                 ),
@@ -112,7 +113,7 @@ class CustomBottomNavBar extends StatelessWidget {
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: isSelected
                         ? AppColors.primary
-                        : Theme.of(context).bottomNavigationBarTheme.unselectedItemColor,
+                        : theme.bottomNavigationBarTheme.unselectedItemColor,
                   ),
                 ),
                 if (isSelected)

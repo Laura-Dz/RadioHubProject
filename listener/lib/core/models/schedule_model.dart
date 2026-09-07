@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ScheduleItem {
   final String id;
@@ -44,6 +44,44 @@ class ScheduleItem {
     this.tags = const [],
     this.recordingUrl,
   });
+
+  factory ScheduleItem.fromFirestore(Map<String, dynamic> data, String id) {
+    final typeStr = data['type'] ?? 'regular';
+    ScheduleItemType type;
+    switch (typeStr) {
+      case 'special':
+        type = ScheduleItemType.special;
+        break;
+      case 'flash':
+        type = ScheduleItemType.flash;
+        break;
+      default:
+        type = ScheduleItemType.regular;
+    }
+
+    return ScheduleItem(
+      id: id,
+      title: data['title'] ?? 'Untitled Show',
+      host: data['host'] ?? 'Unknown Host',
+      guest: data['guest'],
+      guestTitle: data['guestTitle'],
+      guestBio: data['guestBio'],
+      guestImageUrl: data['guestImageUrl'],
+      startTime: (data['startTime'] as Timestamp).toDate(),
+      endTime: (data['endTime'] as Timestamp).toDate(),
+      type: type,
+      description: data['description'],
+      imageUrl: data['imageUrl'],
+      listenerCount: data['listenerCount'] ?? 0,
+      isLive: data['isLive'] ?? false,
+      isInteractive: data['isInteractive'] ?? false,
+      channelId: data['channelId'],
+      channelName: data['channelName'],
+      flashId: data['flashId'],
+      tags: List<String>.from(data['tags'] ?? []),
+      recordingUrl: data['recordingUrl'],
+    );
+  }
 
   Duration get duration => endTime.difference(startTime);
   String get timeRange => '${_formatTime(startTime)} - ${_formatTime(endTime)}';

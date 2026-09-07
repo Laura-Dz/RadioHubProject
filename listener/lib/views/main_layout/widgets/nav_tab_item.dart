@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/enums/navigation_tabs.dart';
+import '../../../core/theme/app_colors.dart';
 
 class NavTabItem extends StatelessWidget {
   final NavigationTabs tab;
@@ -64,6 +65,10 @@ class NavTabItem extends StatelessWidget {
         return isSelected ? Icons.home : Icons.home_outlined;
       case NavigationTabs.channels:
         return isSelected ? Icons.radio_button_checked : Icons.radio_button_off;
+      case NavigationTabs.schedule:
+        return isSelected ? Icons.calendar_today : Icons.calendar_today_outlined;
+      case NavigationTabs.timetable:
+        return isSelected ? Icons.event : Icons.event_outlined;
       case NavigationTabs.profile:
         return isSelected ? Icons.person : Icons.person_outline;
       case NavigationTabs.settings:

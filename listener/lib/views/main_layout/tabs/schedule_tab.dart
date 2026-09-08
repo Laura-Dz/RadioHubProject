@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/schedule_view_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/placeholder_image.dart';
 
 class ScheduleTab extends StatefulWidget {
   const ScheduleTab({Key? key}) : super(key: key);
@@ -234,10 +235,9 @@ class _ScheduleTabState extends State<ScheduleTab> with AutomaticKeepAliveClient
           height: 60,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            image: DecorationImage(
-              image: NetworkImage(item.imageUrl ?? 'https://via.placeholder.com/300'),
-              fit: BoxFit.cover,
-            ),
+            image: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                ? DecorationImage(image: NetworkImage(item.imageUrl!), fit: BoxFit.cover)
+                : null,
           ),
           child: isNow
               ? Container(
@@ -249,7 +249,9 @@ class _ScheduleTabState extends State<ScheduleTab> with AutomaticKeepAliveClient
                     child: Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 )
-              : null,
+              : (item.imageUrl == null || item.imageUrl!.isEmpty)
+                  ? const PlaceholderImage(width: 60, height: 60)
+                  : null,
         ),
         title: Text(
           item.title,

@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum SessionStatus {
   scheduled,
   live,
-  paused,
   ended,
   rediffusion,
 }
@@ -30,6 +29,8 @@ class Session {
   final Map<String, dynamic> metadata;
   final String? recordingUrl;
   final String? rediffusionSourceId;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -54,6 +55,8 @@ class Session {
     this.metadata = const {},
     this.recordingUrl,
     this.rediffusionSourceId,
+    this.startedAt,
+    this.endedAt,
     required this.createdAt,
     this.updatedAt,
   });
@@ -89,6 +92,12 @@ class Session {
       metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
       recordingUrl: data['recordingUrl'],
       rediffusionSourceId: data['rediffusionSourceId'],
+      startedAt: (data['startedAt'] is Timestamp)
+          ? (data['startedAt'] as Timestamp).toDate()
+          : null,
+      endedAt: (data['endedAt'] is Timestamp)
+          ? (data['endedAt'] as Timestamp).toDate()
+          : null,
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -118,6 +127,8 @@ class Session {
         'metadata': metadata,
         'recordingUrl': recordingUrl,
         'rediffusionSourceId': rediffusionSourceId,
+        'startedAt': startedAt,
+        'endedAt': endedAt,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
@@ -136,8 +147,6 @@ class Session {
         return '📅 Scheduled';
       case SessionStatus.live:
         return '🟢 Live';
-      case SessionStatus.paused:
-        return '⏸️ Paused';
       case SessionStatus.ended:
         return '🔴 Ended';
       case SessionStatus.rediffusion:
@@ -151,8 +160,6 @@ class Session {
         return Colors.blue;
       case SessionStatus.live:
         return Colors.green;
-      case SessionStatus.paused:
-        return Colors.orange;
       case SessionStatus.ended:
         return Colors.red;
       case SessionStatus.rediffusion:

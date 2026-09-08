@@ -32,12 +32,14 @@ class MetricsSection extends StatelessWidget {
                       title: Text(s.programName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('Host: ${s.hostName ?? "—"} • ${s.timeRange}'),
                       trailing: ElevatedButton(
-                        onPressed: () => viewModel.getLiveMetrics(s.id).then((m) {
+                         onPressed: () => viewModel.getLiveMetrics(s.id).then((m) {
                           showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: Text('${s.programName} metrics'),
-                              content: Text(m.isEmpty ? 'No metrics yet.' : m.toString()),
+                              content: Text(m.currentListeners == 0 && m.totalComments == 0
+                                  ? 'No metrics yet.'
+                                  : 'Listeners: ${m.currentListeners}, Peak: ${m.peakListeners}, Comments: ${m.totalComments}'),
                               actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
                             ),
                           );

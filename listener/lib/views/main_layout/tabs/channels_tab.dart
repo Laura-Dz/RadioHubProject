@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/channels_view_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/placeholder_image.dart';
 
 class ChannelsTab extends StatefulWidget {
   const ChannelsTab({Key? key}) : super(key: key);
@@ -220,10 +221,9 @@ class _ChannelsTabState extends State<ChannelsTab> with AutomaticKeepAliveClient
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  image: DecorationImage(
-                    image: NetworkImage(channel.imageUrl ?? 'https://via.placeholder.com/300'),
-                    fit: BoxFit.cover,
-                  ),
+                  image: channel.imageUrl != null && channel.imageUrl!.isNotEmpty
+                      ? DecorationImage(image: NetworkImage(channel.imageUrl!), fit: BoxFit.cover)
+                      : null,
                 ),
                 child: channel.isLive == true
                     ? Positioned(
@@ -293,18 +293,15 @@ class _ChannelsTabState extends State<ChannelsTab> with AutomaticKeepAliveClient
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          channel.imageUrl ?? 'https://via.placeholder.com/300',
-          width: 56,
-          height: 56,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 56,
-            height: 56,
-            color: AppColors.surface,
-            child: const Icon(Icons.radio, color: AppColors.primary),
-          ),
-        ),
+        child: channel.imageUrl != null && channel.imageUrl!.isNotEmpty
+            ? Image.network(
+                channel.imageUrl!,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const PlaceholderImage(width: 56, height: 56),
+              )
+            : const PlaceholderImage(width: 56, height: 56),
       ),
       title: Text(
         channel.name ?? 'Unknown',

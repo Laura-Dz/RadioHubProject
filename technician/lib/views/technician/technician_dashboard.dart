@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/enums/technician_section.dart';
 import '../../view_models/technician_view_model.dart';
+import '../../core/services/data_seeder.dart';
 import 'widgets/technician_sidebar.dart';
 import 'sections/sessions_section.dart';
 import 'sections/hosts_section.dart';
@@ -20,6 +22,7 @@ class TechnicianDashboard extends StatefulWidget {
 
 class _TechnicianDashboardState extends State<TechnicianDashboard> {
   TechnicianSection _selected = TechnicianSection.schedule;
+  bool _isSeeding = false;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +41,41 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
           ),
         ],
       ),
+      floatingActionButton: kDebugMode
+          ? FloatingActionButton(
+              onPressed: _isSeeding
+                  ? null
+                  : () async {
+                      setState(() => _isSeeding = true);
+                      try {
+                        await DataSeeder().seedAllData();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Seeding completed!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Seeding failed: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isSeeding = false);
+                        }
+                      }
+                    },
+              backgroundColor: Colors.purple,
+              child: _isSeeding
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload, color: Colors.white),
+            )
+          : null,
     );
   }
 

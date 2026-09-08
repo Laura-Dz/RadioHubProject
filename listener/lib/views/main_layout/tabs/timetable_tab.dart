@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/timetable_view_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/placeholder_image.dart';
 
 class TimetableTab extends StatefulWidget {
   const TimetableTab({Key? key}) : super(key: key);
@@ -187,11 +188,13 @@ class _TimetableTabState extends State<TimetableTab> with AutomaticKeepAliveClie
           height: 56,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            image: DecorationImage(
-              image: NetworkImage(show.imageUrl ?? 'https://via.placeholder.com/300'),
-              fit: BoxFit.cover,
-            ),
+            image: show.imageUrl != null && show.imageUrl!.isNotEmpty
+                ? DecorationImage(image: NetworkImage(show.imageUrl!), fit: BoxFit.cover)
+                : null,
           ),
+          child: show.imageUrl == null || show.imageUrl!.isEmpty
+              ? const PlaceholderImage(width: 56, height: 56)
+              : null,
         ),
         title: Text(
           show.title,

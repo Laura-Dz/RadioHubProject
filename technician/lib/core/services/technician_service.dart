@@ -3,6 +3,7 @@ import '../models/technician/program_model.dart';
 import '../models/technician/session_model.dart';
 import '../models/technician/host_model.dart';
 import '../models/technician/media_model.dart';
+import '../models/technician/metrics_model.dart';
 
 class TechnicianService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -24,7 +25,10 @@ class TechnicianService {
   }
 
   Future<void> deleteProgram(String programId) async {
-    await _firestore.collection('programs').doc(programId).delete();
+    await _firestore.collection('programs').doc(programId).update({
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Stream<List<Program>> streamPrograms() {
@@ -53,7 +57,10 @@ class TechnicianService {
   }
 
   Future<void> deleteHost(String hostId) async {
-    await _firestore.collection('hosts').doc(hostId).delete();
+    await _firestore.collection('hosts').doc(hostId).update({
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Stream<List<Host>> streamHosts() {
@@ -107,13 +114,6 @@ class TechnicianService {
     });
   }
 
-  Future<void> pauseSession(String sessionId) async {
-    await _firestore.collection('sessions').doc(sessionId).update({
-      'status': 'paused',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
   Future<void> endSession(String sessionId) async {
     await _firestore.collection('sessions').doc(sessionId).update({
       'status': 'ended',
@@ -128,13 +128,22 @@ class TechnicianService {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    final sourceDoc = await _firestore.collection('sessions').doc(sessionId).get();
+    if (!sourceDoc.exists) {
+      throw Exception('Source session not found');
+    }
+    final source = sourceDoc.data() as Map<String, dynamic>;
     final newDoc = _firestore.collection('sessions').doc();
     await newDoc.set({
+      ...source,
       'status': 'rediffusion',
       'rediffusionSourceId': sessionId,
       'date': date,
       'startTime': startTime,
       'endTime': endTime,
+      'startedAt': null,
+      'endedAt': null,
+      'id': newDoc.id,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -148,7 +157,7 @@ class TechnicianService {
 
   // ===== MEDIA =====
   Future<List<MediaItem>> getMediaItems({String? mediaType}) async {
-    var query = _firestore.collection('media') as Query;
+    Query<Map<String, dynamic>> query = _firestore.collection('media');
     if (mediaType != null && mediaType.isNotEmpty) {
       query = query.where('mediaType', isEqualTo: mediaType);
     }
@@ -173,9 +182,24 @@ class TechnicianService {
   }
 
   // ===== METRICS =====
-  Future<Map<String, dynamic>> getLiveMetrics(String sessionId) async {
+  Future<LiveMetrics> getLiveMetrics(String sessionId) async {
     final doc = await _firestore.collection('live_metrics').doc(sessionId).get();
-    if (!doc.exists) return {};
-    return doc.data() as Map<String, dynamic>;
+    if (!doc.exists) {
+      return LiveMetrics(sessionId: sessionId);
+    }
+    return LiveMetrics.fromFirestore(doc.data() as Map<String, dynamic>, sessionId);
+  }
+
+  Stream<LiveMetrics> streamLiveMetrics(String sessionId) {
+    return _firestore
+        .collection('live_metrics')
+        .doc(sessionId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists) {
+        return LiveMetrics(sessionId: sessionId);
+      }
+      return LiveMetrics.fromFirestore(snapshot.data() as Map<String, dynamic>, sessionId);
+    });
   }
 }

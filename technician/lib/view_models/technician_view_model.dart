@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/models/technician/program_model.dart';
 import '../core/models/technician/session_model.dart';
 import '../core/models/technician/host_model.dart';
 import '../core/models/technician/media_model.dart';
+import '../core/models/technician/metrics_model.dart';
 import '../core/services/technician_service.dart';
 
 class TechnicianViewModel extends ChangeNotifier {
@@ -34,6 +36,35 @@ class TechnicianViewModel extends ChangeNotifier {
   DateTime get selectedWeek => _selectedWeek;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  List<Session> get waitingCalls {
+    if (_liveSessions.isEmpty) return const [];
+    final live = _liveSessions.first;
+    if (live.status != SessionStatus.live) return const [];
+    return [live];
+  }
+
+  Future<void> routeCallToHost(String sessionId, String hostId) async {
+    await FirebaseFirestore.instance
+        .collection('sessions')
+        .doc(sessionId)
+        .collection('calls')
+        .doc(hostId)
+        .set({
+      'status': 'routing',
+      'hostId': hostId,
+      'routedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  List<Session> get todaySchedule {
+    final now = DateTime.now();
+    return _sessions.where((s) {
+      return s.date.year == now.year &&
+          s.date.month == now.month &&
+          s.date.day == now.day;
+    }).toList();
+  }
 
   Future<void> _loadData() async {
     _isLoading = true;
@@ -149,13 +180,6 @@ class TechnicianViewModel extends ChangeNotifier {
     _buildWeeklySchedule();
   }
 
-  Future<void> pauseSession(String sessionId) async {
-    await _service.pauseSession(sessionId);
-    await _loadSessions();
-    await _loadLiveSessions();
-    _buildWeeklySchedule();
-  }
-
   Future<void> endSession(String sessionId) async {
     await _service.endSession(sessionId);
     await _loadSessions();
@@ -218,8 +242,12 @@ class TechnicianViewModel extends ChangeNotifier {
         .toList();
   }
 
-  Future<Map<String, dynamic>> getLiveMetrics(String sessionId) async {
+  Future<LiveMetrics> getLiveMetrics(String sessionId) async {
     return await _service.getLiveMetrics(sessionId);
+  }
+
+  Stream<LiveMetrics> streamLiveMetrics(String sessionId) {
+    return _service.streamLiveMetrics(sessionId);
   }
 
   Future<void> refreshData() async {

@@ -25,18 +25,10 @@ class _RadioInfoSectionState extends State<RadioInfoSection> {
   int _currentImageIndex = 0;
   final CarouselSliderController _carouselController = CarouselSliderController();
 
-  final List<String> _sampleImages = [
-    'https://picsum.photos/seed/radio1/800/400',
-    'https://picsum.photos/seed/radio2/800/400',
-    'https://picsum.photos/seed/radio3/800/400',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final radio = widget.radio;
-    final images = radio.bannerImageUrl != null
-        ? [radio.bannerImageUrl!, ..._sampleImages]
-        : _sampleImages;
+    final images = radio.bannerImageUrl != null ? [radio.bannerImageUrl!] : <String>[];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -61,42 +53,46 @@ class _RadioInfoSectionState extends State<RadioInfoSection> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: CarouselSlider(
-                  carouselController: _carouselController,
-                  options: CarouselOptions(
-                    height: 160,
-                    autoPlay: true,
-                    autoPlayInterval: const Duration(seconds: 4),
-                    autoPlayAnimationDuration: const Duration(milliseconds: 800),
-                    enlargeCenterPage: true,
-                    viewportFraction: 0.9,
-                    onPageChanged: (index, _) => setState(() => _currentImageIndex = index),
-                  ),
-                  items: images.map((url) => Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
-                    ),
-                  )).toList(),
+                child: images.isEmpty
+                    ? _buildPlaceholderBanner()
+                    : CarouselSlider(
+                        carouselController: _carouselController,
+                        options: CarouselOptions(
+                          height: 160,
+                          autoPlay: true,
+                          autoPlayInterval: const Duration(seconds: 4),
+                          autoPlayAnimationDuration: const Duration(milliseconds: 800),
+                          enlargeCenterPage: true,
+                          viewportFraction: 0.9,
+                          onPageChanged: (index, _) => setState(() => _currentImageIndex = index),
+                        ),
+                        items: images.map((url) => Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
+                          ),
+                        )).toList(),
+                      ),
+              ),
+              if (images.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: images.asMap().entries.map((entry) {
+                    return Container(
+                      width: _currentImageIndex == entry.key ? 20 : 8,
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: _currentImageIndex == entry.key ? AppColors.primary : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: images.asMap().entries.map((entry) {
-                  return Container(
-                    width: _currentImageIndex == entry.key ? 20 : 8,
-                    height: 4,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: _currentImageIndex == entry.key ? AppColors.primary : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  );
-                }).toList(),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -191,6 +187,24 @@ class _RadioInfoSectionState extends State<RadioInfoSection> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderBanner() {
+    return Container(
+      width: double.infinity,
+      height: 160,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          colors: [AppColors.primary.withOpacity(0.7), AppColors.primary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.radio, size: 48, color: Colors.white70),
       ),
     );
   }

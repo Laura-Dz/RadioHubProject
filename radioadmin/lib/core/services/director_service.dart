@@ -10,7 +10,7 @@ class DirectorService {
 
   Future<List<Technician>> getTechnicians() async {
     final snapshot = await _firestore.collection('technicians').orderBy('createdAt', descending: true).get();
-    return snapshot.docs.map((doc) => Technician.fromFirestore(doc.data(), doc.id)).toList();
+    return snapshot.docs.map((doc) => Technician.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList();
   }
 
   Future<void> addTechnician(Technician technician) async {
@@ -35,12 +35,12 @@ class DirectorService {
 
   Stream<List<Technician>> streamTechnicians() {
     return _firestore.collection('technicians').snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => Technician.fromFirestore(doc.data(), doc.id)).toList());
+        snapshot.docs.map((doc) => Technician.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList());
   }
 
   Future<List<Subscription>> getSubscriptions() async {
     final snapshot = await _firestore.collection('subscriptions').orderBy('createdAt', descending: true).get();
-    return snapshot.docs.map((doc) => Subscription.fromFirestore(doc.data(), doc.id)).toList();
+    return snapshot.docs.map((doc) => Subscription.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList();
   }
 
   Future<void> updateSubscription(String id, Map<String, dynamic> data) async {
@@ -53,7 +53,7 @@ class DirectorService {
 
   Stream<List<Subscription>> streamSubscriptions() {
     return _firestore.collection('subscriptions').snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => Subscription.fromFirestore(doc.data(), doc.id)).toList());
+        snapshot.docs.map((doc) => Subscription.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList());
   }
 
   Future<HomepageConfig?> getHomepageConfig(String radioId) async {
@@ -96,7 +96,7 @@ class DirectorService {
       query = query.where('type', isEqualTo: type.toString().split('.').last);
     }
     final snapshot = await query.get();
-    return snapshot.docs.map((doc) => Request.fromFirestore(doc.data(), doc.id)).toList();
+    return snapshot.docs.map((doc) => Request.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList();
   }
 
   Future<void> approveRequest(String id, {String? adminResponse}) async {
@@ -128,7 +128,7 @@ class DirectorService {
 
   Stream<List<Request>> streamRequests() {
     return _firestore.collection('requests').orderBy('createdAt', descending: true).snapshots().map(
-        (snapshot) => snapshot.docs.map((doc) => Request.fromFirestore(doc.data(), doc.id)).toList());
+        (snapshot) => snapshot.docs.map((doc) => Request.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList());
   }
 
   Future<DirectorMetrics> getMetrics(String radioId) async {
@@ -152,7 +152,7 @@ class DirectorService {
         timestamp: DateTime.now(),
       );
     }
-    return DirectorMetrics.fromFirestore(doc.data()!, doc.id);
+    return DirectorMetrics.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
   }
 
   Stream<DirectorMetrics> streamMetrics(String radioId) {
@@ -176,7 +176,7 @@ class DirectorService {
           timestamp: DateTime.now(),
         );
       }
-      return DirectorMetrics.fromFirestore(doc.data()!, doc.id);
+      return DirectorMetrics.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
     });
   }
 }

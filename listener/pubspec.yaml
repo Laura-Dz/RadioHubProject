@@ -29,6 +29,10 @@ dependencies:
   firebase_auth: ^5.5.0
   firebase_storage: ^12.4.5
   firebase_database: ^11.3.5
+  firebase_messaging: ^15.2.0
+
+  # Local Notifications
+  flutter_local_notifications: ^19.5.0
 
   # Local Storage
   shared_preferences: ^2.2.2

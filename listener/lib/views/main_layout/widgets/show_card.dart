@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/models/show_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../view_models/user_interaction_view_model.dart';
 import 'live_badge.dart';
 import 'countdown_timer.dart';
+import '../../widgets/follow_button.dart';
+import '../../widgets/reminder_button.dart';
 
 class ShowCard extends StatelessWidget {
   final ShowModel show;
@@ -36,6 +40,7 @@ class ShowCard extends StatelessWidget {
   }
 
   Widget _buildHorizontalCard(BuildContext context, bool isDark) {
+    final vm = context.read<UserInteractionViewModel>();
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -92,36 +97,28 @@ class ShowCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(show.category.icon, size: 10, color: AppColors.primary),
-                          const SizedBox(width: 2),
-                          Text(show.category.label, style: const TextStyle(fontSize: 9, color: AppColors.primary)),
-                        ]),
+                      FollowButton(
+                        isFollowed: vm.isShowFollowed(show.id),
+                        onToggle: () => vm.toggleFollowShow(show.id),
+                        followerCount: show.followerCount ?? 0,
                       ),
                       const SizedBox(width: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.star, size: 12, color: AppColors.secondary),
-                          const SizedBox(width: 2),
-                          Text(show.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
+                      if (show.startTime != null && show.status == ShowStatus.upcoming)
+                        ReminderButton(
+                          showId: show.id,
+                          programName: show.title,
+                          showStartTime: show.startTime!,
+                          hasReminder: vm.hasReminder(show.id),
+                          onSetReminder: (startTime, minutes) => vm.setReminder(
+                            showId: show.id,
+                            programName: show.title,
+                            showStartTime: startTime,
+                            reminderMinutesBefore: minutes,
+                          ),
+                          onRemoveReminder: () => vm.removeReminder(show.id),
+                        ),
                     ],
                   ),
-                  if (show.isFollowed)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.check_circle, size: 10, color: AppColors.success),
-                        SizedBox(width: 2),
-                        Text('Following', style: TextStyle(fontSize: 8, color: AppColors.success)),
-                      ]),
-                    ),
                 ],
               ),
             ),
@@ -182,6 +179,7 @@ class ShowCard extends StatelessWidget {
   }
 
   Widget _buildVerticalCard(BuildContext context, bool isDark) {
+    final vm = context.read<UserInteractionViewModel>();
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -222,8 +220,12 @@ class ShowCard extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: Icon(show.isFollowed ? Icons.favorite : Icons.favorite_border, color: show.isFollowed ? AppColors.error : null, size: 20),
-              onPressed: () {},
+              icon: Icon(
+                vm.isShowFollowed(show.id) ? Icons.favorite : Icons.favorite_border,
+                color: vm.isShowFollowed(show.id) ? AppColors.error : null,
+                size: 20,
+              ),
+              onPressed: () => vm.toggleFollowShow(show.id),
             ),
           ],
         ),

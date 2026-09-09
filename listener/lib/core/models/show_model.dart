@@ -14,6 +14,7 @@ class ShowModel {
   final int? episodeCount;
   final double rating;
   final bool isFollowed;
+  final int? followerCount;
   final List<String> tags;
   final String? description;
 
@@ -30,6 +31,7 @@ class ShowModel {
     this.episodeCount,
     required this.rating,
     required this.isFollowed,
+    this.followerCount,
     this.tags = const [],
     this.description,
   });
@@ -73,6 +75,7 @@ class ShowModel {
       episodeCount: data['episodeCount'],
       rating: (data['rating'] ?? 0.0).toDouble(),
       isFollowed: data['isFollowed'] ?? false,
+      followerCount: data['followerCount'],
       tags: List<String>.from(data['tags'] ?? []),
       description: data['description'],
     );

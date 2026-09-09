@@ -13,6 +13,7 @@ import 'core/services/channel_service.dart';
 import 'core/services/timetable_service.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/metadata_service.dart';
+import 'core/services/user_interaction_service.dart';
 import 'core/services/realtime_database_service.dart';
 import 'core/models/language_model.dart';
 import 'view_models/language_selection_view_model.dart';
@@ -28,6 +29,8 @@ import 'view_models/radio_station_view_model.dart';
 import 'views/splash_screen.dart';
 import 'views/main_layout/main_layout_screen.dart';
 import 'views/radio_station/radio_station_page.dart';
+import 'view_models/user_interaction_view_model.dart';
+import 'views/notifications/notification_center.dart';
 import 'views/auth/auth_choice_screen.dart';
 
 import 'firebase_options.dart';
@@ -46,6 +49,7 @@ void main() async {
   final storageService = StorageService();
   final metadataService = MetadataService();
   final realtimeDbService = RealtimeDatabaseService();
+  final userInteractionService = UserInteractionService();
 
   final savedLanguage = prefsService.getLanguage();
   if (savedLanguage != null) {
@@ -61,8 +65,9 @@ void main() async {
     localizationService: localizationService,
     firestoreService: firestoreService,
     storageService: storageService,
-    metadataService: metadataService,
+             metadataService: metadataService,
     realtimeDbService: realtimeDbService,
+    userInteractionService: userInteractionService,
   ));
 }
 
@@ -73,6 +78,7 @@ class MyApp extends StatelessWidget {
   final StorageService storageService;
   final MetadataService metadataService;
   final RealtimeDatabaseService realtimeDbService;
+  final UserInteractionService userInteractionService;
 
   const MyApp({
     Key? key,
@@ -82,6 +88,7 @@ class MyApp extends StatelessWidget {
     required this.storageService,
     required this.metadataService,
     required this.realtimeDbService,
+    required this.userInteractionService,
   }) : super(key: key);
 
   @override
@@ -94,6 +101,7 @@ class MyApp extends StatelessWidget {
         Provider.value(value: storageService),
         Provider.value(value: metadataService),
         Provider.value(value: realtimeDbService),
+        Provider.value(value: userInteractionService),
         ChangeNotifierProvider(
           create: (_) => LanguageSelectionViewModel(
             prefsService: prefsService,
@@ -151,6 +159,26 @@ class MyApp extends StatelessWidget {
             firestoreService: firestoreService,
           ),
         ),
+        ChangeNotifierProxyProvider<FirestoreService, UserInteractionViewModel>(
+          create: (context) => UserInteractionViewModel(
+            interactionService: userInteractionService,
+            userId: firestoreService.getCurrentUserId() ?? 'guest',
+          ),
+          update: (context, fs, _) => UserInteractionViewModel(
+            interactionService: userInteractionService,
+            userId: fs.getCurrentUserId() ?? 'guest',
+          ),
+        ),
+        ChangeNotifierProxyProvider<FirestoreService, UserInteractionViewModel>(
+          create: (context) => UserInteractionViewModel(
+            interactionService: userInteractionService,
+            userId: firestoreService.getCurrentUserId() ?? 'guest',
+          ),
+          update: (context, firestoreService, _) => UserInteractionViewModel(
+            interactionService: userInteractionService,
+            userId: firestoreService.getCurrentUserId() ?? 'guest',
+          ),
+        ),
       ],
       child: Consumer<MainLayoutViewModel>(
         builder: (context, viewModel, child) {
@@ -167,7 +195,8 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             routes: {
               '/auth': (context) => const AuthChoiceScreen(),
-              '/home': (context) => const MainLayoutScreen(),
+               '/home': (context) => const MainLayoutScreen(),
+               '/notifications': (context) => const NotificationCenter(),
             },
           );
         },

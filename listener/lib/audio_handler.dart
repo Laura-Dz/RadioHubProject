@@ -37,8 +37,8 @@ class AudioPlayerHandler extends BaseAudioHandler {
       final processingState = playerState.processingState;
 
       if (_playlist.children.isNotEmpty && _player.currentIndex != null) {
-        final currentSource = _playlist.children[_player.currentIndex!];
-        final tag = currentSource.tag as Map<String, dynamic>?;
+        final currentSource = _playlist.children[_player.currentIndex!] as IndexedAudioSource?;
+        final tag = currentSource?.tag as Map<String, dynamic>?;
         if (tag != null) {
           mediaItem.add(MediaItem(
             id: tag['id'] as String,

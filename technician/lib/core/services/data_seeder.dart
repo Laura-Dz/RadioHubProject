@@ -10,17 +10,39 @@ class DataSeeder {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final DatabaseReference _rtdb = FirebaseDatabase.instance.ref();
 
+  bool _useEmulator = false;
+
+  void enableEmulator() {
+    _useEmulator = true;
+  }
+
   Future<void> seedAllData() async {
     print('🔄 Starting data seeding...');
 
-    await _seedHosts();
-    await _seedPrograms();
-    await _seedSessions();
-    await _seedMediaItems();
-    await _seedLiveMetrics();
-    await _seedListenerCollections();
+    if (_useEmulator) {
+      print('🔧 Using Firestore emulator');
+    }
 
-    print('✅ Seeding completed!');
+    await _safeExecute('Seeding hosts', () => _seedHosts());
+    await _safeExecute('Seeding programs', () => _seedPrograms());
+    await _safeExecute('Seeding sessions', () => _seedSessions());
+    await _safeExecute('Seeding media items', () => _seedMediaItems());
+    await _safeExecute('Seeding listener collections', () => _seedListenerCollections());
+    await _safeExecute('Seeding live metrics', () => _seedLiveMetrics());
+
+    print('\n✅ All seeding steps completed!');
+    print('\n📊 Verify data at: https://console.firebase.google.com/project/radiohub12/firestore');
+  }
+
+  Future<T> _safeExecute<T>(String step, Future<T> Function() action) async {
+    try {
+      final result = await action();
+      print('   ✅ $step - OK');
+      return result;
+    } catch (e) {
+      print('   ❌ $step - FAILED: $e');
+      rethrow;
+    }
   }
 
   Future<List<String>> _seedHosts() async {
@@ -80,9 +102,10 @@ class DataSeeder {
 
     final ids = <String>[];
     for (final host in hosts) {
+      print('   📝 Attempting to seed host: ${host.name}');
       await _firestore.collection('hosts').doc(host.id).set(host.toFirestore());
-      ids.add(host.id);
       print('   ✅ Seeded host: ${host.name}');
+      ids.add(host.id);
     }
     return ids;
   }
@@ -171,21 +194,22 @@ class DataSeeder {
 
     final ids = <String>[];
     for (final program in programs) {
+      print('   📝 Attempting to seed program: ${program.name}');
       await _firestore.collection('programs').doc(program.id).set(program.toFirestore());
-      ids.add(program.id);
       print('   ✅ Seeded program: ${program.name}');
+      ids.add(program.id);
     }
     return ids;
   }
 
-  Future<void> _seedSessions() async {
+  Future<List<String>> _seedSessions() async {
     final now = DateTime.now();
     final startDate = DateTime(now.year, now.month, now.day);
     final daysToSeed = 14;
 
     final programSnapshots = await _firestore.collection('programs').where('isActive', isEqualTo: true).get();
     final programs = programSnapshots.docs
-        .map((doc) => Program.fromFirestore(doc.data(), doc.id))
+        .map((doc) => Program.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
         .toList();
 
     final hostMap = {
@@ -196,9 +220,13 @@ class DataSeeder {
       'host_5': 'Lisa Thompson',
     };
 
+    final sessionIds = <String>[];
+
     for (int i = 0; i < daysToSeed; i++) {
       final date = startDate.add(Duration(days: i));
       final weekday = date.weekday;
+
+      if (weekday == 6 || weekday == 7) continue;
 
       for (final program in programs) {
         final slot = program.metadata['slot'] as String?;
@@ -214,11 +242,9 @@ class DataSeeder {
         final hostId = program.hosts.isNotEmpty ? program.hosts.first : null;
         final hostName = hostId != null ? hostMap[hostId] : null;
 
-        final isLive = date == DateTime(now.year, now.month, now.day) &&
-            startTime.isBefore(now) &&
-            endTime.isAfter(now);
-        final isEnded = date == DateTime(now.year, now.month, now.day) &&
-            endTime.isBefore(now);
+        final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+        final isLive = isToday && startTime.isBefore(now) && endTime.isAfter(now);
+        final isEnded = isToday && endTime.isBefore(now);
 
         final session = Session(
           id: 'session_${program.id}_${date.toIso8601String().split('T').first}',
@@ -239,10 +265,13 @@ class DataSeeder {
           createdAt: now,
         );
 
+        print('   📝 Attempting to seed session: ${session.programName} on ${date.toIso8601String().split('T').first}');
         await _firestore.collection('sessions').doc(session.id).set(session.toFirestore());
         print('   ✅ Seeded session: ${session.programName} on ${date.toIso8601String().split('T').first}');
+        sessionIds.add(session.id);
       }
     }
+    return sessionIds;
   }
 
   Future<void> _seedMediaItems() async {
@@ -325,55 +354,26 @@ class DataSeeder {
     ];
 
     for (final item in mediaItems) {
+      print('   📝 Attempting to seed media: ${item.title}');
       await _firestore.collection('media').doc(item.id).set(item.toFirestore());
       print('   ✅ Seeded media: ${item.title}');
     }
   }
 
-  Future<void> _seedLiveMetrics() async {
-    final sessionsSnapshot = await _firestore
-        .collection('sessions')
-        .where('status', isEqualTo: 'live')
-        .limit(3)
-        .get();
-
-    for (final doc in sessionsSnapshot.docs) {
-      final metrics = LiveMetrics(
-        sessionId: doc.id,
-        currentListeners: 50 + (doc.id.hashCode % 200),
-        peakListeners: 80 + (doc.id.hashCode % 300),
-        totalComments: 10 + (doc.id.hashCode % 50),
-        totalCalls: 5 + (doc.id.hashCode % 20),
-        waitingCalls: doc.id.hashCode % 3,
-        acceptedCalls: 3 + (doc.id.hashCode % 10),
-        rejectedCalls: doc.id.hashCode % 2,
-        avgListenDurationSeconds: 120 + (doc.id.hashCode % 300).toDouble(),
-        listenersByRegion: {
-          'US': 30 + (doc.id.hashCode % 50),
-          'EU': 10 + (doc.id.hashCode % 20),
-          'AS': 5 + (doc.id.hashCode % 10),
-        },
-        updatedAt: DateTime.now(),
-      );
-
-      await _firestore.collection('live_metrics').doc(doc.id).set(metrics.toFirestore());
-      print('   ✅ Seeded metrics for session: ${doc.id}');
-    }
-  }
-
   Future<void> _seedListenerCollections() async {
-    await _seedRadios();
-    await _seedShows();
-    await _seedScheduleItems();
-    await _seedUsers();
-    await _seedFlashPrograms();
-    await _seedAnnouncementRequests();
-    await _seedLiveComments();
+    await _safeExecute('Seeding radios', () => _seedRadios());
+    await _safeExecute('Seeding shows', () => _seedShows());
+    await _safeExecute('Seeding schedule items', () => _seedScheduleItems());
+    await _safeExecute('Seeding users', () => _seedUsers());
+    await _safeExecute('Seeding flash programs', () => _seedFlashPrograms());
+    await _safeExecute('Seeding announcement requests', () => _seedAnnouncementRequests());
+    await _safeExecute('Seeding live comments (RTDB)', () => _seedLiveComments());
   }
 
   Future<void> _seedRadios() async {
     final radios = [
       {
+        'id': 'radio_1',
         'name': 'Radio Stream FM',
         'description': 'The best radio experience with news, music, and talk shows.',
         'logoUrl': 'https://picsum.photos/seed/radio1/200/200',
@@ -382,191 +382,182 @@ class DataSeeder {
         'category': 'general',
         'hosts': ['Sarah Johnson', 'Mike Chen'],
         'followerCount': 1500,
-        'isFollowed': false,
         'isLive': true,
         'listenerCount': 342,
         'rating': 4.7,
         'tags': ['music', 'news', 'talk'],
         'location': 'New York, USA',
         'foundedDate': DateTime(2015, 1, 1),
-        'website': 'https://radiostreamfm.example.com',
-        'contactEmail': 'hello@radiostreamfm.example.com',
-        'phoneNumber': '+1-555-0100',
-        'settings': {'volumeNormalization': true, 'autoNext': true},
-        'socialLinks': ['https://twitter.com/radiostreamfm', 'https://facebook.com/radiostreamfm'],
         'isVerified': true,
         'lastActive': DateTime.now(),
       },
       {
+        'id': 'radio_2',
         'name': 'Jazz & Blues Station',
         'description': 'Smooth jazz and classic blues 24/7.',
         'logoUrl': 'https://picsum.photos/seed/radio2/200/200',
         'coverImageUrl': 'https://picsum.photos/seed/radio2_cover/800/400',
-        'bannerImageUrl': 'https://picsum.photos/seed/radio2_banner/1200/400',
         'category': 'music',
         'hosts': ['Emma Wilson', 'Lisa Thompson'],
         'followerCount': 890,
-        'isFollowed': false,
         'isLive': false,
         'listenerCount': 0,
         'rating': 4.9,
         'tags': ['jazz', 'blues', 'relax'],
         'location': 'New Orleans, USA',
         'foundedDate': DateTime(2010, 6, 15),
-        'website': 'https://jazzblues.example.com',
-        'contactEmail': 'hello@jazzblues.example.com',
-        'phoneNumber': '+1-555-0101',
-        'settings': {'volumeNormalization': false, 'autoNext': false},
-        'socialLinks': ['https://twitter.com/jazzblues'],
         'isVerified': true,
         'lastActive': DateTime.now().subtract(const Duration(hours: 2)),
       },
       {
+        'id': 'radio_3',
         'name': 'Tech Talk Radio',
         'description': 'All about technology, gadgets, and innovation.',
         'logoUrl': 'https://picsum.photos/seed/radio3/200/200',
         'coverImageUrl': 'https://picsum.photos/seed/radio3_cover/800/400',
-        'bannerImageUrl': 'https://picsum.photos/seed/radio3_banner/1200/400',
         'category': 'education',
         'hosts': ['Mike Chen'],
         'followerCount': 2100,
-        'isFollowed': true,
         'isLive': true,
         'listenerCount': 128,
         'rating': 4.8,
         'tags': ['tech', 'gadgets', 'innovation'],
         'location': 'San Francisco, USA',
         'foundedDate': DateTime(2018, 3, 20),
-        'website': 'https://techtalk.example.com',
-        'contactEmail': 'hello@techtalk.example.com',
-        'phoneNumber': '+1-555-0102',
-        'settings': {'volumeNormalization': true, 'autoNext': true},
-        'socialLinks': ['https://twitter.com/techtalk', 'https://youtube.com/techtalk'],
         'isVerified': true,
         'lastActive': DateTime.now(),
       },
       {
+        'id': 'radio_4',
         'name': 'Sports Central',
         'description': 'Live sports coverage, interviews, and analysis.',
         'logoUrl': 'https://picsum.photos/seed/radio4/200/200',
         'coverImageUrl': 'https://picsum.photos/seed/radio4_cover/800/400',
-        'bannerImageUrl': 'https://picsum.photos/seed/radio4_banner/1200/400',
         'category': 'sports',
         'hosts': ['James Brown'],
         'followerCount': 3200,
-        'isFollowed': false,
         'isLive': false,
         'listenerCount': 0,
         'rating': 4.6,
         'tags': ['sports', 'football', 'basketball'],
         'location': 'Chicago, USA',
         'foundedDate': DateTime(2012, 8, 10),
-        'website': 'https://sportscentral.example.com',
-        'contactEmail': 'hello@sportscentral.example.com',
-        'phoneNumber': '+1-555-0103',
-        'settings': {'volumeNormalization': false, 'autoNext': true},
-        'socialLinks': ['https://twitter.com/sportscentral'],
         'isVerified': true,
         'lastActive': DateTime.now().subtract(const Duration(hours: 5)),
       },
       {
+        'id': 'radio_5',
         'name': 'Classical Vibes',
         'description': 'Timeless classical music for relaxation and focus.',
         'logoUrl': 'https://picsum.photos/seed/radio5/200/200',
         'coverImageUrl': 'https://picsum.photos/seed/radio5_cover/800/400',
-        'bannerImageUrl': 'https://picsum.photos/seed/radio5_banner/1200/400',
         'category': 'music',
         'hosts': ['Lisa Thompson'],
         'followerCount': 670,
-        'isFollowed': false,
         'isLive': false,
         'listenerCount': 0,
         'rating': 4.9,
         'tags': ['classical', 'piano', 'orchestra'],
         'location': 'Vienna, Austria',
         'foundedDate': DateTime(2008, 12, 5),
-        'website': 'https://classicalvibes.example.com',
-        'contactEmail': 'hello@classicalvibes.example.com',
-        'phoneNumber': '+43-555-0104',
-        'settings': {'volumeNormalization': true, 'autoNext': false},
-        'socialLinks': ['https://twitter.com/classicalvibes'],
         'isVerified': true,
         'lastActive': DateTime.now().subtract(const Duration(days: 1)),
       },
     ];
 
     for (final radio in radios) {
-      await _firestore.collection('radios').add(radio);
-      print('   ✅ Seeded radio: ${radio['name']}');
+      print('   📝 Attempting to seed radio: ${radio['name']}');
+      final id = radio.remove('id') as String;
+      await _firestore.collection('radios').doc(id).set(radio);
+      print('   ✅ Seeded radio: ${radio['name']} (id: $id)');
     }
   }
 
   Future<void> _seedShows() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final shows = [
       {
-        'title': 'Morning Drive',
+        'id': 'show_1',
+        'title': 'Morning Drive Radio',
         'host': 'Sarah Johnson',
         'imageUrl': 'https://picsum.photos/seed/show1/400/400',
         'category': 'talk',
         'status': 'live',
-        'startTime': DateTime.now().subtract(const Duration(minutes: 30)),
-        'endTime': DateTime.now().add(const Duration(hours: 1, minutes: 30)),
+        'startTime': today.add(const Duration(hours: 8)),
+        'endTime': today.add(const Duration(hours: 10)),
         'listenerCount': 342,
         'episodeCount': 120,
-        'rating': 4.7,
-        'isFollowed': true,
-        'tags': ['morning', 'news', 'music'],
-        'description': 'Start your day with energy, news, and great music.',
+        'rating': 4.8,
+        'isFollowed': false,
+        'tags': ['morning', 'talk', 'news'],
+        'description': 'Start your day with Sarah!',
+        'channelId': 'radio_1',
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
       },
       {
-        'title': 'Tech Talk',
+        'id': 'show_2',
+        'title': 'Tech Talk Live',
         'host': 'Mike Chen',
         'imageUrl': 'https://picsum.photos/seed/show3/400/400',
         'category': 'education',
         'status': 'live',
-        'startTime': DateTime.now().subtract(const Duration(minutes: 15)),
-        'endTime': DateTime.now().add(const Duration(minutes: 45)),
+        'startTime': today.add(const Duration(hours: 10)),
+        'endTime': today.add(const Duration(hours: 11)),
         'listenerCount': 128,
         'episodeCount': 85,
-        'rating': 4.8,
+        'rating': 4.9,
         'isFollowed': false,
-        'tags': ['tech', 'ai', 'gadgets'],
-        'description': 'Latest in technology, AI, and gadgets.',
+        'tags': ['tech', 'education', 'live'],
+        'description': 'Latest tech discussions',
+        'channelId': 'radio_3',
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
       },
       {
+        'id': 'show_3',
         'title': 'Jazz Lounge',
         'host': 'Emma Wilson',
         'imageUrl': 'https://picsum.photos/seed/show4/400/400',
         'category': 'music',
         'status': 'upcoming',
-        'startTime': DateTime.now().add(const Duration(hours: 2)),
-        'endTime': DateTime.now().add(const Duration(hours: 4)),
+        'startTime': today.add(const Duration(hours: 12)),
+        'endTime': today.add(const Duration(hours: 13)),
         'listenerCount': 0,
         'episodeCount': 200,
         'rating': 4.9,
         'isFollowed': true,
         'tags': ['jazz', 'blues', 'lounge'],
         'description': 'Smooth jazz and classic blues.',
+        'channelId': 'radio_2',
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
       },
       {
+        'id': 'show_4',
         'title': 'Sports Center',
         'host': 'James Brown',
         'imageUrl': 'https://picsum.photos/seed/show5/400/400',
         'category': 'sports',
         'status': 'ended',
-        'startTime': DateTime.now().subtract(const Duration(hours: 3)),
-        'endTime': DateTime.now().subtract(const Duration(hours: 1)),
+        'startTime': today.subtract(const Duration(hours: 2)),
+        'endTime': today.subtract(const Duration(hours: 0)),
         'listenerCount': 560,
         'episodeCount': 300,
         'rating': 4.6,
         'isFollowed': false,
-        'tags': ['sports', 'football', 'basketball'],
-        'description': 'Live sports news and analysis.',
+        'tags': ['sports', 'live'],
+        'description': 'Sports news and analysis',
+        'channelId': 'radio_4',
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
       },
     ];
 
     for (final show in shows) {
-      await _firestore.collection('shows').add(show);
+      final id = show.remove('id') as String;
+      await _firestore.collection('shows').doc(id).set(show);
       print('   ✅ Seeded show: ${show['title']}');
     }
   }
@@ -574,15 +565,11 @@ class DataSeeder {
   Future<void> _seedScheduleItems() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-
     final items = [
       {
+        'id': 'schedule_1',
         'title': 'Morning Drive',
         'host': 'Sarah Johnson',
-        'guest': null,
-        'guestTitle': null,
-        'guestBio': null,
-        'guestImageUrl': null,
         'startTime': DateTime(today.year, today.month, today.day, 8, 0),
         'endTime': DateTime(today.year, today.month, today.day, 10, 0),
         'type': 'regular',
@@ -596,14 +583,15 @@ class DataSeeder {
         'flashId': null,
         'tags': ['morning', 'news'],
         'recordingUrl': null,
+        'guest': null,
+        'guestTitle': null,
+        'guestBio': null,
+        'guestImageUrl': null,
       },
       {
+        'id': 'schedule_2',
         'title': 'Tech Talk',
         'host': 'Mike Chen',
-        'guest': 'AI Researcher',
-        'guestTitle': 'Dr. Jane Smith',
-        'guestBio': 'Leading AI researcher at Tech Institute.',
-        'guestImageUrl': 'https://picsum.photos/seed/guest1/200/200',
         'startTime': DateTime(today.year, today.month, today.day, 10, 0),
         'endTime': DateTime(today.year, today.month, today.day, 11, 0),
         'type': 'special',
@@ -617,14 +605,15 @@ class DataSeeder {
         'flashId': null,
         'tags': ['tech', 'ai'],
         'recordingUrl': null,
+        'guest': 'Dr. Jane Smith',
+        'guestTitle': 'AI Researcher',
+        'guestBio': 'Leading AI researcher at Tech Institute.',
+        'guestImageUrl': 'https://picsum.photos/seed/guest1/200/200',
       },
       {
+        'id': 'schedule_3',
         'title': 'Sports Center',
         'host': 'James Brown',
-        'guest': null,
-        'guestTitle': null,
-        'guestBio': null,
-        'guestImageUrl': null,
         'startTime': DateTime(today.year, today.month, today.day, 14, 0),
         'endTime': DateTime(today.year, today.month, today.day, 15, 0),
         'type': 'regular',
@@ -638,11 +627,16 @@ class DataSeeder {
         'flashId': null,
         'tags': ['sports'],
         'recordingUrl': null,
+        'guest': null,
+        'guestTitle': null,
+        'guestBio': null,
+        'guestImageUrl': null,
       },
     ];
 
     for (final item in items) {
-      await _firestore.collection('schedule_items').add(item);
+      final id = item.remove('id') as String;
+      await _firestore.collection('schedule').doc(id).set(item);
       print('   ✅ Seeded schedule item: ${item['title']}');
     }
   }
@@ -650,69 +644,65 @@ class DataSeeder {
   Future<void> _seedUsers() async {
     final users = [
       {
+        'id': 'user_1',
         'email': 'alice@example.com',
         'displayName': 'Alice Wonder',
-        'phoneNumber': '+1111111111',
         'role': 'listener',
-        'subscription': 'premium',
-        'preferences': {'notifications': true, 'theme': 'dark'},
-        'createdAt': DateTime.now().subtract(const Duration(days: 60)),
-        'lastLogin': DateTime.now().subtract(const Duration(hours: 2)),
         'isGuest': false,
         'isVerified': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'preferences': {'notifications': true, 'theme': 'dark'},
       },
       {
+        'id': 'user_2',
         'email': 'bob@example.com',
         'displayName': 'Bob Builder',
-        'phoneNumber': '+1222222222',
         'role': 'listener',
-        'subscription': 'free',
-        'preferences': {'notifications': false, 'theme': 'light'},
-        'createdAt': DateTime.now().subtract(const Duration(days: 30)),
-        'lastLogin': DateTime.now().subtract(const Duration(days: 1)),
         'isGuest': false,
         'isVerified': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'preferences': {'notifications': false, 'theme': 'light'},
       },
       {
+        'id': 'user_3',
         'email': 'charlie@example.com',
         'displayName': 'Charlie Brown',
-        'phoneNumber': '+1333333333',
         'role': 'listener',
-        'subscription': 'free',
-        'preferences': {'notifications': true, 'theme': 'system'},
-        'createdAt': DateTime.now().subtract(const Duration(days: 15)),
-        'lastLogin': DateTime.now().subtract(const Duration(hours: 5)),
         'isGuest': false,
         'isVerified': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'preferences': {'notifications': true, 'theme': 'system'},
       },
       {
+        'id': 'user_4',
         'email': 'diana@example.com',
         'displayName': 'Diana Prince',
-        'phoneNumber': '+1444444444',
         'role': 'listener',
-        'subscription': 'premium',
-        'preferences': {'notifications': true, 'theme': 'dark'},
-        'createdAt': DateTime.now().subtract(const Duration(days: 90)),
-        'lastLogin': DateTime.now().subtract(const Duration(minutes: 30)),
         'isGuest': false,
         'isVerified': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'preferences': {'notifications': true, 'theme': 'dark'},
       },
       {
+        'id': 'user_5',
         'email': 'guest_temp@temp.com',
         'displayName': 'Guest User',
-        'phoneNumber': null,
         'role': 'listener',
-        'subscription': null,
-        'preferences': {},
-        'createdAt': DateTime.now().subtract(const Duration(hours: 1)),
-        'lastLogin': DateTime.now().subtract(const Duration(minutes: 10)),
         'isGuest': true,
         'isVerified': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'preferences': {},
       },
     ];
 
     for (final user in users) {
-      await _firestore.collection('users').add(user);
+      final id = user.remove('id') as String;
+      await _firestore.collection('users').doc(id).set(user);
       print('   ✅ Seeded user: ${user['displayName']}');
     }
   }
@@ -731,7 +721,7 @@ class DataSeeder {
         'interruptedShow': false,
         'interruptedShowId': null,
         'recordingUrl': null,
-        'createdAt': DateTime.now().subtract(const Duration(minutes: 30)),
+        'createdAt': FieldValue.serverTimestamp(),
         'expiresAt': DateTime.now().add(const Duration(hours: 2)),
       },
       {
@@ -746,7 +736,7 @@ class DataSeeder {
         'interruptedShow': false,
         'interruptedShowId': null,
         'recordingUrl': null,
-        'createdAt': DateTime.now().subtract(const Duration(minutes: 15)),
+        'createdAt': FieldValue.serverTimestamp(),
         'expiresAt': DateTime.now().add(const Duration(hours: 1)),
       },
     ];
@@ -769,7 +759,7 @@ class DataSeeder {
         'price': 5.0,
         'status': 'pending',
         'scheduledTime': DateTime.now().add(const Duration(hours: 2)),
-        'createdAt': DateTime.now().subtract(const Duration(hours: 1)),
+        'createdAt': FieldValue.serverTimestamp(),
         'processedAt': null,
         'rejectionReason': null,
       },
@@ -783,7 +773,7 @@ class DataSeeder {
         'price': 8.0,
         'status': 'approved',
         'scheduledTime': DateTime.now().add(const Duration(hours: 3)),
-        'createdAt': DateTime.now().subtract(const Duration(hours: 2)),
+        'createdAt': FieldValue.serverTimestamp(),
         'processedAt': DateTime.now().subtract(const Duration(minutes: 30)),
         'rejectionReason': null,
       },
@@ -797,15 +787,44 @@ class DataSeeder {
 
   Future<void> _seedLiveComments() async {
     final comments = [
-      {'userId': 'user_1', 'userName': 'Alice Wonder', 'message': 'Great show!', 'timestamp': DateTime.now().millisecondsSinceEpoch},
-      {'userId': 'user_2', 'userName': 'Bob Builder', 'message': 'Love this track', 'timestamp': DateTime.now().millisecondsSinceEpoch - 5000},
-      {'userId': 'user_3', 'userName': 'Charlie Brown', 'message': 'Can you play more jazz?', 'timestamp': DateTime.now().millisecondsSinceEpoch - 12000},
-      {'userId': 'user_1', 'userName': 'Alice Wonder', 'message': 'Hello from NY!', 'timestamp': DateTime.now().millisecondsSinceEpoch - 25000},
+      {'userId': 'user_1', 'userName': 'Alice Wonder', 'message': 'Great show!', 'timestamp': DateTime.now()},
+      {'userId': 'user_2', 'userName': 'Bob Builder', 'message': 'Love this track', 'timestamp': DateTime.now().subtract(const Duration(seconds: 5))},
+      {'userId': 'user_3', 'userName': 'Charlie Brown', 'message': 'Can you play more jazz?', 'timestamp': DateTime.now().subtract(const Duration(seconds: 12))},
+      {'userId': 'user_1', 'userName': 'Alice Wonder', 'message': 'Hello from NY!', 'timestamp': DateTime.now().subtract(const Duration(seconds: 25))},
     ];
 
     for (final comment in comments) {
-      await _rtdb.child('live_comments').push().set(comment);
+      await _rtdb.child('live_comments').push().set({
+        ...comment,
+        'timestamp': (comment['timestamp'] as DateTime).toIso8601String(),
+      });
     }
-    print('   ✅ Seeded live comments');
+    print('   ✅ Seeded ${comments.length} live comments in Realtime DB');
+  }
+
+  Future<void> _seedLiveMetrics() async {
+    final sessionDoc = await _firestore.collection('sessions').limit(3).get();
+    for (final doc in sessionDoc.docs) {
+      final metrics = LiveMetrics(
+        sessionId: doc.id,
+        currentListeners: 50 + (doc.id.hashCode % 200),
+        peakListeners: 80 + (doc.id.hashCode % 300),
+        totalComments: 10 + (doc.id.hashCode % 50),
+        totalCalls: 5 + (doc.id.hashCode % 20),
+        waitingCalls: doc.id.hashCode % 3,
+        acceptedCalls: 3 + (doc.id.hashCode % 10),
+        rejectedCalls: doc.id.hashCode % 2,
+        avgListenDurationSeconds: 120 + (doc.id.hashCode % 300).toDouble(),
+        listenersByRegion: {
+          'US': 30 + (doc.id.hashCode % 50),
+          'EU': 10 + (doc.id.hashCode % 20),
+          'AS': 5 + (doc.id.hashCode % 10),
+        },
+        updatedAt: DateTime.now(),
+      );
+
+      await _firestore.collection('live_metrics').doc(doc.id).set(metrics.toFirestore());
+      print('   ✅ Seeded metrics for session: ${doc.id}');
+    }
   }
 }

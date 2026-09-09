@@ -8,12 +8,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:listener/core/services/shared_preferences_service.dart';
+import 'package:listener/core/services/localization_service.dart';
+import 'package:listener/core/services/firestore_service.dart';
+import 'package:listener/core/services/storage_service.dart';
+import 'package:listener/core/services/metadata_service.dart';
+import 'package:listener/core/services/realtime_database_service.dart';
+import 'package:listener/core/services/user_interaction_service.dart';
 import 'package:listener/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    final prefs = await SharedPreferences.getInstance();
+    final prefsService = SharedPreferencesService(prefs);
+    final localizationService = LocalizationService();
+    final firestoreService = FirestoreService();
+    final storageService = StorageService();
+    final metadataService = MetadataService();
+    final realtimeDbService = RealtimeDatabaseService();
+    final userInteractionService = UserInteractionService();
+
+    await tester.pumpWidget(MyApp(
+      prefsService: prefsService,
+      localizationService: localizationService,
+      firestoreService: firestoreService,
+      storageService: storageService,
+      metadataService: metadataService,
+      realtimeDbService: realtimeDbService,
+      userInteractionService: userInteractionService,
+    ));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);

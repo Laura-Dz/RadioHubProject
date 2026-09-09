@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:app_colors.dart';
+import 'package:listener/core/theme/app_colors.dart';
 
 class PlaceholderImage extends StatelessWidget {
   final double? width;

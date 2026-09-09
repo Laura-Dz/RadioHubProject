@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:listener/core/theme/app_colors.dart';
+import '../../widgets/notification_bell.dart';
+import '../../notifications/notification_center.dart';
+import '../../../view_models/user_interaction_view_model.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -76,28 +80,41 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         Stack(
           children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined),
-              onPressed: () {},
-              tooltip: 'Notifications',
-            ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    '3',
-                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+            NotificationBell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationCenter(),
                   ),
-                ),
-              ),
+                );
+              },
+            ),
+            Selector<UserInteractionViewModel, int>(
+              selector: (_, vm) => vm.unreadCount,
+              builder: (context, count, child) {
+                if (count > 0) {
+                  return Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: const BoxDecoration(
+                        color: AppColors.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          count > 9 ? '9+' : '$count',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
           ],
         ),

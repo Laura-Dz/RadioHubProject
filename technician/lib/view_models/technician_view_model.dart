@@ -1,256 +1,271 @@
-import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../core/models/technician/program_model.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import '../core/models/technician/session_model.dart';
+import '../core/models/technician/timetable_slot_model.dart';
+import '../core/models/technician/program_model.dart';
+import '../core/models/technician/program_category_model.dart';
 import '../core/models/technician/host_model.dart';
-import '../core/models/technician/media_model.dart';
-import '../core/models/technician/metrics_model.dart';
+import '../core/models/technician/media_item_model.dart';
 import '../core/services/technician_service.dart';
 
 class TechnicianViewModel extends ChangeNotifier {
   final TechnicianService _service;
 
-  TechnicianViewModel({required TechnicianService service}) : _service = service {
-    _loadData();
-  }
+  String _radioId = '';
+  String _radioName = '';
+  String _technicianName = '';
+  bool _isInitialized = false;
 
-  List<Program> _programs = [];
+  List<ProgramCategory> _categories = [];
   List<Session> _sessions = [];
   List<Session> _liveSessions = [];
+  List<Session> _rediffusionCandidates = [];
+  List<TimetableSlot> _timetable = [];
+  List<Program> _programs = [];
   List<Host> _hosts = [];
-  List<Session> _pastSessions = [];
-  List<MediaItem> _media = [];
+  List<MediaItem> _mediaItems = [];
 
-  Map<DateTime, List<Session>> _weeklySchedule = {};
-  DateTime _selectedWeek = DateTime.now();
-  bool _isLoading = true;
-  String? _errorMessage;
+  StreamSubscription? _categoriesSub;
+  StreamSubscription? _sessionsSub;
+  StreamSubscription? _liveSub;
+  StreamSubscription? _rediffSub;
+  StreamSubscription? _timetableSub;
+  StreamSubscription? _programsSub;
+  StreamSubscription? _hostsSub;
+  StreamSubscription? _mediaSub;
 
-  List<Program> get programs => _programs;
+  TechnicianViewModel({required TechnicianService service}) : _service = service;
+
+  // Getters
+  String get radioId => _radioId;
+  String get radioName => _radioName;
+  String get technicianName => _technicianName;
+  bool get isInitialized => _isInitialized;
+  List<ProgramCategory> get categories => _categories;
   List<Session> get sessions => _sessions;
   List<Session> get liveSessions => _liveSessions;
+  List<Session> get rediffusionCandidates => _rediffusionCandidates;
+  List<TimetableSlot> get timetable => _timetable;
+  List<Program> get programs => _programs;
   List<Host> get hosts => _hosts;
-  List<Session> get pastSessions => _pastSessions;
-  List<MediaItem> get media => _media;
-  Map<DateTime, List<Session>> get weeklySchedule => _weeklySchedule;
-  DateTime get selectedWeek => _selectedWeek;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+  List<MediaItem> get mediaItems => _mediaItems;
 
-  List<Session> get waitingCalls {
-    if (_liveSessions.isEmpty) return const [];
-    final live = _liveSessions.first;
-    if (live.status != SessionStatus.live) return const [];
-    return [live];
+  void initialize({
+    required String radioId,
+    required String radioName,
+    required String technicianName,
+  }) {
+    if (_isInitialized && _radioId == radioId) return;
+    _radioId = radioId;
+    _radioName = radioName;
+    _technicianName = technicianName;
+    _isInitialized = true;
+    _attachStreams();
+    _service.ensureDefaultCategories(_radioId);
   }
 
-  Future<void> routeCallToHost(String sessionId, String hostId) async {
-    await FirebaseFirestore.instance
-        .collection('sessions')
-        .doc(sessionId)
-        .collection('calls')
-        .doc(hostId)
-        .set({
-      'status': 'routing',
-      'hostId': hostId,
-      'routedAt': FieldValue.serverTimestamp(),
+  void _attachStreams() {
+    _detachStreams();
+
+    _categoriesSub = _service.streamCategories(_radioId).listen((list) {
+      _categories = list;
+      notifyListeners();
+    });
+    _sessionsSub = _service.streamSessions(_radioId).listen((list) {
+      _sessions = list;
+      notifyListeners();
+    });
+    _liveSub = _service.streamLiveSessions(_radioId).listen((list) {
+      _liveSessions = list;
+      notifyListeners();
+    });
+    _rediffSub = _service.streamPastSessionsForRediffusion(_radioId).listen((list) {
+      _rediffusionCandidates = list;
+      notifyListeners();
+    });
+    _timetableSub = _service.streamTimetable(_radioId).listen((list) {
+      _timetable = list;
+      notifyListeners();
+    });
+    _programsSub = _service.streamPrograms(_radioId).listen((list) {
+      _programs = list;
+      notifyListeners();
+    });
+    _hostsSub = _service.streamHosts(_radioId).listen((list) {
+      _hosts = list;
+      notifyListeners();
+    });
+    _mediaSub = _service.streamMedia(_radioId).listen((list) {
+      _mediaItems = list;
+      notifyListeners();
     });
   }
 
-  List<Session> get todaySchedule {
-    final now = DateTime.now();
-    return _sessions.where((s) {
-      return s.date.year == now.year &&
-          s.date.month == now.month &&
-          s.date.day == now.day;
-    }).toList();
+  void _detachStreams() {
+    _categoriesSub?.cancel();
+    _sessionsSub?.cancel();
+    _liveSub?.cancel();
+    _rediffSub?.cancel();
+    _timetableSub?.cancel();
+    _programsSub?.cancel();
+    _hostsSub?.cancel();
+    _mediaSub?.cancel();
   }
 
-  Future<void> _loadData() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await Future.wait([
-        _loadPrograms(),
-        _loadHosts(),
-        _loadSessions(),
-        _loadLiveSessions(),
-        _loadPastSessions(),
-        _loadMedia(),
-      ]);
-      _buildWeeklySchedule();
-      _isLoading = false;
-    } catch (e) {
-      _errorMessage = e.toString();
-      _isLoading = false;
-    }
-    notifyListeners();
+  // ============ CATEGORIES ============
+
+  Future<String> createCategory(String name) =>
+      _service.createCategory(_radioId, name);
+
+  // ============ SESSIONS ============
+
+  Future<String> createSession(Session session) async {
+    final id = await _service.createSession(session);
+    return id;
   }
 
-  Future<void> _loadPrograms() async {
-    _programs = await _service.getPrograms();
-  }
-
-  Future<void> _loadHosts() async {
-    _hosts = await _service.getHosts();
-  }
-
-  Future<void> _loadSessions() async {
-    _sessions = await _service.getSessions();
-  }
-
-  Future<void> _loadLiveSessions() async {
-    _liveSessions = await _service.getLiveSessions();
-  }
-
-  Future<void> _loadPastSessions() async {
-    _pastSessions = await _service.getPastSessions();
-  }
-
-  Future<void> _loadMedia() async {
-    _media = await _service.getMediaItems();
-  }
-
-  void _buildWeeklySchedule() {
-    final startOfWeek = _selectedWeek.subtract(Duration(days: _selectedWeek.weekday - 1));
-    _weeklySchedule = {};
-    for (int i = 0; i < 7; i++) {
-      final day = startOfWeek.add(Duration(days: i));
-      _weeklySchedule[day] = _sessions.where((s) =>
-          s.date.year == day.year &&
-          s.date.month == day.month &&
-          s.date.day == day.day).toList();
-    }
-    notifyListeners();
-  }
-
-  // ===== PROGRAMS =====
-  Future<void> createProgram(Program program) async {
-    await _service.createProgram(program);
-    await _loadPrograms();
-  }
-
-  Future<void> updateProgram(Program program) async {
-    await _service.updateProgram(program);
-    await _loadPrograms();
-  }
-
-  Future<void> deleteProgram(String programId) async {
-    await _service.deleteProgram(programId);
-    await _loadPrograms();
-  }
-
-  // ===== HOSTS =====
-  Future<void> createHost(Host host) async {
-    await _service.createHost(host);
-    await _loadHosts();
-  }
-
-  Future<void> updateHost(Host host) async {
-    await _service.updateHost(host);
-    await _loadHosts();
-  }
-
-  Future<void> deleteHost(String hostId) async {
-    await _service.deleteHost(hostId);
-    await _loadHosts();
-  }
-
-  List<Host> getHostsForProgram(String programId) {
-    return _hosts.where((h) => h.programIds.contains(programId)).toList();
-  }
-
-  // ===== SESSIONS =====
-  Future<void> createSession(Session session) async {
-    await _service.createSession(session);
-    await _loadSessions();
-    _buildWeeklySchedule();
-  }
-
-  Future<void> updateSession(Session session) async {
-    await _service.updateSession(session);
-    await _loadSessions();
-    _buildWeeklySchedule();
-  }
-
-  Future<void> startSession(String sessionId) async {
-    await _service.startSession(sessionId);
-    await _loadSessions();
-    await _loadLiveSessions();
-    _buildWeeklySchedule();
+  Future<String> startSession(String sessionId) async {
+    return await _service.startSession(sessionId);
   }
 
   Future<void> endSession(String sessionId) async {
     await _service.endSession(sessionId);
-    await _loadSessions();
-    await _loadLiveSessions();
-    await _loadPastSessions();
-    _buildWeeklySchedule();
   }
 
-  Future<void> scheduleRediffusion({
-    required String sessionId,
-    required DateTime date,
-    required DateTime startTime,
-    required DateTime endTime,
+  Future<void> cancelSession(String sessionId, String reason) async {
+    await _service.cancelSession(sessionId, reason);
+  }
+
+  Future<String> scheduleRediffusion({
+    required Session source,
+    required DateTime start,
+    required DateTime end,
   }) async {
-    await _service.scheduleRediffusion(
-      sessionId: sessionId,
-      date: date,
-      startTime: startTime,
-      endTime: endTime,
+    return await _service.scheduleRediffusion(
+      radioId: _radioId,
+      source: source,
+      scheduledStart: start,
+      scheduledEnd: end,
     );
-    await _loadSessions();
-    _buildWeeklySchedule();
   }
 
-  // ===== MEDIA =====
-  Future<void> createMedia(MediaItem item) async {
-    await _service.createMediaItem(item);
-    await _loadMedia();
+  Future<String> initializeSessionForSlot({
+    required TimetableSlot slot,
+    required DateTime date,
+    required String hostId,
+    required String hostName,
+    List<String> coHostIds = const [],
+    List<String> coHostNames = const [],
+    String? guestName,
+    String? guestRole,
+    String? thematic,
+  }) =>
+      _service.initializeSessionForSlot(
+        slot: slot,
+        date: date,
+        hostId: hostId,
+        hostName: hostName,
+        coHostIds: coHostIds,
+        coHostNames: coHostNames,
+        guestName: guestName,
+        guestRole: guestRole,
+        thematic: thematic,
+      );
+
+  Future<String> rediffuseSlot({
+    required TimetableSlot slot,
+    required DateTime date,
+    required Session source,
+  }) =>
+      _service.rediffuseSlot(slot: slot, date: date, source: source);
+
+  Future<List<Session>> pastSessionsForProgram(String programId) =>
+      _service.getPastSessionsForProgram(_radioId, programId);
+
+  // ============ TIMETABLE ============
+
+  Future<void> upsertSlot(TimetableSlot slot) async {
+    await _service.upsertSlot(slot);
   }
 
-  Future<void> deleteMedia(String id) async {
-    await _service.deleteMediaItem(id);
-    await _loadMedia();
+  Future<String> createSlot(TimetableSlot slot) => _service.createSlot(slot);
+
+  Future<void> updateSlot(String slotId, Map<String, dynamic> updates) =>
+      _service.updateSlot(slotId, updates);
+
+  Future<void> deleteSlot(String slotId) async {
+    await _service.deleteSlot(slotId);
   }
 
-  // ===== SCHEDULE =====
-  void goToPreviousWeek() {
-    _selectedWeek = _selectedWeek.subtract(const Duration(days: 7));
-    _buildWeeklySchedule();
+  List<TimetableSlot> slotsForDay(int weekday) =>
+      _timetable.where((s) => s.weekday == weekday).toList();
+
+  /// Generate sessions for the next `days` days from the timetable.
+  /// Skips any date/slot where a session already exists.
+  Future<int> generateFromTimetable({int days = 14}) async {
+    final now = DateTime.now();
+    final cutoff = now.add(Duration(days: days));
+    int created = 0;
+
+    for (final slot in _timetable) {
+      DateTime cursor = now;
+      while (cursor.weekday != slot.weekday) {
+        cursor = cursor.add(const Duration(days: 1));
+      }
+      while (cursor.isBefore(cutoff)) {
+        final start = DateTime(
+            cursor.year, cursor.month, cursor.day, slot.startHour, slot.startMinute);
+        final end = DateTime(
+            cursor.year, cursor.month, cursor.day, slot.endHour, slot.endMinute);
+
+        if (start.isBefore(now)) {
+          cursor = cursor.add(const Duration(days: 7));
+          continue;
+        }
+
+        final exists = _sessions.any((s) =>
+            s.programId == slot.programId &&
+            s.scheduledStart.isAtSameMomentAs(start));
+
+        if (!exists) {
+          await _service.createSession(Session(
+            id: '',
+            radioId: _radioId,
+            timetableSlotId: slot.id,
+            programId: slot.programId,
+            programName: slot.programName,
+            hostId: slot.defaultHostId ?? '',
+            hostName: slot.defaultHostName ?? '',
+            scheduledStart: start,
+            scheduledEnd: end,
+            createdAt: DateTime.now(),
+          ));
+          created++;
+        }
+        cursor = cursor.add(const Duration(days: 7));
+      }
+    }
+    return created;
   }
 
-  void goToNextWeek() {
-    _selectedWeek = _selectedWeek.add(const Duration(days: 7));
-    _buildWeeklySchedule();
-  }
+  // ============ PROGRAMS ============
 
-  void goToToday() {
-    _selectedWeek = DateTime.now();
-    _buildWeeklySchedule();
-  }
+  Future<String> createProgram(Program p) => _service.createProgram(p);
 
-  List<Session> getSessionsForSlot(DateTime date, int hour) {
-    return _weeklySchedule[date]?.where((s) => s.startTime.hour == hour).toList() ?? [];
-  }
+  Future<void> updateProgram(String id, Map<String, dynamic> updates) =>
+      _service.updateProgram(id, updates);
 
-  List<int> getAvailableSlots(DateTime date, {int startHour = 6, int endHour = 22}) {
-    final occupied = _weeklySchedule[date]?.map((s) => s.startTime.hour).toSet() ?? {};
-    return List.generate(endHour - startHour, (i) => startHour + i)
-        .where((h) => !occupied.contains(h))
-        .toList();
-  }
+  Future<void> archiveProgram(String id) => _service.archiveProgram(id);
 
-  Future<LiveMetrics> getLiveMetrics(String sessionId) async {
-    return await _service.getLiveMetrics(sessionId);
-  }
+  // ============ MEDIA ============
 
-  Stream<LiveMetrics> streamLiveMetrics(String sessionId) {
-    return _service.streamLiveMetrics(sessionId);
-  }
+  Future<String> createMediaItem(MediaItem item) => _service.createMediaItem(item);
 
-  Future<void> refreshData() async {
-    await _loadData();
+  Future<void> deleteMediaItem(String id) => _service.deleteMediaItem(id);
+
+  @override
+  void dispose() {
+    _detachStreams();
+    super.dispose();
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/models/technician/session_model.dart';
-import '../../../core/models/technician/metrics_model.dart';
-import '../../../view_models/technician_view_model.dart';
+import '../../core/models/technician/session_model.dart';
+import '../../core/models/technician/metrics_model.dart';
+import '../../view_models/technician_view_model.dart';
 
 class TechnicianLiveStudio extends StatefulWidget {
   final Session session;

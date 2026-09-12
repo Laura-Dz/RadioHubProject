@@ -17,6 +17,8 @@ class ShowModel {
   final int? followerCount;
   final List<String> tags;
   final String? description;
+  final bool isRediffusion;
+  final bool allowCalls;
 
   ShowModel({
     required this.id,
@@ -34,6 +36,8 @@ class ShowModel {
     this.followerCount,
     this.tags = const [],
     this.description,
+    this.isRediffusion = false,
+    this.allowCalls = true,
   });
 
   String? get timeRemaining {
@@ -54,6 +58,20 @@ class ShowModel {
   bool get isLive => status == ShowStatus.live;
   bool get isUpcoming => status == ShowStatus.upcoming;
   bool get isTrending => listenerCount > 1000;
+
+  String get displayTag {
+    if (isRediffusion) return 'REDIFFUSION';
+    switch (status) {
+      case ShowStatus.live:
+        return 'LIVE';
+      case ShowStatus.upcoming:
+        return 'UPCOMING';
+      case ShowStatus.ended:
+        return 'ENDED';
+      case ShowStatus.recorded:
+        return 'ENDED';
+    }
+  }
 
   factory ShowModel.fromFirestore(Map<String, dynamic> data, String id) {
     return ShowModel(
@@ -78,6 +96,8 @@ class ShowModel {
       followerCount: data['followerCount'],
       tags: List<String>.from(data['tags'] ?? []),
       description: data['description'],
+      isRediffusion: data['isRediffusion'] == true || data['status'] == 'rediffusion',
+      allowCalls: data['allowCalls'] != false,
     );
   }
 }

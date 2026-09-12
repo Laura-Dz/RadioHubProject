@@ -1,171 +1,200 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../utils/firestore_parsers.dart';
 
-enum SessionStatus {
-  scheduled,
-  live,
-  ended,
-  rediffusion,
-}
+enum SessionStatus { scheduled, live, ended, rediffusion, cancelled }
 
 class Session {
   final String id;
+  final String radioId;
+  final String? timetableSlotId;         // links session to the slot it occupies
   final String programId;
   final String programName;
-  final DateTime date;
-  final DateTime startTime;
-  final DateTime endTime;
-  final String? hostId;
-  final String? hostName;
-  final String? coHostId;
-  final String? coHostName;
-  final String? guestId;
+  final String hostId;
+  final String hostName;
+  final List<String> coHostIds;          // optional co-hosts for this session
+  final List<String> coHostNames;
   final String? guestName;
+  final String? guestRole;
   final String? thematic;
   final String? description;
-  final String? format;
-  final bool isInteractive;
+  final String? format;           // interview | call_in | panel | solo
+  final DateTime scheduledStart;
+  final DateTime scheduledEnd;
+  final DateTime? actualStart;
+  final DateTime? actualEnd;
   final SessionStatus status;
-  final Map<String, dynamic> metadata;
+  final bool isRediffusion;
+  final String? sourceSessionId;  // when rediffusion
+  final String? sessionCode;      // host access code, set on start
   final String? recordingUrl;
-  final String? rediffusionSourceId;
-  final DateTime? startedAt;
-  final DateTime? endedAt;
+  final int listenerCount;
+  final double completionRate;
+  final int engagementCount;
+  final bool allowCalls;          // false on rediffusion
   final DateTime createdAt;
   final DateTime? updatedAt;
 
   Session({
     required this.id,
+    required this.radioId,
+    this.timetableSlotId,
     required this.programId,
     required this.programName,
-    required this.date,
-    required this.startTime,
-    required this.endTime,
-    this.hostId,
-    this.hostName,
-    this.coHostId,
-    this.coHostName,
-    this.guestId,
+    required this.hostId,
+    required this.hostName,
+    this.coHostIds = const [],
+    this.coHostNames = const [],
+    String? coHostId,
+    String? coHostName,
     this.guestName,
+    this.guestRole,
     this.thematic,
     this.description,
     this.format,
-    this.isInteractive = false,
+    required this.scheduledStart,
+    required this.scheduledEnd,
+    this.actualStart,
+    this.actualEnd,
     this.status = SessionStatus.scheduled,
-    this.metadata = const {},
+    this.isRediffusion = false,
+    this.sourceSessionId,
+    this.sessionCode,
     this.recordingUrl,
-    this.rediffusionSourceId,
-    this.startedAt,
-    this.endedAt,
+    this.listenerCount = 0,
+    this.completionRate = 0.0,
+    this.engagementCount = 0,
+    this.allowCalls = true,
     required this.createdAt,
     this.updatedAt,
-  });
+  }) : coHostId = coHostId ?? (coHostIds.isNotEmpty ? coHostIds.first : null),
+       coHostName = coHostName ?? (coHostNames.isNotEmpty ? coHostNames.first : null);
 
-  factory Session.fromFirestore(Map<String, dynamic> data, String id) {
+  final String? coHostId;
+  final String? coHostName;
+
+  factory Session.fromFirestore(Map<String, dynamic> d, String id) {
+    List<String> parsedCoHostIds = [];
+    if (d['coHostIds'] is List) {
+      parsedCoHostIds = List<String>.from(d['coHostIds']);
+    } else if (d['coHostId'] != null && d['coHostId'].toString().isNotEmpty) {
+      parsedCoHostIds = [d['coHostId'].toString()];
+    }
+
+    List<String> parsedCoHostNames = [];
+    if (d['coHostNames'] is List) {
+      parsedCoHostNames = List<String>.from(d['coHostNames']);
+    } else if (d['coHostName'] != null && d['coHostName'].toString().isNotEmpty) {
+      parsedCoHostNames = [d['coHostName'].toString()];
+    }
+
     return Session(
       id: id,
-      programId: data['programId'] ?? '',
-      programName: data['programName'] ?? 'Untitled Program',
-      date: (data['date'] is Timestamp)
-          ? (data['date'] as Timestamp).toDate()
-          : DateTime.now(),
-      startTime: (data['startTime'] is Timestamp)
-          ? (data['startTime'] as Timestamp).toDate()
-          : DateTime.now(),
-      endTime: (data['endTime'] is Timestamp)
-          ? (data['endTime'] as Timestamp).toDate()
-          : DateTime.now().add(const Duration(hours: 1)),
-      hostId: data['hostId'],
-      hostName: data['hostName'],
-      coHostId: data['coHostId'],
-      coHostName: data['coHostName'],
-      guestId: data['guestId'],
-      guestName: data['guestName'],
-      thematic: data['thematic'],
-      description: data['description'],
-      format: data['format'],
-      isInteractive: data['isInteractive'] ?? false,
+      radioId: (d['radioId'] ?? '').toString(),
+      timetableSlotId: d['timetableSlotId']?.toString(),
+      programId: (d['programId'] ?? '').toString(),
+      programName: (d['programName'] ?? '').toString(),
+      hostId: (d['hostId'] ?? '').toString(),
+      hostName: (d['hostName'] ?? '').toString(),
+      coHostIds: parsedCoHostIds,
+      coHostNames: parsedCoHostNames,
+      guestName: d['guestName']?.toString(),
+      guestRole: d['guestRole']?.toString(),
+      thematic: d['thematic']?.toString(),
+      description: d['description']?.toString(),
+      format: d['format']?.toString(),
+      scheduledStart: FSParsers.toDate(d['scheduledStart']) ?? DateTime.now(),
+      scheduledEnd: FSParsers.toDate(d['scheduledEnd']) ?? DateTime.now(),
+      actualStart: FSParsers.toDate(d['actualStart']),
+      actualEnd: FSParsers.toDate(d['actualEnd']),
       status: SessionStatus.values.firstWhere(
-        (e) => e.toString() == data['status'],
+        (e) => e.toString() == 'SessionStatus.${d['status']}',
         orElse: () => SessionStatus.scheduled,
       ),
-      metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
-      recordingUrl: data['recordingUrl'],
-      rediffusionSourceId: data['rediffusionSourceId'],
-      startedAt: (data['startedAt'] is Timestamp)
-          ? (data['startedAt'] as Timestamp).toDate()
-          : null,
-      endedAt: (data['endedAt'] is Timestamp)
-          ? (data['endedAt'] as Timestamp).toDate()
-          : null,
-      createdAt: (data['createdAt'] is Timestamp)
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
-      updatedAt: (data['updatedAt'] is Timestamp)
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      isRediffusion: d['isRediffusion'] == true,
+      sourceSessionId: d['sourceSessionId']?.toString(),
+      sessionCode: d['sessionCode']?.toString(),
+      recordingUrl: d['recordingUrl']?.toString(),
+      listenerCount: FSParsers.toInt(d['listenerCount']),
+      completionRate: FSParsers.toDouble(d['completionRate']),
+      engagementCount: FSParsers.toInt(d['engagementCount']),
+      allowCalls: d['allowCalls'] != false,
+      createdAt: FSParsers.toDate(d['createdAt']) ?? DateTime.now(),
+      updatedAt: FSParsers.toDate(d['updatedAt']),
     );
   }
 
   Map<String, dynamic> toFirestore() => {
+        'radioId': radioId,
+        'timetableSlotId': timetableSlotId,
         'programId': programId,
         'programName': programName,
-        'date': date,
-        'startTime': startTime,
-        'endTime': endTime,
         'hostId': hostId,
         'hostName': hostName,
+        'coHostIds': coHostIds,
+        'coHostNames': coHostNames,
         'coHostId': coHostId,
         'coHostName': coHostName,
-        'guestId': guestId,
         'guestName': guestName,
+        'guestRole': guestRole,
         'thematic': thematic,
         'description': description,
         'format': format,
-        'isInteractive': isInteractive,
+        'scheduledStart': Timestamp.fromDate(scheduledStart),
+        'scheduledEnd': Timestamp.fromDate(scheduledEnd),
+        'actualStart': actualStart != null ? Timestamp.fromDate(actualStart!) : null,
+        'actualEnd': actualEnd != null ? Timestamp.fromDate(actualEnd!) : null,
         'status': status.toString().split('.').last,
-        'metadata': metadata,
+        'isRediffusion': isRediffusion,
+        'sourceSessionId': sourceSessionId,
+        'sessionCode': sessionCode,
         'recordingUrl': recordingUrl,
-        'rediffusionSourceId': rediffusionSourceId,
-        'startedAt': startedAt,
-        'endedAt': endedAt,
+        'listenerCount': listenerCount,
+        'completionRate': completionRate,
+        'engagementCount': engagementCount,
+        'allowCalls': allowCalls,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-  String get timeRange {
-    String fmt(DateTime t) =>
-        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    return '${fmt(startTime)} - ${fmt(endTime)}';
+  /// True if current time is within 5 min before start.
+  bool get canBeStarted {
+    final now = DateTime.now();
+    final windowStart = scheduledStart.subtract(const Duration(minutes: 5));
+    return now.isAfter(windowStart) &&
+        now.isBefore(scheduledEnd) &&
+        status == SessionStatus.scheduled &&
+        !isRediffusion;
   }
 
-  Duration get duration => endTime.difference(startTime);
+  bool get isLive => status == SessionStatus.live;
+
+  Duration get duration => scheduledEnd.difference(scheduledStart);
 
   String get statusLabel {
     switch (status) {
-      case SessionStatus.scheduled:
-        return '📅 Scheduled';
-      case SessionStatus.live:
-        return '🟢 Live';
-      case SessionStatus.ended:
-        return '🔴 Ended';
-      case SessionStatus.rediffusion:
-        return '🔄 Rediffusion';
+      case SessionStatus.scheduled: return 'Scheduled';
+      case SessionStatus.live: return 'Live';
+      case SessionStatus.ended: return 'Ended';
+      case SessionStatus.rediffusion: return 'Rediffusion';
+      case SessionStatus.cancelled: return 'Cancelled';
     }
   }
 
-  Color get statusColor {
+  /// Human-facing tag shown in the UI. Rediffusion always wins.
+  String get displayTag {
+    if (isRediffusion) return 'REDIFFUSION';
     switch (status) {
-      case SessionStatus.scheduled:
-        return Colors.blue;
-      case SessionStatus.live:
-        return Colors.green;
-      case SessionStatus.ended:
-        return Colors.red;
-      case SessionStatus.rediffusion:
-        return Colors.purple;
+      case SessionStatus.live: return 'LIVE';
+      case SessionStatus.scheduled: return 'UPCOMING';
+      case SessionStatus.ended: return 'ENDED';
+      case SessionStatus.cancelled: return 'CANCELLED';
+      case SessionStatus.rediffusion: return 'REDIFFUSION';
     }
   }
 
-  bool get isReplay => rediffusionSourceId != null;
+  /// True only for genuine live broadcasts — no rediffusion.
+  bool get showsLiveIndicator =>
+      !isRediffusion && status == SessionStatus.live;
+
+  bool get showsRediffusionIndicator => isRediffusion;
 }

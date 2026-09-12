@@ -103,3 +103,86 @@ class ActiveAnnouncementsView(APIView):
         ).order_by("-start_time")
         serializer = AnnouncementSerializer(announcements, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RadioInsightsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        radio_id = request.data.get("radioId", "radio_123")
+        time_range = request.data.get("timeRange", "last_30_days")
+        categories = request.data.get("includeCategories", ["audimat", "shows", "revenue", "scheduling", "comparisons", "diagnostics"])
+
+        try:
+            from firebase_admin_config import get_firestore_db
+            db = get_firestore_db()
+        except Exception:
+            db = None
+
+        from insights.engine import RadioInsightsEngine
+        import os
+        llm = None
+        if os.environ.get('OPENAI_API_KEY'):
+            try:
+                from insights.llm import LLMClient
+                llm = LLMClient()
+            except Exception:
+                llm = None
+        engine = RadioInsightsEngine(db=db, llm=llm)
+        insights = engine.generate(radio_id, time_range)
+
+        filtered_insights = {k: v for k, v in insights.items() if k in categories or k == "meta"}
+        return Response(filtered_insights, status=status.HTTP_200_OK)
+
+
+class SuggestAnnouncementTextView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        original_text = request.data.get("text", "")
+        category = request.data.get("category", "General")
+        
+        # Simple AI improvement simulation
+        improved_text = f"[{category.upper()}] {original_text} — Diffusé avec amour sur votre radio préférée!"
+        if "birthday" in category.lower() or "anniversaire" in original_text.lower():
+            improved_text = f"🎉 Joyeux Anniversaire! {original_text} Que cette nouvelle année vous apporte joie, santé et succès!"
+        elif "condolence" in category.lower() or "décès" in original_text.lower():
+            improved_text = f"🕊️ Nos sincères condoléances. {original_text} Que son âme repose en paix éternelle."
+
+        word_count = len(improved_text.split())
+        est_duration = max(15, word_count * 2)
+
+        return Response({
+            "original_text": original_text,
+            "improved_text": improved_text,
+            "word_count": word_count,
+            "estimated_duration_seconds": est_duration,
+        }, status=status.HTTP_200_OK)
+
+
+class CalculateAnnouncementPriceView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        word_count = int(request.data.get("wordCount", 20))
+        duration_sec = int(request.data.get("durationSeconds", 30))
+        diffusion_count = int(request.data.get("diffusionCount", 1))
+        
+        rate_per_word = 5.0
+        rate_per_sec = 50.0
+        
+        base_tariff = (word_count * rate_per_word) + (duration_sec * rate_per_sec) * (1 + 0.1 * (diffusion_count - 1))
+        if base_tariff < 1000.0:
+            base_tariff = 1000.0
+            
+        transfer_fee = base_tariff * 0.04
+        final_price = base_tariff + transfer_fee
+
+        return Response({
+            "base_tariff": base_tariff,
+            "transfer_fee": transfer_fee,
+            "final_price": final_price,
+            "currency": "XAF",
+            "fee_percentage": 4.0,
+        }, status=status.HTTP_200_OK)
+

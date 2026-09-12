@@ -1,58 +1,40 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../utils/firestore_parsers.dart';
 
 class Host {
   final String id;
   final String name;
   final String email;
-  final String? phone;
+  final String phone;
   final String? bio;
   final String? photoUrl;
-  final List<String> programIds;
-  final bool isActive;
-  final DateTime createdAt;
-  final DateTime? updatedAt;
+  final String radioId;
+  final String status;
+  final DateTime? createdAt;
+  final DateTime? lastActive;
 
   Host({
     required this.id,
     required this.name,
     required this.email,
-    this.phone,
+    required this.phone,
     this.bio,
     this.photoUrl,
-    this.programIds = const [],
-    this.isActive = true,
-    required this.createdAt,
-    this.updatedAt,
+    required this.radioId,
+    this.status = 'active',
+    this.createdAt,
+    this.lastActive,
   });
 
-  factory Host.fromFirestore(Map<String, dynamic> data, String id) {
-    return Host(
-      id: id,
-      name: data['name'] ?? 'Unknown Host',
-      email: data['email'] ?? '',
-      phone: data['phone'],
-      bio: data['bio'],
-      photoUrl: data['photoUrl'],
-      programIds: List<String>.from(data['programIds'] ?? []),
-      isActive: data['isActive'] ?? true,
-      createdAt: (data['createdAt'] is Timestamp)
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
-      updatedAt: (data['updatedAt'] is Timestamp)
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toFirestore() => {
-        'name': name,
-        'email': email,
-        'phone': phone,
-        'bio': bio,
-        'photoUrl': photoUrl,
-        'programIds': programIds,
-        'isActive': isActive,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+  factory Host.fromFirestore(Map<String, dynamic> d, String id) => Host(
+        id: id,
+        name: (d['displayName'] ?? d['name'] ?? '').toString(),
+        email: (d['email'] ?? '').toString(),
+        phone: (d['phone'] ?? '').toString(),
+        bio: d['bio']?.toString(),
+        photoUrl: d['photoUrl']?.toString(),
+        radioId: (d['radioId'] ?? '').toString(),
+        status: (d['status'] ?? 'active').toString(),
+        createdAt: FSParsers.toDate(d['createdAt']),
+        lastActive: FSParsers.toDate(d['lastActive']),
+      );
 }

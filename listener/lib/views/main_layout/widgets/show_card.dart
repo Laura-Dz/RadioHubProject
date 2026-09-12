@@ -50,7 +50,14 @@ class ShowCard extends StatelessWidget {
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: (isDark ? Colors.black : AppColors.primary).withOpacity(isDark ? 0.3 : 0.08), blurRadius: 12, offset: const Offset(0, 4))],
-          border: Border.all(color: isLive || show.isLive ? AppColors.error.withOpacity(0.3) : Colors.transparent, width: 2),
+          border: Border.all(
+            color: (isLive || show.isLive)
+                ? AppColors.error.withOpacity(0.3)
+                : (show.isRediffusion
+                    ? const Color(0xFFD4A017).withOpacity(0.3)
+                    : Colors.transparent),
+            width: 2,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,7 +75,8 @@ class ShowCard extends StatelessWidget {
                         : _buildPlaceholder(),
                   ),
                 ),
-                if (isLive || show.isLive) const Positioned(top: 8, left: 8, child: LiveBadge()),
+                if (isLive || show.isLive || show.isRediffusion)
+                  Positioned(top: 8, left: 8, child: LiveBadge(tag: show.displayTag)),
                 if (show.timeRemaining != null)
                   Positioned(top: 8, right: 8, child: CountdownTimer(timeRemaining: show.timeRemaining!)),
                 Positioned(
@@ -210,7 +218,8 @@ class ShowCard extends StatelessWidget {
                   Text(show.host, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color)),
                   Row(
                     children: [
-                      if (show.isLive) const LiveBadge(isSmall: true),
+                      if (show.isLive || show.isRediffusion)
+                        LiveBadge(tag: show.displayTag, isSmall: true),
                       if (show.timeRemaining != null) CountdownTimer(timeRemaining: show.timeRemaining!, isSmall: true),
                       if (show.episodeCount != null)
                         Text('${show.episodeCount} eps', style: TextStyle(fontSize: 10, color: Theme.of(context).textTheme.bodySmall?.color)),

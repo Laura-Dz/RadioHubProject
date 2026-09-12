@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/enums/view_state.dart';
+import '../../../core/services/announcement_service.dart';
 import '../../../view_models/radio_station_view_model.dart';
-import '../../../core/models/announcement_request_model.dart';
 import '../../../core/theme/app_colors.dart';
 
 class AnnouncementModal extends StatefulWidget {
@@ -19,176 +18,320 @@ class AnnouncementModal extends StatefulWidget {
 }
 
 class _AnnouncementModalState extends State<AnnouncementModal> {
-  final TextEditingController _messageController = TextEditingController();
-  AnnouncementCategory _selectedCategory = AnnouncementCategory.general;
-  int _selectedDuration = 30;
-  double _calculatedPrice = 0.0;
+  final AnnouncementService _service = AnnouncementService();
+  final TextEditingController _draftController = TextEditingController();
 
-  final List<int> _durationOptions = [15, 30, 45, 60, 90, 120];
+  int _step = 1;
+  bool _loading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _updatePrice();
-  }
+  String _category = 'Birthday';
+  String _paymentMethod = 'MoMo';
 
-  void _updatePrice() {
-    final pricing = widget.viewModel.pricing;
-    if (pricing != null) {
-      final tier = pricing.getPriceTier(_selectedCategory, _selectedDuration);
-      if (tier != null) {
-        setState(() => _calculatedPrice = tier.price);
-        return;
-      }
-    }
-    setState(() => _calculatedPrice = _selectedDuration * 0.10);
-  }
+  // AI Notor 1
+  String _finalText = '';
+  int _wordCount = 0;
+  int _durationSeconds = 30;
+
+  // AI Notor 2
+  double _baseTariff = 0.0;
+  double _transferFee = 0.0;
+  double _finalPrice = 0.0;
+
+  final List<String> _categories = [
+    'Birthday',
+    'Anniversary',
+    'Congratulations',
+    'Condolence',
+    'Promotional',
+    'Event',
+    'General',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = widget.viewModel.state == ViewState.loading;
+    final radio = widget.viewModel.radio;
+    final radioName = radio?.name ?? 'Radio Station';
 
     return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '📢 Request Announcement',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Pay a small fee to have your announcement aired.',
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _messageController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Your Message',
-              border: OutlineInputBorder(),
-              hintText: 'Type your announcement message...',
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<AnnouncementCategory>(
-            value: _selectedCategory,
-            items: AnnouncementCategory.values.map((cat) {
-              return DropdownMenuItem(
-                value: cat,
-                child: Text(cat.toString().split('.').last),
-              );
-            }).toList(),
-            onChanged: (val) {
-              if (val != null) {
-                setState(() {
-                  _selectedCategory = val;
-                  _updatePrice();
-                });
-              }
-            },
-            decoration: const InputDecoration(
-              labelText: 'Category',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            value: _selectedDuration,
-            items: _durationOptions.map((d) {
-              return DropdownMenuItem(
-                value: d,
-                child: Text('${d} seconds'),
-              );
-            }).toList(),
-            onChanged: (val) {
-              if (val != null) {
-                setState(() {
-                  _selectedDuration = val;
-                  _updatePrice();
-                });
-              }
-            },
-            decoration: const InputDecoration(
-              labelText: 'Duration',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(height: 16),
+            Row(
               children: [
-                const Text('Estimated Price:', style: TextStyle(fontWeight: FontWeight.w500)),
-                Text(
-                  '\$${_calculatedPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                const Icon(Icons.campaign, color: AppColors.primary, size: 28),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Announcement for $radioName',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isLoading ? null : () => _submitRequest(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : Text('Pay \$${_calculatedPrice.toStringAsFixed(2)} & Submit'),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 4),
+            Text('Step $_step of 4', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 16),
+
+            if (_step == 1) _buildStep1(),
+            if (_step == 2) _buildStep2(),
+            if (_step == 3) _buildStep3(),
+            if (_step == 4) _buildStep4(),
+          ],
+        ),
       ),
     );
   }
 
-  void _submitRequest() async {
-    if (_messageController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your message'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
-    await widget.viewModel.requestAnnouncement(
-      message: _messageController.text.trim(),
-      category: _selectedCategory,
-      durationSeconds: _selectedDuration,
-      price: _calculatedPrice,
+  Widget _buildStep1() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Category', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: _category,
+          items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+          onChanged: (v) => setState(() => _category = v!),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        const Text('Your Message Draft', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _draftController,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Type your message...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _loading ? null : _runAiEnhancement,
+            icon: const Icon(Icons.auto_awesome, size: 18),
+            label: _loading
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Enhance with AI Notor 1'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
     );
+  }
 
-    if (widget.viewModel.state == ViewState.error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.viewModel.errorMessage ?? 'Failed to submit'), backgroundColor: Colors.red),
-      );
-    } else {
-      widget.onRequestSubmitted();
-    }
+  Widget _buildStep2() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+          child: const Row(
+            children: [
+              Icon(Icons.auto_awesome, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(child: Text('AI Notor 1 formatted your message for radio broadcast.', style: TextStyle(fontSize: 12))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text('Broadcast Ready Text:', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        TextFormField(
+          initialValue: _finalText,
+          maxLines: 4,
+          onChanged: (v) => _finalText = v,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Chip(label: Text('Word Count: $_wordCount')),
+            const SizedBox(width: 8),
+            Chip(label: Text('Duration: ${_durationSeconds}s')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            OutlinedButton(onPressed: () => setState(() => _step = 1), child: const Text('Back')),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _loading ? null : _calculatePrice,
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                child: _loading
+                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Calculate Price (AI Notor 2)'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep3() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            children: [
+              _priceRow('Base Tariff', '${_baseTariff.toStringAsFixed(0)} XAF'),
+              const Divider(height: 16),
+              _priceRow('Transfer Fee (4%)', '${_transferFee.toStringAsFixed(0)} XAF'),
+              const Divider(height: 16),
+              _priceRow('Total Price', '${_finalPrice.toStringAsFixed(0)} XAF', bold: true),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text('Select Payment Method:', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: ['MoMo', 'OM', 'Ecobank', 'Card'].map((m) => Expanded(
+            child: RadioListTile<String>(
+              value: m,
+              groupValue: _paymentMethod,
+              title: Text(m, style: const TextStyle(fontSize: 12)),
+              contentPadding: EdgeInsets.zero,
+              onChanged: (v) => setState(() => _paymentMethod = v!),
+            ),
+          )).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            OutlinedButton(onPressed: () => setState(() => _step = 2), child: const Text('Back')),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _loading ? null : _submit,
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                child: _loading
+                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text('Pay ${_finalPrice.toStringAsFixed(0)} XAF'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep4() {
+    return Column(
+      children: [
+        const Icon(Icons.check_circle, color: Colors.green, size: 48),
+        const SizedBox(height: 12),
+        const Text('Announcement Submitted!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        const Text(
+          'Your payment is held in escrow until validated by the radio station admin. You will be notified when it is scheduled.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: Colors.grey),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: widget.onRequestSubmitted,
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            child: const Text('Close'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _priceRow(String label, String value, {bool bold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: bold ? 15 : 13, fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+        Text(value, style: TextStyle(fontSize: bold ? 16 : 13, fontWeight: FontWeight.bold, color: bold ? AppColors.primary : Colors.black87)),
+      ],
+    );
+  }
+
+  Future<void> _runAiEnhancement() async {
+    if (_draftController.text.trim().isEmpty) return;
+    setState(() => _loading = true);
+    final res = await _service.suggestImprovedText(text: _draftController.text.trim(), category: _category);
+    setState(() {
+      _finalText = res['improved_text'] ?? _draftController.text.trim();
+      _wordCount = (res['word_count'] as int?) ?? _finalText.split(' ').length;
+      _durationSeconds = (res['estimated_duration_seconds'] as int?) ?? 30;
+      _loading = false;
+      _step = 2;
+    });
+  }
+
+  Future<void> _calculatePrice() async {
+    setState(() => _loading = true);
+    final res = await _service.calculatePrice(
+      wordCount: _wordCount,
+      durationSeconds: _durationSeconds,
+      diffusionCount: 1,
+    );
+    setState(() {
+      _baseTariff = (res['base_tariff'] as num).toDouble();
+      _transferFee = (res['transfer_fee'] as num).toDouble();
+      _finalPrice = (res['final_price'] as num).toDouble();
+      _loading = false;
+      _step = 3;
+    });
+  }
+
+  Future<void> _submit() async {
+    setState(() => _loading = true);
+    await _service.submitAnnouncementRequest(
+      radioId: widget.viewModel.radio?.id ?? 'radio_1',
+      radioName: widget.viewModel.radio?.name ?? 'Radio Sunshine',
+      listenerId: 'listener_123',
+      listenerName: 'Laura Listener',
+      listenerEmail: 'laura@example.com',
+      category: _category,
+      originalText: _draftController.text.trim(),
+      finalText: _finalText,
+      wordCount: _wordCount,
+      durationSeconds: _durationSeconds,
+      diffusionCount: 1,
+      baseTariff: _baseTariff,
+      transferFee: _transferFee,
+      finalPrice: _finalPrice,
+      paymentMethod: _paymentMethod,
+    );
+    setState(() {
+      _loading = false;
+      _step = 4;
+    });
   }
 }

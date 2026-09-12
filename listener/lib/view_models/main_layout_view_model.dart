@@ -60,6 +60,9 @@ class MainLayoutViewModel extends BaseViewModel {
       case NavigationTabs.timetable:
         _currentTitle = 'Timetable';
         break;
+      case NavigationTabs.announcements:
+        _currentTitle = 'Announcements';
+        break;
       case NavigationTabs.profile:
         _currentTitle = 'Profile';
         break;
@@ -68,6 +71,9 @@ class MainLayoutViewModel extends BaseViewModel {
         break;
     }
   }
+
+  void navigateToAnnouncements() => setTab(NavigationTabs.announcements);
+
 
   Future<void> _loadPreferences() async {
     final savedTab = _prefsService.getSelectedTab();

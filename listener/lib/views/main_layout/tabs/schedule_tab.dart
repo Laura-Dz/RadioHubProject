@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../view_models/schedule_view_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/placeholder_image.dart';
+import '../widgets/live_badge.dart';
 
 class ScheduleTab extends StatefulWidget {
   const ScheduleTab({Key? key}) : super(key: key);
@@ -83,14 +84,7 @@ class _ScheduleTabState extends State<ScheduleTab> with AutomaticKeepAliveClient
                       children: [
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text('🔴 LIVE NOW', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
+                            buildBadgeForTag(viewModel.nowPlaying!.displayTag),
                             const Spacer(),
                             Text(
                               '${_formatTime(viewModel.nowPlaying!.startTime)} - ${_formatTime(viewModel.nowPlaying!.endTime)}',

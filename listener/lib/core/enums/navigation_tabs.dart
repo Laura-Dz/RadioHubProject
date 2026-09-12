@@ -3,6 +3,7 @@ enum NavigationTabs {
   channels,
   schedule,
   timetable,
+  announcements,
   profile,
   settings,
 }
@@ -18,6 +19,8 @@ extension NavigationTabsExtension on NavigationTabs {
         return 'Schedule';
       case NavigationTabs.timetable:
         return 'Timetable';
+      case NavigationTabs.announcements:
+        return 'Announce';
       case NavigationTabs.profile:
         return 'Profile';
       case NavigationTabs.settings:
@@ -35,6 +38,8 @@ extension NavigationTabsExtension on NavigationTabs {
         return 'calendar_today';
       case NavigationTabs.timetable:
         return 'event';
+      case NavigationTabs.announcements:
+        return 'campaign';
       case NavigationTabs.profile:
         return 'person';
       case NavigationTabs.settings:
@@ -52,6 +57,8 @@ extension NavigationTabsExtension on NavigationTabs {
         return 'calendar_today';
       case NavigationTabs.timetable:
         return 'event';
+      case NavigationTabs.announcements:
+        return 'campaign_filled';
       case NavigationTabs.profile:
         return 'person_filled';
       case NavigationTabs.settings:
@@ -59,3 +66,4 @@ extension NavigationTabsExtension on NavigationTabs {
     }
   }
 }
+

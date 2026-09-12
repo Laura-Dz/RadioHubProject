@@ -17,6 +17,8 @@ class ScheduleItem {
   final int listenerCount;
   final bool isLive;
   final bool isInteractive;
+  final bool isRediffusion;
+  final bool allowCalls;
   final String? channelId;
   final String? channelName;
   final String? flashId;
@@ -39,6 +41,8 @@ class ScheduleItem {
     this.listenerCount = 0,
     this.isLive = false,
     this.isInteractive = false,
+    this.isRediffusion = false,
+    this.allowCalls = true,
     this.channelId,
     this.channelName,
     this.flashId,
@@ -76,6 +80,8 @@ class ScheduleItem {
       listenerCount: data['listenerCount'] ?? 0,
       isLive: data['isLive'] ?? false,
       isInteractive: data['isInteractive'] ?? false,
+      isRediffusion: data['isRediffusion'] == true || data['status'] == 'rediffusion',
+      allowCalls: data['allowCalls'] != false,
       channelId: data['channelId'],
       channelName: data['channelName'],
       flashId: data['flashId'],
@@ -90,6 +96,21 @@ class ScheduleItem {
   bool get isPast => endTime.isBefore(DateTime.now());
   bool get isNow => startTime.isBefore(DateTime.now()) && endTime.isAfter(DateTime.now());
 
+  String get displayTag {
+    if (isRediffusion) return 'REDIFFUSION';
+    if (isLive || isNow) return 'LIVE';
+    if (isUpcoming) return 'UPCOMING';
+    return 'ENDED';
+  }
+
+  String get statusLabel {
+    if (isRediffusion) return '📻 REDIFFUSION';
+    if (isLive) return '🔴 LIVE';
+    if (isNow) return '🟢 NOW';
+    if (isUpcoming) return '⏳ UPCOMING';
+    return '✅ ENDED';
+  }
+
   String get timeRemaining {
     if (!isNow && !isUpcoming) return '';
     final now = DateTime.now();
@@ -100,12 +121,6 @@ class ScheduleItem {
     return '${minutes}m';
   }
 
-  String get statusLabel {
-    if (isLive) return '🔴 LIVE';
-    if (isNow) return '🟢 NOW';
-    if (isUpcoming) return '⏳ UPCOMING';
-    return '✅ ENDED';
-  }
 
   String _formatTime(DateTime time) {
     final hour = time.hour.toString().padLeft(2, '0');

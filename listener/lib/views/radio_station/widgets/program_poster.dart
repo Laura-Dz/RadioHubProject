@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/radio_model.dart';
 import '../../../core/models/schedule_model.dart';
+import '../../main_layout/widgets/live_badge.dart';
 
 class ProgramPoster extends StatelessWidget {
   final RadioModel radio;
@@ -138,29 +139,10 @@ class ProgramPoster extends StatelessWidget {
   }
 
   Widget _buildStatusBadge(ScheduleItem? program) {
-    Color bgColor;
-    String label;
-    if (program?.isLive == true || program?.isNow == true) {
-      bgColor = Colors.green;
-      label = '🔴 LIVE';
-    } else if (program?.isUpcoming == true) {
-      bgColor = Colors.orange;
-      label = '⏳ UPCOMING ${program!.timeRemaining.isNotEmpty ? '• ${program.timeRemaining}' : ''}';
-    } else {
-      bgColor = Colors.grey;
-      label = '📻 RECORDED';
+    if (program == null) {
+      return buildBadgeForTag('ENDED');
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-      ),
-    );
+    return buildBadgeForTag(program.displayTag);
   }
 
   String _formatDate(DateTime date) {

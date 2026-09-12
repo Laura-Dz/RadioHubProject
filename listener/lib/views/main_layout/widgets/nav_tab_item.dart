@@ -73,6 +73,8 @@ class NavTabItem extends StatelessWidget {
         return isSelected ? Icons.person : Icons.person_outline;
       case NavigationTabs.settings:
         return isSelected ? Icons.settings : Icons.settings_outlined;
+      case NavigationTabs.announcements:
+        return isSelected ? Icons.campaign : Icons.campaign_outlined;
     }
   }
 }

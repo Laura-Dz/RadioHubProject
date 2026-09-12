@@ -12,6 +12,8 @@ import 'tabs/profile_tab.dart';
 import 'tabs/settings_tab.dart';
 import '../../core/enums/navigation_tabs.dart';
 
+import 'tabs/announcements_tab.dart';
+
 class MainLayoutScreen extends StatefulWidget {
   final int initialTabIndex;
 
@@ -29,7 +31,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 6,
+      length: 7,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -69,6 +71,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
           ChannelsTab(),
           ScheduleTab(),
           TimetableTab(),
+          AnnouncementsTab(),
           ProfileTab(),
           SettingsTab(),
         ],
@@ -84,3 +87,4 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
     );
   }
 }
+

@@ -2,9 +2,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/constants/app_colors.dart';
 import 'core/services/technician_service.dart';
 import 'view_models/technician_view_model.dart';
-import 'views/technician/technician_dashboard.dart';
+import 'views/technician/technician_login_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -26,10 +27,11 @@ class MyApp extends StatelessWidget {
         title: 'RadioHub Technician',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+          scaffoldBackgroundColor: AppColors.background,
           useMaterial3: true,
         ),
-        home: const TechnicianDashboard(),
+        home: const TechnicianLoginScreen(),
       ),
     );
   }

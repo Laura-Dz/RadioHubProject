@@ -33,9 +33,12 @@ import 'view_models/user_interaction_view_model.dart';
 import 'views/notifications/notification_center.dart';
 import 'views/auth/auth_choice_screen.dart';
 
+import 'core/services/announcement_service.dart';
+
 import 'firebase_options.dart';
 
 void main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
@@ -96,12 +99,15 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider.value(value: prefsService),
+
         Provider.value(value: localizationService),
         Provider.value(value: firestoreService),
         Provider.value(value: storageService),
         Provider.value(value: metadataService),
         Provider.value(value: realtimeDbService),
         Provider.value(value: userInteractionService),
+        Provider(create: (_) => AnnouncementService()),
+
         ChangeNotifierProvider(
           create: (_) => LanguageSelectionViewModel(
             prefsService: prefsService,
@@ -169,16 +175,7 @@ class MyApp extends StatelessWidget {
             userId: fs.getCurrentUserId() ?? 'guest',
           ),
         ),
-        ChangeNotifierProxyProvider<FirestoreService, UserInteractionViewModel>(
-          create: (context) => UserInteractionViewModel(
-            interactionService: userInteractionService,
-            userId: firestoreService.getCurrentUserId() ?? 'guest',
-          ),
-          update: (context, firestoreService, _) => UserInteractionViewModel(
-            interactionService: userInteractionService,
-            userId: firestoreService.getCurrentUserId() ?? 'guest',
-          ),
-        ),
+
       ],
       child: Consumer<MainLayoutViewModel>(
         builder: (context, viewModel, child) {

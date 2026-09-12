@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants/app_colors.dart';
 import '../../view_models/sysadmin_view_model.dart';
-import 'sysadmin_sidebar.dart';
-import 'screens/monitoring_screen.dart';
-import 'screens/servers_screen.dart';
-import 'screens/security_screen.dart';
-import 'screens/backups_screen.dart';
-import 'screens/deployment_screen.dart';
+import 'widgets/sysadmin_sidebar.dart';
+import 'dashboard/dashboard_screen.dart';
+import 'users/users_screen.dart';
+import 'radios/radios_screen.dart';
+import 'radio_detail/radio_detail_screen.dart';
+import 'shows/shows_statistics_screen.dart';
+import 'transactions/transactions_screen.dart';
+import 'settings/settings_screen.dart';
 
 class SysAdminDashboard extends StatelessWidget {
   const SysAdminDashboard({Key? key}) : super(key: key);
@@ -16,65 +19,45 @@ class SysAdminDashboard extends StatelessWidget {
     final viewModel = context.watch<SysAdminViewModel>();
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: Row(
         children: [
+          // Navigation Sidebar
           SysAdminSidebar(
             selectedIndex: viewModel.selectedTab,
             onItemSelected: viewModel.setSelectedTab,
           ),
+
+          // Main View Content
           Expanded(
-            child: _buildContent(viewModel),
+            child: _buildMainView(viewModel),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildContent(SysAdminViewModel viewModel) {
-    if (viewModel.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+  Widget _buildMainView(SysAdminViewModel viewModel) {
+    // If a specific radio was selected, drill down into RadioDetailScreen
+    if (viewModel.selectedRadioForDetail != null) {
+      return RadioDetailScreen(radio: viewModel.selectedRadioForDetail!);
     }
 
     switch (viewModel.selectedTab) {
       case 0:
-        return MonitoringScreen(
-          servers: viewModel.servers,
-          totalServers: viewModel.totalServers,
-          runningServers: viewModel.runningServers,
-          failedServers: viewModel.failedServers,
-          averageCpu: viewModel.averageCpuUsage,
-          averageMemory: viewModel.averageMemoryUsage,
-          backups: viewModel.backups,
-          criticalEvents: viewModel.criticalSecurityEvents,
-          warningEvents: viewModel.warningSecurityEvents,
-          successfulDeployments: viewModel.successfulDeployments,
-          failedDeployments: viewModel.failedDeployments,
-        );
+        return const DashboardScreen();
       case 1:
-        return ServersScreen(
-          servers: viewModel.servers,
-          onRestart: viewModel.restartServer,
-          onUpdate: viewModel.updateServer,
-        );
+        return const UsersScreen();
       case 2:
-        return SecurityScreen(
-          logs: viewModel.securityLogs,
-          onAddLog: viewModel.addSecurityLog,
-        );
+        return const RadiosScreen();
       case 3:
-        return BackupsScreen(
-          backups: viewModel.backups,
-          onCreate: viewModel.createBackup,
-          onDelete: viewModel.deleteBackup,
-          onRestore: viewModel.restoreBackup,
-        );
+        return const ShowsStatisticsScreen();
       case 4:
-        return DeploymentScreen(
-          deployments: viewModel.deployments,
-          onTrigger: viewModel.triggerDeployment,
-        );
+        return const TransactionsScreen();
+      case 5:
+        return const SettingsScreen();
       default:
-        return const SizedBox.shrink();
+        return const DashboardScreen();
     }
   }
 }

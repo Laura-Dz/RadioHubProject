@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/program_model.dart';
+import '../../../core/models/technician/host_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/app_avatar.dart';
 import 'program_edit_modal.dart';
 
 class ProgramsScreen extends StatefulWidget {
@@ -13,11 +15,13 @@ class ProgramsScreen extends StatefulWidget {
 
 class _ProgramsScreenState extends State<ProgramsScreen> {
   final _search = TextEditingController();
+  final _scrollController = ScrollController();
   String? _categoryFilter;
 
   @override
   void dispose() {
     _search.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -112,11 +116,17 @@ class _ProgramsScreenState extends State<ProgramsScreen> {
             Expanded(
               child: filtered.isEmpty
                   ? _empty()
-                  : ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _ProgramCard(program: filtered[i]),
+                  : Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      trackVisibility: true,
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (_, i) => _ProgramCard(program: filtered[i]),
+                      ),
                     ),
             ),
           ],
@@ -191,6 +201,19 @@ class _ProgramCardState extends State<_ProgramCard> {
   @override
   Widget build(BuildContext context) {
     final p = widget.program;
+    final vm = context.watch<TechnicianViewModel>();
+    final matchedHosts = p.hostIds.isNotEmpty
+        ? p.hostIds
+            .map((id) => vm.hosts.cast<Host?>().firstWhere((h) => h?.id == id, orElse: () => null))
+            .whereType<Host>()
+            .toList()
+        : p.hostNames
+            .map((name) => vm.hosts.cast<Host?>().firstWhere(
+                (h) => h?.name.toLowerCase() == name.toLowerCase(),
+                orElse: () => null))
+            .whereType<Host>()
+            .toList();
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -249,13 +272,56 @@ class _ProgramCardState extends State<_ProgramCard> {
                         _tag('Comments', AppColors.info),
                     ],
                   ),
-                  if (p.hostNames.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text('Hosts: ${p.hostsLabel}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 11.5, color: AppColors.textMuted)),
+                  if (p.hostNames.isNotEmpty || matchedHosts.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Text(
+                          'Hosts: ',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (matchedHosts.isNotEmpty) ...[
+                          SizedBox(
+                            height: 22,
+                            width: matchedHosts.length == 1
+                                ? 22
+                                : (22 + (matchedHosts.length - 1) * 14.0).clamp(22.0, 64.0),
+                            child: Stack(
+                              children: [
+                                for (int i = 0; i < matchedHosts.length && i < 3; i++)
+                                  Positioned(
+                                    left: i * 14.0,
+                                    child: AppAvatar(
+                                      photoUrl: matchedHosts[i].photoUrl,
+                                      name: matchedHosts[i].name,
+                                      radius: 11,
+                                      border: Border.all(color: Colors.white, width: 1.5),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Flexible(
+                          child: Text(
+                            p.hostsLabel.isNotEmpty
+                                ? p.hostsLabel
+                                : matchedHosts.map((h) => h.name).join(', '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),

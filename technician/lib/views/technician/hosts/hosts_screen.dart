@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/app_avatar.dart';
 
 class HostsScreen extends StatefulWidget {
   const HostsScreen({Key? key}) : super(key: key);
@@ -182,22 +183,10 @@ class _HostCardState extends State<_HostCard> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  h.name.isNotEmpty ? h.name.substring(0, 1).toUpperCase() : '?',
-                  style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary),
-                ),
-              ),
+            AppAvatar(
+              photoUrl: h.photoUrl,
+              name: h.name,
+              radius: 26,
             ),
             const SizedBox(width: 16),
             Expanded(

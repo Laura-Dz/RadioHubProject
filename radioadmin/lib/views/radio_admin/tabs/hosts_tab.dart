@@ -4,6 +4,7 @@ import '../../../view_models/radio_admin_view_model.dart';
 import '../../../core/models/radio_admin/host_model.dart';
 import '../../../core/models/radio_admin/program_model.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../core/widgets/app_avatar.dart';
 import 'widgets/host_form_dialog.dart';
 
 class HostsTab extends StatelessWidget {
@@ -174,19 +175,12 @@ class HostsTab extends StatelessWidget {
             flex: 3,
             child: Row(
               children: [
-                CircleAvatar(
+                AppAvatar(
+                  photoUrl: host.photoUrl,
+                  name: host.name,
                   radius: 20,
                   backgroundColor: RadioAdminColors.primary.withOpacity(0.1),
-                  backgroundImage: host.photoUrl != null ? NetworkImage(host.photoUrl!) : null,
-                  child: host.photoUrl == null
-                      ? Text(
-                          host.name.isNotEmpty ? host.name[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: RadioAdminColors.primary,
-                          ),
-                        )
-                      : null,
+                  textColor: RadioAdminColors.primary,
                 ),
                 const SizedBox(width: 12),
                 Column(

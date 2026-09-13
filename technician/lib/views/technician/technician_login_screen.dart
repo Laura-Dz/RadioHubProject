@@ -300,6 +300,7 @@ class _State extends State<TechnicianLoginScreen> {
       final radioId = data['radioId'] as String?;
       final radioName = (data['radioName'] ?? 'Radio Station') as String;
       final name = (data['displayName'] ?? data['name'] ?? 'Technician') as String;
+      final photoUrl = data['photoUrl'] as String?;
 
       if (radioId == null || radioId.isEmpty) {
         await FirebaseAuth.instance.signOut();
@@ -311,6 +312,7 @@ class _State extends State<TechnicianLoginScreen> {
             radioId: radioId,
             radioName: radioName,
             technicianName: name,
+            technicianPhotoUrl: photoUrl,
           );
 
       Navigator.of(context).pushReplacement(MaterialPageRoute(

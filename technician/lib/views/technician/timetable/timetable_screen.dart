@@ -5,8 +5,21 @@ import '../../../core/models/technician/timetable_slot_model.dart';
 import '../../../core/constants/app_colors.dart';
 import 'edit_slot_modal.dart';
 
-class TimetableScreen extends StatelessWidget {
+class TimetableScreen extends StatefulWidget {
   const TimetableScreen({Key? key}) : super(key: key);
+
+  @override
+  State<TimetableScreen> createState() => _TimetableScreenState();
+}
+
+class _TimetableScreenState extends State<TimetableScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,9 +96,23 @@ class TimetableScreen extends StatelessWidget {
                   children: [
                     _header(),
                     Expanded(
-                      child: Row(
-                        children:
-                            List.generate(7, (i) => _dayColumn(context, vm, i + 1)),
+                      child: Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: List.generate(
+                                7,
+                                (i) => _dayColumn(context, vm, i + 1),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -138,12 +165,14 @@ class TimetableScreen extends StatelessWidget {
             ),
           ),
         ),
-        child: ListView(
+        child: Padding(
           padding: const EdgeInsets.all(8),
-          children: [
-            ...slots.map((s) => _slotCard(context, vm, s)),
-            _addCell(context, weekday),
-          ],
+          child: Column(
+            children: [
+              ...slots.map((s) => _slotCard(context, vm, s)),
+              _addCell(context, weekday),
+            ],
+          ),
         ),
       ),
     );

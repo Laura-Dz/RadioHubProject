@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../view_models/radio_admin_view_model.dart';
 import '../../../../core/models/radio_admin/staff_model.dart';
 import '../../../../core/constants/app_colors.dart';
+import 'avatar_picker.dart';
 
 class EditStaffModal extends StatefulWidget {
   final StaffMember staff;
@@ -17,6 +18,7 @@ class _EditStaffModalState extends State<EditStaffModal> {
   late final TextEditingController _name;
   late final TextEditingController _phone;
   late final TextEditingController _bio;
+  late String? _photoUrl;
   bool _saving = false;
 
   @override
@@ -25,6 +27,7 @@ class _EditStaffModalState extends State<EditStaffModal> {
     _name = TextEditingController(text: widget.staff.name);
     _phone = TextEditingController(text: widget.staff.phone);
     _bio = TextEditingController(text: widget.staff.bio ?? '');
+    _photoUrl = widget.staff.photoUrl;
   }
 
   @override
@@ -64,8 +67,17 @@ class _EditStaffModalState extends State<EditStaffModal> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                Center(
+                  child: AvatarPicker(
+                    initialUrl: _photoUrl,
+                    name: _name.text,
+                    onPhotoChanged: (url) => setState(() => _photoUrl = url),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _name,
+                  onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(labelText: 'Full name *'),
                   validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
                 ),
@@ -121,6 +133,7 @@ class _EditStaffModalState extends State<EditStaffModal> {
         'displayName': _name.text.trim(),
         'phone': _phone.text.trim(),
         'bio': _bio.text.trim(),
+        'photoUrl': _photoUrl,
       });
       if (mounted) {
         Navigator.pop(context);

@@ -6,6 +6,7 @@ import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
 import '../../../core/services/network_time_service.dart';
 import '../../../core/constants/app_colors.dart';
+import '../widgets/live_broadcast_timer.dart';
 import 'session_detail_screen.dart';
 
 class SessionsScreen extends StatelessWidget {
@@ -140,48 +141,66 @@ class SessionsScreen extends StatelessWidget {
 // LIVE CARD — with End button
 // ============================================================
 
-class _LiveCard extends StatelessWidget {
+class _LiveCard extends StatefulWidget {
   final Session session;
   const _LiveCard({required this.session});
 
   @override
-  Widget build(BuildContext context) {
-    final started = session.actualStart ?? session.scheduledStart;
-    final elapsed = NetworkTimeService().now().difference(started);
-    final elapsedLabel = _fmtDuration(elapsed);
+  State<_LiveCard> createState() => _LiveCardState();
+}
 
-    return Container(
+class _LiveCardState extends State<_LiveCard> {
+  bool _isOvertime = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = widget.session;
+    final primaryColor = _isOvertime ? AppColors.error : AppColors.success;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.success.withOpacity(0.12),
-            AppColors.success.withOpacity(0.03),
+            primaryColor.withOpacity(0.12),
+            primaryColor.withOpacity(0.03),
           ],
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.success.withOpacity(0.4), width: 1.5),
+        border: Border.all(
+          color: _isOvertime ? AppColors.error : AppColors.success.withOpacity(0.4),
+          width: _isOvertime ? 2.0 : 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _pulsingDot(),
+              _pulsingDot(color: primaryColor),
               const SizedBox(width: 8),
-              const Text('ON AIR',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.success,
-                    letterSpacing: 0.8,
-                  )),
+              Text(
+                _isOvertime ? 'ON AIR · OVERRUN' : 'ON AIR',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: primaryColor,
+                  letterSpacing: 0.8,
+                ),
+              ),
               const Spacer(),
-              Text(elapsedLabel,
-                  style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.textSecondary,
-                      fontFamily: 'monospace')),
+              LiveBroadcastTimer(
+                scheduledStart: session.scheduledStart,
+                scheduledEnd: session.scheduledEnd,
+                isLive: true,
+                isCompact: true,
+                onOvertimeChanged: (overtime) {
+                  if (mounted && _isOvertime != overtime) {
+                    setState(() => _isOvertime = overtime);
+                  }
+                },
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -202,6 +221,14 @@ class _LiveCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 12.5, fontStyle: FontStyle.italic)),
           ],
+          const SizedBox(height: 12),
+          // Prominent studio live timer
+          LiveBroadcastTimer(
+            scheduledStart: session.scheduledStart,
+            scheduledEnd: session.scheduledEnd,
+            isLive: true,
+            isCompact: false,
+          ),
           if (session.sessionCode != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -251,7 +278,7 @@ class _LiveCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _endSession(context, session),
+                  onPressed: () => _LiveCard._endSession(context, session),
                   icon: const Icon(Icons.stop, size: 16),
                   label: const Text('End session'),
                   style: ElevatedButton.styleFrom(
@@ -268,17 +295,8 @@ class _LiveCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static Widget _pulsingDot() {
-    return _PulsingDot();
-  }
-
-  static String _fmtDuration(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return h > 0 ? '${h}h ${m}m' : '${d.inMinutes}m ${s}s';
+  Widget _pulsingDot({Color color = AppColors.success}) {
+    return _PulsingDot(color: color);
   }
 
   static Future<void> _endSession(BuildContext context, Session s) async {
@@ -296,8 +314,8 @@ class _LiveCard extends StatelessWidget {
           ),
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context, true),
+            child: const Text('End'),
             icon: const Icon(Icons.stop, size: 16),
-            label: const Text('End'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
@@ -686,6 +704,9 @@ class _EmptyLine extends StatelessWidget {
 }
 
 class _PulsingDot extends StatefulWidget {
+  final Color color;
+  const _PulsingDot({Key? key, this.color = AppColors.success}) : super(key: key);
+
   @override
   State<_PulsingDot> createState() => _PulsingDotState();
 }
@@ -716,8 +737,8 @@ class _PulsingDotState extends State<_PulsingDot>
       child: Container(
         width: 10,
         height: 10,
-        decoration: const BoxDecoration(
-          color: AppColors.success,
+        decoration: BoxDecoration(
+          color: widget.color,
           shape: BoxShape.circle,
         ),
       ),

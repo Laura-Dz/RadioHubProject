@@ -106,12 +106,16 @@ class ScheduleTab extends StatelessWidget {
         children: [
           _buildDayHeaders(days),
           Expanded(
-            child: ListView.builder(
-              itemCount: hours.length,
-              itemBuilder: (context, hourIndex) {
-                final hour = hours[hourIndex];
-                return _buildHourRow(context, viewModel, days, sessionsInWeek, hour);
-              },
+            child: Scrollbar(
+              thumbVisibility: true,
+              trackVisibility: true,
+              child: ListView.builder(
+                itemCount: hours.length,
+                itemBuilder: (context, hourIndex) {
+                  final hour = hours[hourIndex];
+                  return _buildHourRow(context, viewModel, days, sessionsInWeek, hour);
+                },
+              ),
             ),
           ),
         ],

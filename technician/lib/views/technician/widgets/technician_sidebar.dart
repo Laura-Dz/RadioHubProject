@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/app_avatar.dart';
 import '../technician_login_screen.dart';
 
 class TechnicianSidebar extends StatefulWidget {
@@ -10,6 +11,7 @@ class TechnicianSidebar extends StatefulWidget {
   final Function(int) onItemSelected;
   final String radioName;
   final String technicianName;
+  final String? technicianPhotoUrl;
 
   const TechnicianSidebar({
     Key? key,
@@ -17,6 +19,7 @@ class TechnicianSidebar extends StatefulWidget {
     required this.onItemSelected,
     required this.radioName,
     required this.technicianName,
+    this.technicianPhotoUrl,
   }) : super(key: key);
 
   @override
@@ -55,14 +58,12 @@ class _State extends State<TechnicianSidebar> {
             padding: EdgeInsets.fromLTRB(_expanded ? 16 : 12, 20, 12, 16),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.settings_input_antenna,
-                      color: AppColors.primary, size: 20),
+                AppAvatar(
+                  photoUrl: widget.technicianPhotoUrl,
+                  name: widget.technicianName.isNotEmpty ? widget.technicianName : 'Technician',
+                  radius: 18,
+                  backgroundColor: AppColors.primary.withOpacity(0.12),
+                  textColor: AppColors.primary,
                 ),
                 if (_expanded) ...[
                   const SizedBox(width: 10),

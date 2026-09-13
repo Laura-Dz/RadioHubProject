@@ -54,6 +54,8 @@ class _State extends State<TechnicianDashboard> {
               radioName: widget.radioName,
               technicianName:
                   context.watch<TechnicianViewModel>().technicianName,
+              technicianPhotoUrl:
+                  context.watch<TechnicianViewModel>().technicianPhotoUrl,
             ),
             Expanded(child: pages[_idx]),
           ],

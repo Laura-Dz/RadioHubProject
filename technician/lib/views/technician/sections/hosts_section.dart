@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/technician/host_model.dart';
+import '../../../core/utils/app_avatar.dart';
 import '../../../view_models/technician_view_model.dart';
 
 class HostsSection extends StatelessWidget {
@@ -37,12 +38,10 @@ class HostsSection extends StatelessWidget {
                       final h = viewModel.hosts[index];
                       return Card(
                         child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blue.shade100,
-                            child: Text(
-                              h.name.isNotEmpty ? h.name.substring(0, 1).toUpperCase() : '?',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                          leading: AppAvatar(
+                            photoUrl: h.photoUrl,
+                            name: h.name,
+                            radius: 20,
                           ),
                           title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('${h.email}\n${h.programIds.length} program(s)'),

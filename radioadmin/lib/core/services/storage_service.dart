@@ -45,6 +45,20 @@ class StorageService {
     );
   }
 
+  /// Uploads a staff/host profile photo to radios/{radioId}/avatars/avatar_{timestamp}.{ext}
+  Future<String> uploadAvatar(
+    String radioId,
+    XFile file, {
+    Function(double progress)? onProgress,
+  }) async {
+    return _uploadImage(
+      radioId: radioId,
+      file: file,
+      prefix: 'avatars/avatar',
+      onProgress: onProgress,
+    );
+  }
+
   /// Uploads any general media item (audio track, jingle, recording)
   Future<String> uploadMedia(
     String radioId,

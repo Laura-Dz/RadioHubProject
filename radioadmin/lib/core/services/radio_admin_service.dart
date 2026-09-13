@@ -189,6 +189,7 @@ class RadioAdminService {
     required String phone,
     required StaffRole role,
     String? bio,
+    String? photoUrl,
     String? password, // required for technician
   }) async {
     final cleanEmail = email.toLowerCase().trim();
@@ -214,6 +215,7 @@ class RadioAdminService {
         'email': cleanEmail,
         'phone': phone.trim(),
         'bio': bio?.trim() ?? '',
+        'photoUrl': photoUrl,
         'radioId': radioId,
         'radioName': radioName,
         'role': 'host',
@@ -239,10 +241,17 @@ class RadioAdminService {
         'email': cleanEmail,
         'phone': phone.trim(),
         'bio': bio?.trim() ?? '',
+        'photoUrl': photoUrl,
         'password': password,
       });
       if (result.data['success'] != true) {
         throw Exception(result.data['error'] ?? 'Failed to create technician');
+      }
+      final uid = result.data['uid'] as String?;
+      if (uid != null && photoUrl != null && photoUrl.isNotEmpty) {
+        try {
+          await _firestore.collection('users').doc(uid).update({'photoUrl': photoUrl});
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('Cloud Function createTechnicianAccount error: $e. Falling back to direct Firestore creation.');
@@ -255,6 +264,7 @@ class RadioAdminService {
         'email': cleanEmail,
         'phone': phone.trim(),
         'bio': bio?.trim() ?? '',
+        'photoUrl': photoUrl,
         'radioId': radioId,
         'radioName': radioName,
         'role': 'technician',

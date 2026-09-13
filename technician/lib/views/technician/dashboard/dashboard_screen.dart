@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
+import '../../../core/models/technician/host_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/app_avatar.dart';
+import '../widgets/live_broadcast_timer.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -63,6 +66,12 @@ class DashboardScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    LiveBroadcastTimer(
+                      scheduledStart: live.first.scheduledStart,
+                      scheduledEnd: live.first.scheduledEnd,
+                      isLive: true,
+                      isCompact: true,
+                    ),
                   ],
                 ),
               ),
@@ -85,8 +94,35 @@ class DashboardScreen extends StatelessWidget {
                     Text(nextSession.programName,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
-                    Text('${nextSession.hostName} • ${DateFormat('EEE d MMM • HH:mm').format(nextSession.scheduledStart)}',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Builder(
+                      builder: (_) {
+                        final host = vm.hosts.cast<Host?>().firstWhere(
+                              (h) =>
+                                  h?.id == nextSession.hostId ||
+                                  (nextSession.hostName.isNotEmpty &&
+                                      h?.name.toLowerCase() ==
+                                          nextSession.hostName.toLowerCase()),
+                              orElse: () => null,
+                            );
+                        return Row(
+                          children: [
+                            if (nextSession.hostName.isNotEmpty) ...[
+                              AppAvatar(
+                                photoUrl: host?.photoUrl,
+                                name: nextSession.hostName,
+                                radius: 11,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Text(
+                              '${nextSession.hostName} • ${DateFormat('EEE d MMM • HH:mm').format(nextSession.scheduledStart)}',
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

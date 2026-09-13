@@ -23,6 +23,7 @@ class TechnicianViewModel extends ChangeNotifier {
   String _radioId = '';
   String _radioName = '';
   String _technicianName = '';
+  String? _technicianPhotoUrl;
   bool _isInitialized = false;
 
   List<ProgramCategory> _categories = [];
@@ -75,6 +76,7 @@ class TechnicianViewModel extends ChangeNotifier {
   String get radioId => _radioId;
   String get radioName => _radioName;
   String get technicianName => _technicianName;
+  String? get technicianPhotoUrl => _technicianPhotoUrl;
   bool get isInitialized => _isInitialized;
   List<ProgramCategory> get categories => _categories;
   List<Session> get sessions => _sessions;
@@ -97,11 +99,13 @@ class TechnicianViewModel extends ChangeNotifier {
     required String radioId,
     required String radioName,
     required String technicianName,
+    String? technicianPhotoUrl,
   }) {
     if (_isInitialized && _radioId == radioId) return;
     _radioId = radioId;
     _radioName = radioName;
     _technicianName = technicianName;
+    _technicianPhotoUrl = technicianPhotoUrl;
     _isInitialized = true;
     _attachStreams();
     _service.ensureDefaultCategories(_radioId).catchError((e) {

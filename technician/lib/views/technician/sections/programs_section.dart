@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/technician/program_model.dart';
+import '../../../core/models/technician/host_model.dart';
+import '../../../core/utils/app_avatar.dart';
 import '../../../view_models/technician_view_model.dart';
 
 class ProgramsSection extends StatelessWidget {
@@ -35,6 +37,10 @@ class ProgramsSection extends StatelessWidget {
                     itemCount: viewModel.programs.length,
                     itemBuilder: (context, index) {
                       final p = viewModel.programs[index];
+                      final matchedHosts = p.hostIds
+                          .map((id) => viewModel.hosts.cast<Host?>().firstWhere((h) => h?.id == id, orElse: () => null))
+                          .whereType<Host>()
+                          .toList();
                       return Card(
                         child: ListTile(
                           leading: CircleAvatar(
@@ -42,7 +48,29 @@ class ProgramsSection extends StatelessWidget {
                             child: const Icon(Icons.tv, color: Colors.blue),
                           ),
                           title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${p.category}\n${p.description}'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${p.category}\n${p.description}'),
+                              if (matchedHosts.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    for (final h in matchedHosts.take(3))
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: AppAvatar(photoUrl: h.photoUrl, name: h.name, radius: 10),
+                                      ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      matchedHosts.map((h) => h.name).join(', '),
+                                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
                           isThreeLine: true,
                           trailing: IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),

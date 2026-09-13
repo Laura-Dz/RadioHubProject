@@ -4,6 +4,7 @@ import '../../../../view_models/radio_admin_view_model.dart';
 import '../../../../core/models/radio_admin/host_model.dart';
 import '../../../../core/models/radio_admin/program_model.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../staff/widgets/avatar_picker.dart';
 
 class HostFormDialog extends StatefulWidget {
   final RadioAdminViewModel viewModel;
@@ -27,10 +28,12 @@ class _HostFormDialogState extends State<HostFormDialog> {
   late TextEditingController _bioController;
   bool _isActive = true;
   List<String> _selectedProgramIds = [];
+  String? _photoUrl;
 
   @override
   void initState() {
     super.initState();
+    _photoUrl = widget.host?.photoUrl;
     _nameController = TextEditingController(text: widget.host?.name ?? '');
     _emailController = TextEditingController(text: widget.host?.email ?? '');
     _phoneController = TextEditingController(text: widget.host?.phone ?? '');
@@ -89,6 +92,15 @@ class _HostFormDialogState extends State<HostFormDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Center(
+                        child: AvatarPicker(
+                          initialUrl: _photoUrl,
+                          name: _nameController.text.isNotEmpty ? _nameController.text : (widget.host?.name ?? 'Host'),
+                          onPhotoChanged: (url) => setState(() => _photoUrl = url),
+                          radius: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                       TextFormField(
                         controller: _nameController,
                         decoration: _inputDecoration('Full Name', 'Enter host name'),
@@ -249,7 +261,7 @@ class _HostFormDialogState extends State<HostFormDialog> {
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
       bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
-      photoUrl: widget.host?.photoUrl,
+      photoUrl: _photoUrl,
       isActive: _isActive,
       programIds: _selectedProgramIds,
       createdAt: widget.host?.createdAt ?? DateTime.now(),

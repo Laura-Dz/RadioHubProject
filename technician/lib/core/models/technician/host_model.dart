@@ -9,6 +9,7 @@ class Host {
   final String? photoUrl;
   final String radioId;
   final String status;
+  final List<String> programIds;
   final DateTime? createdAt;
   final DateTime? lastActive;
 
@@ -21,6 +22,7 @@ class Host {
     this.photoUrl,
     required this.radioId,
     this.status = 'active',
+    this.programIds = const [],
     this.createdAt,
     this.lastActive,
   });
@@ -34,6 +36,7 @@ class Host {
         photoUrl: d['photoUrl']?.toString(),
         radioId: (d['radioId'] ?? '').toString(),
         status: (d['status'] ?? 'active').toString(),
+        programIds: List<String>.from(d['programIds'] ?? []),
         createdAt: FSParsers.toDate(d['createdAt']),
         lastActive: FSParsers.toDate(d['lastActive']),
       );

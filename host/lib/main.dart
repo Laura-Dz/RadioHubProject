@@ -1,43 +1,38 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import 'core/services/host_service.dart';
-import 'view_models/host_view_model.dart';
-import 'views/host/host_live_studio.dart';
-
+import 'core/services/network_time_service.dart';
 import 'firebase_options.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'core/constants/app_colors.dart';
+import 'view_models/host_view_model.dart';
+import 'views/entry/entry_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const MyApp());
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  NetworkTimeService().sync();
+  runApp(const HostApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class HostApp extends StatelessWidget {
+  const HostApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) => HostViewModel(
-            hostService: HostService(),
-            programId: 'morning-drive',
-          ),
-        ),
-      ],
+    return ChangeNotifierProvider(
+      create: (_) => HostViewModel(),
       child: MaterialApp(
-        title: 'RadioHub Host',
+        title: 'Host Studio',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+          scaffoldBackgroundColor: AppColors.background,
+          fontFamily: 'Inter',
         ),
-        home: const HostLiveStudio(),
+        routes: {
+          '/': (_) => const EntryScreen(),
+        },
       ),
     );
   }

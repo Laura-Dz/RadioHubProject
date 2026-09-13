@@ -7,6 +7,7 @@ class StaffContext {
   final String radioName;
   final String role; // 'host' | 'technician'
   final String displayName;
+  final String? photoUrl;
 
   StaffContext({
     required this.userId,
@@ -14,6 +15,7 @@ class StaffContext {
     required this.radioName,
     required this.role,
     required this.displayName,
+    this.photoUrl,
   });
 }
 
@@ -42,6 +44,7 @@ class StaffContextService {
       radioName: radioName,
       role: d['role'] ?? '',
       displayName: d['displayName'] ?? d['name'] ?? '',
+      photoUrl: d['photoUrl'] as String?,
     );
   }
 }

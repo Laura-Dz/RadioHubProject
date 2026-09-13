@@ -4,6 +4,7 @@ import '../../../view_models/radio_admin_view_model.dart';
 import '../../../core/models/radio_admin/program_model.dart';
 import '../../../core/models/radio_admin/host_model.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../core/widgets/app_avatar.dart';
 import 'widgets/program_form_dialog.dart';
 
 class ProgramsTab extends StatelessWidget {
@@ -118,14 +119,18 @@ class ProgramsTab extends StatelessWidget {
           ),
           // Data rows
           Expanded(
-            child: ListView.separated(
-              itemCount: viewModel.programs.length,
-              separatorBuilder: (_, __) =>
-                  Divider(height: 1, color: RadioAdminColors.divider),
-              itemBuilder: (context, index) {
-                final program = viewModel.programs[index];
-                return _buildProgramRow(context, program, viewModel);
-              },
+            child: Scrollbar(
+              thumbVisibility: true,
+              trackVisibility: true,
+              child: ListView.separated(
+                itemCount: viewModel.programs.length,
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, color: RadioAdminColors.divider),
+                itemBuilder: (context, index) {
+                  final program = viewModel.programs[index];
+                  return _buildProgramRow(context, program, viewModel);
+                },
+              ),
             ),
           ),
         ],
@@ -145,20 +150,21 @@ class ProgramsTab extends StatelessWidget {
   }
 
   Widget _buildProgramRow(BuildContext context, Program program, RadioAdminViewModel viewModel) {
-    final hostNames = program.hostIds.isNotEmpty
+    final matchedHosts = program.hostIds.isNotEmpty
         ? program.hostIds
             .map((id) => viewModel.hosts.firstWhere(
                   (h) => h.id == id,
                   orElse: () => Host(
-                    id: '', 
-                    radioId: '', 
-                    name: 'Unknown', 
+                    id: '',
+                    radioId: '',
+                    name: 'Unknown',
                     email: '',
                     createdAt: DateTime.now(),
                   ),
-                ).name)
-            .join(', ')
-        : 'No hosts';
+                ))
+            .where((h) => h.id.isNotEmpty && h.name != 'Unknown')
+            .toList()
+        : <Host>[];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -231,15 +237,50 @@ class ProgramsTab extends StatelessWidget {
           // Hosts
           Expanded(
             flex: 2,
-            child: Text(
-              hostNames,
-              style: const TextStyle(
-                fontSize: 13,
-                color: RadioAdminColors.textPrimary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: matchedHosts.isEmpty
+                ? const Text(
+                    'No hosts',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: RadioAdminColors.textMuted,
+                    ),
+                  )
+                : Row(
+                    children: [
+                      SizedBox(
+                        height: 26,
+                        width: matchedHosts.length == 1
+                            ? 26
+                            : (26 + (matchedHosts.length - 1) * 16.0).clamp(26.0, 74.0),
+                        child: Stack(
+                          children: [
+                            for (int i = 0; i < matchedHosts.length && i < 3; i++)
+                              Positioned(
+                                left: i * 16.0,
+                                child: AppAvatar(
+                                  photoUrl: matchedHosts[i].photoUrl,
+                                  name: matchedHosts[i].name,
+                                  radius: 13,
+                                  border: Border.all(color: Colors.white, width: 1.5),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          matchedHosts.map((h) => h.name).join(', '),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: RadioAdminColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
           ),
           // Duration
           Expanded(

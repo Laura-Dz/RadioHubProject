@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/models/radio_admin/staff_model.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_avatar.dart';
 
 class StaffCard extends StatelessWidget {
   final StaffMember staff;
@@ -32,17 +33,12 @@ class StaffCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          AppAvatar(
+            photoUrl: s.photoUrl,
+            name: s.name,
             radius: 22,
             backgroundColor: isSusp ? AppColors.error.withOpacity(0.1) : AppColors.primary.withOpacity(0.1),
-            child: Text(
-              s.name.isNotEmpty ? s.name[0].toUpperCase() : '?',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isSusp ? AppColors.error : AppColors.primary,
-              ),
-            ),
+            textColor: isSusp ? AppColors.error : AppColors.primary,
           ),
           const SizedBox(width: 14),
           Expanded(

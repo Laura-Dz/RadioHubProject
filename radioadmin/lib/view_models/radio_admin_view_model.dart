@@ -7,6 +7,7 @@ import '../core/models/radio_admin/announcement_slot_model.dart';
 import '../core/models/radio_admin/radio_profile_model.dart';
 import '../core/models/radio_admin/subscription_model.dart';
 import '../core/models/radio_admin/staff_model.dart';
+import '../core/models/radio_admin/host_model.dart';
 import '../core/models/radio_admin/transaction_model.dart';
 import '../core/models/radio_admin/metrics_model.dart';
 import '../core/models/radio_admin/recommendation_model.dart';
@@ -72,6 +73,8 @@ class RadioAdminViewModel extends ChangeNotifier {
   String? get error => _error;
   Subscription? get subscription => _subscription;
   List<StaffMember> get staff => _staff;
+  List<StaffMember> get hosts => _staff.where((s) => s.role == StaffRole.host).toList();
+  List<StaffMember> get technicians => _staff.where((s) => s.role == StaffRole.technician).toList();
   List<AnnouncementRequest> get pendingAnnouncements => _pendingAnnouncements;
   List<AnnouncementRequest> get scheduledAnnouncements => _scheduledAnnouncements;
   List<AnnouncementTariff> get tariffs => _tariffs;
@@ -386,12 +389,17 @@ class RadioAdminViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String> uploadStaffAvatar(XFile file, {Function(double progress)? onProgress}) async {
+    return await _storageService.uploadAvatar(_radioId, file, onProgress: onProgress);
+  }
+
   Future<void> createStaff({
     required String name,
     required String email,
     required String phone,
     String? bio,
     required StaffRole role,
+    String? photoUrl,
     String? password,
   }) async {
     await _service.createStaff(
@@ -402,8 +410,31 @@ class RadioAdminViewModel extends ChangeNotifier {
       phone: phone,
       bio: bio,
       role: role,
+      photoUrl: photoUrl,
       password: password,
     );
+  }
+
+  Future<void> createHost(Host host) async {
+    await createStaff(
+      name: host.name,
+      email: host.email,
+      phone: host.phone ?? '',
+      bio: host.bio,
+      role: StaffRole.host,
+      photoUrl: host.photoUrl,
+    );
+  }
+
+  Future<void> updateHost(Host host) async {
+    await updateStaff(host.id, {
+      'name': host.name,
+      'displayName': host.name,
+      'phone': host.phone,
+      'bio': host.bio,
+      'photoUrl': host.photoUrl,
+      'isActive': host.isActive,
+    });
   }
 
   Future<void> resetTechnicianPassword({

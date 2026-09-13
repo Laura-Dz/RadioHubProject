@@ -18,9 +18,16 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
   DateTime _weekStart = _monday(NetworkTimeService().now());
+  final ScrollController _scrollController = ScrollController();
 
   static DateTime _monday(DateTime d) =>
       DateTime(d.year, d.month, d.day).subtract(Duration(days: d.weekday - 1));
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,9 +182,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         children: [
                           _headerRow(days),
                           Expanded(
-                            child: Row(
-                              children: days.map((d) =>
-                                _dayColumn(vm, d, sessionsInWeek)).toList(),
+                            child: Scrollbar(
+                              controller: _scrollController,
+                              thumbVisibility: true,
+                              trackVisibility: true,
+                              child: SingleChildScrollView(
+                                controller: _scrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: days.map((d) =>
+                                      _dayColumn(vm, d, sessionsInWeek)).toList(),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -316,14 +335,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       style: TextStyle(color: AppColors.textMuted)),
                 ),
               )
-            : ListView(
+            : Padding(
                 padding: const EdgeInsets.all(8),
-                children: entries.map((e) {
-                  if (e.special != null) {
-                    return _specialCard(e.special!);
-                  }
-                  return _slotCell(vm, e.slot!, day, e.session, specials);
-                }).toList(),
+                child: Column(
+                  children: entries.map((e) {
+                    if (e.special != null) {
+                      return _specialCard(e.special!);
+                    }
+                    return _slotCell(vm, e.slot!, day, e.session, specials);
+                  }).toList(),
+                ),
               ),
       ),
     );

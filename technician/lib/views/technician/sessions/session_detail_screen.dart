@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../widgets/live_broadcast_timer.dart';
 
 class SessionDetailScreen extends StatelessWidget {
   final Session session;
@@ -69,6 +70,15 @@ class SessionDetailScreen extends StatelessWidget {
                       Row(
                         children: [
                           _statusChip(live),
+                          if (live.isLive) ...[
+                            const SizedBox(width: 8),
+                            LiveBroadcastTimer(
+                              scheduledStart: live.scheduledStart,
+                              scheduledEnd: live.scheduledEnd,
+                              isLive: true,
+                              isCompact: true,
+                            ),
+                          ],
                           const Spacer(),
                           if (live.isLive && live.sessionCode != null)
                             _codeChip(live.sessionCode!),
@@ -82,6 +92,15 @@ class SessionDetailScreen extends StatelessWidget {
                         '${DateFormat('EEEE d MMMM').format(live.scheduledStart)} • ${DateFormat('HH:mm').format(live.scheduledStart)} – ${DateFormat('HH:mm').format(live.scheduledEnd)}',
                         style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                       ),
+                      if (live.isLive) ...[
+                        const SizedBox(height: 14),
+                        LiveBroadcastTimer(
+                          scheduledStart: live.scheduledStart,
+                          scheduledEnd: live.scheduledEnd,
+                          isLive: true,
+                          isCompact: false,
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -258,7 +258,7 @@ class DataSeeder {
           thematic: 'Regular ${program.name}',
           description: program.description,
           status: isLive
-              ? SessionStatus.live
+              ? SessionStatus.onAir
               : isEnded
                   ? SessionStatus.ended
                   : SessionStatus.scheduled,

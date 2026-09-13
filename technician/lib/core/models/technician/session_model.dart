@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/network_time_service.dart';
 import '../../utils/firestore_parsers.dart';
 
-enum SessionStatus { scheduled, live, ended, rediffusion, cancelled }
+enum SessionType { live, intermediary, special, flash }
+enum SessionStatus { scheduled, onAir, ended, cancelled }
 
 class Session {
   final String id;
@@ -23,6 +25,7 @@ class Session {
   final DateTime? actualStart;
   final DateTime? actualEnd;
   final SessionStatus status;
+  final SessionType sessionType;
   final bool isRediffusion;
   final String? sourceSessionId;  // when rediffusion
   final String? sessionCode;      // host access code, set on start
@@ -40,8 +43,8 @@ class Session {
     this.timetableSlotId,
     required this.programId,
     required this.programName,
-    required this.hostId,
-    required this.hostName,
+    this.hostId = '',
+    this.hostName = '',
     this.coHostIds = const [],
     this.coHostNames = const [],
     String? coHostId,
@@ -56,6 +59,7 @@ class Session {
     this.actualStart,
     this.actualEnd,
     this.status = SessionStatus.scheduled,
+    this.sessionType = SessionType.live,
     this.isRediffusion = false,
     this.sourceSessionId,
     this.sessionCode,
@@ -71,6 +75,29 @@ class Session {
 
   final String? coHostId;
   final String? coHostName;
+
+  static String _statusKey(SessionStatus s) {
+    switch (s) {
+      case SessionStatus.scheduled: return 'scheduled';
+      case SessionStatus.onAir: return 'on_air';
+      case SessionStatus.ended: return 'ended';
+      case SessionStatus.cancelled: return 'cancelled';
+    }
+  }
+
+  static SessionStatus statusFromKey(String? k) {
+    switch (k) {
+      case 'on_air':
+      case 'live':
+        return SessionStatus.onAir;
+      case 'ended':
+        return SessionStatus.ended;
+      case 'cancelled':
+        return SessionStatus.cancelled;
+      default:
+        return SessionStatus.scheduled;
+    }
+  }
 
   factory Session.fromFirestore(Map<String, dynamic> d, String id) {
     List<String> parsedCoHostIds = [];
@@ -107,8 +134,17 @@ class Session {
       actualStart: FSParsers.toDate(d['actualStart']),
       actualEnd: FSParsers.toDate(d['actualEnd']),
       status: SessionStatus.values.firstWhere(
-        (e) => e.toString() == 'SessionStatus.${d['status']}',
-        orElse: () => SessionStatus.scheduled,
+        (e) => _statusKey(e) == d['status'],
+        orElse: () => statusFromKey(d['status']?.toString()),
+      ),
+      sessionType: SessionType.values.firstWhere(
+        (e) => e.name == d['sessionType']?.toString(),
+        orElse: () {
+          if (d['sessionType'] == 'special') return SessionType.special;
+          if (d['sessionType'] == 'flash') return SessionType.flash;
+          if (d['sessionType'] == 'intermediary') return SessionType.intermediary;
+          return SessionType.live;
+        },
       ),
       isRediffusion: d['isRediffusion'] == true,
       sourceSessionId: d['sourceSessionId']?.toString(),
@@ -143,7 +179,8 @@ class Session {
         'scheduledEnd': Timestamp.fromDate(scheduledEnd),
         'actualStart': actualStart != null ? Timestamp.fromDate(actualStart!) : null,
         'actualEnd': actualEnd != null ? Timestamp.fromDate(actualEnd!) : null,
-        'status': status.toString().split('.').last,
+        'status': _statusKey(status),
+        'sessionType': sessionType.name,
         'isRediffusion': isRediffusion,
         'sourceSessionId': sourceSessionId,
         'sessionCode': sessionCode,
@@ -156,26 +193,90 @@ class Session {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-  /// True if current time is within 5 min before start.
-  bool get canBeStarted {
-    final now = DateTime.now();
-    final windowStart = scheduledStart.subtract(const Duration(minutes: 5));
-    return now.isAfter(windowStart) &&
-        now.isBefore(scheduledEnd) &&
-        status == SessionStatus.scheduled &&
-        !isRediffusion;
+  /// True when playing right now (red dot on the schedule).
+  bool get isOnAir => status == SessionStatus.onAir;
+
+  /// True when the slot has passed.
+  bool get isPassed =>
+      status == SessionStatus.ended ||
+      status == SessionStatus.cancelled ||
+      (status == SessionStatus.scheduled &&
+          scheduledEnd.isBefore(NetworkTimeService().now()));
+
+  /// The content-type tags used for coloring the schedule slot.
+  String get contentTag {
+    if (isPassed) return 'passed';
+    if (sessionType == SessionType.special) return 'special';
+    if (sessionType == SessionType.flash) return 'flash';
+    if (isRediffusion) return 'rediffusion';
+    switch (sessionType) {
+      case SessionType.live:
+        return 'live';
+      case SessionType.intermediary:
+        return 'intermediary';
+      case SessionType.special:
+        return 'special';
+      case SessionType.flash:
+        return 'flash';
+    }
   }
 
-  bool get isLive => status == SessionStatus.live;
+  /// Only live sessions (with hosts) can be rediffused later.
+  bool get canBeRediffused =>
+      sessionType == SessionType.live && !isRediffusion && !isPassed;
+
+  /// True if current time is within 5 min before start.
+  /// The session can be started only within 5 minutes of the scheduled start
+  /// and before the scheduled end. No other session may be live.
+  bool get isWithinStartWindow {
+    final now = NetworkTimeService().now();
+    final open = scheduledStart.subtract(const Duration(minutes: 5));
+    return now.isAfter(open) && now.isBefore(scheduledEnd);
+  }
+
+  /// True when the technician should be able to press "Start".
+  /// Actual live-collision check happens in the service layer.
+  bool get canBeStarted =>
+      status == SessionStatus.scheduled &&
+      !isRediffusion &&
+      isWithinStartWindow;
+
+  /// Backward-compatible alias
+  bool get canStartNow => canBeStarted;
+
+  /// Live sessions can be ended at any time from the moment they start.
+  bool get canBeEnded => status == SessionStatus.onAir;
+
+  /// Minutes until the start window opens. Negative if already open.
+  int get minutesUntilStart =>
+      scheduledStart.difference(NetworkTimeService().now()).inMinutes;
+
+  String get countdownLabel {
+    final diff = scheduledStart.difference(NetworkTimeService().now());
+    if (diff.inMinutes <= 0) return 'Starting now';
+    if (diff.inMinutes < 60) return 'in ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'in ${diff.inHours}h ${diff.inMinutes % 60}m';
+    return 'in ${diff.inDays}d';
+  }
+
+  /// Only scheduled sessions can be modified.
+  bool get canBeEdited => status == SessionStatus.scheduled;
+
+  /// Convenience — is this session in the past?
+  bool get isPast =>
+      status == SessionStatus.ended ||
+      status == SessionStatus.cancelled ||
+      scheduledEnd.isBefore(NetworkTimeService().now());
+
+  bool get isLive => isOnAir;
 
   Duration get duration => scheduledEnd.difference(scheduledStart);
 
   String get statusLabel {
     switch (status) {
       case SessionStatus.scheduled: return 'Scheduled';
-      case SessionStatus.live: return 'Live';
+      case SessionStatus.onAir: return 'Live';
       case SessionStatus.ended: return 'Ended';
-      case SessionStatus.rediffusion: return 'Rediffusion';
       case SessionStatus.cancelled: return 'Cancelled';
     }
   }
@@ -184,17 +285,16 @@ class Session {
   String get displayTag {
     if (isRediffusion) return 'REDIFFUSION';
     switch (status) {
-      case SessionStatus.live: return 'LIVE';
+      case SessionStatus.onAir: return 'LIVE';
       case SessionStatus.scheduled: return 'UPCOMING';
       case SessionStatus.ended: return 'ENDED';
       case SessionStatus.cancelled: return 'CANCELLED';
-      case SessionStatus.rediffusion: return 'REDIFFUSION';
     }
   }
 
   /// True only for genuine live broadcasts — no rediffusion.
   bool get showsLiveIndicator =>
-      !isRediffusion && status == SessionStatus.live;
+      !isRediffusion && status == SessionStatus.onAir;
 
   bool get showsRediffusionIndicator => isRediffusion;
 }

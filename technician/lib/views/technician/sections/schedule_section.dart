@@ -246,7 +246,7 @@ class _SessionActionsDialog extends StatelessWidget {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('🚀 Start Live'),
           ),
-        if (session.status == SessionStatus.live)
+        if (session.status == SessionStatus.onAir)
           ElevatedButton(
             onPressed: () async {
               await viewModel.endSession(session.id);

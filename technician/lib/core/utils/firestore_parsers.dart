@@ -19,9 +19,16 @@ class FSParsers {
 
   static DateTime? toDate(dynamic v) {
     if (v == null) return null;
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    if (v is String) return DateTime.tryParse(v);
+    if (v is Timestamp) return v.toDate().toLocal();
+    if (v is DateTime) return v.isUtc ? v.toLocal() : v;
+    if (v is int) {
+      return DateTime.fromMillisecondsSinceEpoch(v, isUtc: true).toLocal();
+    }
+    if (v is String) {
+      final parsed = DateTime.tryParse(v);
+      if (parsed == null) return null;
+      return parsed.isUtc ? parsed.toLocal() : parsed;
+    }
     return null;
   }
 }

@@ -9,6 +9,9 @@ import 'hosts/hosts_screen.dart';
 import 'programs/programs_screen.dart';
 import 'media/media_screen.dart';
 import 'metrics/metrics_screen.dart';
+import 'notifications/notifications_screen.dart';
+
+import 'widgets/session_reminder_host.dart';
 
 class TechnicianDashboard extends StatefulWidget {
   final String radioId;
@@ -36,20 +39,25 @@ class _State extends State<TechnicianDashboard> {
       ProgramsScreen(),           // 4
       MediaScreen(),              // 5
       MetricsScreen(),            // 6
-      Center(child: Text('Settings')), // 7
+      NotificationsScreen(),      // 7
+      Center(child: Text('Settings')), // 8
     ];
 
     return Scaffold(
-      body: Row(
-        children: [
-          TechnicianSidebar(
-            selectedIndex: _idx,
-            onItemSelected: (i) => setState(() => _idx = i),
-            radioName: widget.radioName,
-            technicianName: context.watch<TechnicianViewModel>().technicianName,
-          ),
-          Expanded(child: pages[_idx]),
-        ],
+      body: SessionReminderHost(
+        onOpenSessions: () => setState(() => _idx = 1),
+        child: Row(
+          children: [
+            TechnicianSidebar(
+              selectedIndex: _idx,
+              onItemSelected: (i) => setState(() => _idx = i),
+              radioName: widget.radioName,
+              technicianName:
+                  context.watch<TechnicianViewModel>().technicianName,
+            ),
+            Expanded(child: pages[_idx]),
+          ],
+        ),
       ),
     );
   }

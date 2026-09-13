@@ -42,6 +42,12 @@ dependencies:
   cloud_functions: ^5.2.2
   firebase_storage: ^12.4.5
   firebase_database: ^11.3.5
+  image_picker: ^1.1.2
+  cached_network_image: ^3.4.1
+  crypto: ^3.0.3
+  http: ^1.2.0
+  syncfusion_flutter_charts: ^27.1.50
+
 
 dev_dependencies:
   flutter_test:

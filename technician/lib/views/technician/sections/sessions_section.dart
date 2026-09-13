@@ -75,7 +75,7 @@ class SessionsSection extends StatelessWidget {
         label: const Text('Start'),
         style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
       );
-    } else if (s.status == SessionStatus.live) {
+    } else if (s.status == SessionStatus.onAir) {
       return ElevatedButton.icon(
         onPressed: () => vm.endSession(s.id),
         icon: const Icon(Icons.stop, size: 16),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../timetable/timetable_screen.dart';
 import '../schedule/schedule_screen.dart';
+import '../schedule/special_event_modal.dart';
 
 class ProgrammingScreen extends StatefulWidget {
   const ProgrammingScreen({Key? key}) : super(key: key);
@@ -33,6 +34,22 @@ class _ProgrammingScreenState extends State<ProgrammingScreen> {
                         fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(width: 24),
                 _segmented(),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () => showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => const SpecialEventModal(),
+                  ),
+                  icon: const Icon(Icons.warning_amber_rounded, size: 16),
+                  label: const Text('Special event / Flash'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
                 const Spacer(),
                 // Hint that this is a blueprint/schedule pair
                 Container(

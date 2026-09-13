@@ -32,6 +32,29 @@ class SessionDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (live.isPast)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.info.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.lock_outline, size: 16, color: AppColors.info),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'This session is in the past and cannot be modified.',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Status card
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -143,12 +166,22 @@ class SessionDetailScreen extends StatelessWidget {
   }
 
   Widget _statusChip(Session s) {
+    if (s.isRediffusion) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.gold.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('Rediffusion',
+            style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w700)),
+      );
+    }
     final (color, label) = switch (s.status) {
-      SessionStatus.live => (AppColors.success, 'Live'),
+      SessionStatus.onAir => (AppColors.success, 'Live'),
       SessionStatus.scheduled => (AppColors.primary, 'Scheduled'),
       SessionStatus.ended => (AppColors.textMuted, 'Ended'),
       SessionStatus.cancelled => (AppColors.error, 'Cancelled'),
-      SessionStatus.rediffusion => (AppColors.gold, 'Rediffusion'),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),

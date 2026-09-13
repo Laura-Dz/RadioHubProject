@@ -1,58 +1,56 @@
 import 'dart:typed_data';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'storage_service.dart';
 
 class MediaUploadResult {
   final String downloadUrl;
   final String storagePath;
-  final int durationSeconds;
   final int fileSizeKb;
   MediaUploadResult({
     required this.downloadUrl,
     required this.storagePath,
-    required this.durationSeconds,
     required this.fileSizeKb,
   });
 }
 
 class MediaUploadService {
-  final _storage = FirebaseStorage.instance;
-  static const maxBytes = 200 * 1024 * 1024; // 200 MB
+  final StorageService _storageService;
+  static const int maxBytes = 200 * 1024 * 1024; // 200 MB
+
+  MediaUploadService({StorageService? storageService})
+      : _storageService = storageService ?? StorageService();
 
   Future<MediaUploadResult> upload({
     required String radioId,
     required Uint8List bytes,
     required String fileName,
-    required String contentType,
+    required String contentType, // 'audio/mpeg', 'video/mp4', ...
     void Function(double)? onProgress,
   }) async {
+    if (bytes.isEmpty) throw Exception('File is empty.');
     if (bytes.length > maxBytes) {
-      throw Exception('File too large. Maximum is 200 MB.');
+      final mb = (bytes.length / 1024 / 1024).toStringAsFixed(1);
+      throw Exception('File is too large ($mb MB). Maximum is 200 MB.');
     }
 
+    final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
     final path =
-        'radios/$radioId/media/${DateTime.now().millisecondsSinceEpoch}_$fileName';
-    final ref = _storage.ref(path);
+        'radios/$radioId/media/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
-    final task = ref.putData(
-      bytes,
-      SettableMetadata(contentType: contentType),
+    final url = await _storageService.uploadBytes(
+      bytes: bytes,
+      path: path,
+      contentType: contentType,
+      onProgress: onProgress,
     );
 
-    final sub = task.snapshotEvents.listen((s) {
-      if (s.totalBytes > 0) onProgress?.call(s.bytesTransferred / s.totalBytes);
-    });
+    return MediaUploadResult(
+      downloadUrl: url,
+      storagePath: path,
+      fileSizeKb: bytes.length ~/ 1024,
+    );
+  }
 
-    try {
-      final snap = await task;
-      final url = await snap.ref.getDownloadURL();
-      return MediaUploadResult(
-        downloadUrl: url,
-        storagePath: path,
-        durationSeconds: 0, // extracted client-side before upload
-        fileSizeKb: bytes.length ~/ 1024,
-      );
-    } finally {
-      await sub.cancel();
-    }
+  Future<void> deleteByStoragePath(String path) async {
+    await _storageService.deleteOldFile(path);
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../view_models/technician_view_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../technician_login_screen.dart';
 
@@ -27,12 +29,13 @@ class _State extends State<TechnicianSidebar> {
 
   final _items = const [
     _I(Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
-    _I(Icons.play_circle_outline, Icons.play_circle, 'Sessions'),
+    _I(Icons.play_circle_outline, Icons.play_circle, 'Live sessions'),
     _I(Icons.calendar_view_week_outlined, Icons.calendar_view_week, 'Programming'),
     _I(Icons.groups_outlined, Icons.groups, 'Hosts'),
     _I(Icons.tv_outlined, Icons.tv, 'Programs'),
     _I(Icons.video_library_outlined, Icons.video_library, 'Media'),
     _I(Icons.analytics_outlined, Icons.analytics, 'Metrics'),
+    _I(Icons.notifications_outlined, Icons.notifications, 'Notifications'),
   ];
 
   @override
@@ -107,7 +110,7 @@ class _State extends State<TechnicianSidebar> {
             ),
           ),
           const Divider(height: 1, color: AppColors.divider),
-          _footer(Icons.settings_outlined, 'Settings', () => widget.onItemSelected(7), 7),
+          _footer(Icons.settings_outlined, 'Settings', () => widget.onItemSelected(8), 8),
           _footer(Icons.logout, 'Logout', () async {
             await FirebaseAuth.instance.signOut();
             if (context.mounted) {
@@ -116,7 +119,7 @@ class _State extends State<TechnicianSidebar> {
                 (route) => false,
               );
             }
-          }, 8, danger: true),
+          }, 9, danger: true),
           const SizedBox(height: 8),
         ],
       ),
@@ -127,6 +130,9 @@ class _State extends State<TechnicianSidebar> {
     final it = _items[i];
     final sel = widget.selectedIndex == i;
     final hov = _hovered == i;
+    final unreadCount =
+        context.select<TechnicianViewModel, int>((vm) => vm.unreadNotifications);
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = i),
@@ -153,12 +159,30 @@ class _State extends State<TechnicianSidebar> {
             child: Row(
               mainAxisAlignment: _expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
               children: [
-                Icon(
-                  sel ? it.active : it.icon,
-                  size: 20,
-                  color: sel
-                      ? AppColors.primary
-                      : (hov ? AppColors.textPrimary : AppColors.textSecondary),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      sel ? it.active : it.icon,
+                      size: 20,
+                      color: sel
+                          ? AppColors.primary
+                          : (hov ? AppColors.textPrimary : AppColors.textSecondary),
+                    ),
+                    if (!_expanded && it.label == 'Notifications' && unreadCount > 0)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 if (_expanded) ...[
                   const SizedBox(width: 12),
@@ -174,6 +198,19 @@ class _State extends State<TechnicianSidebar> {
                       ),
                     ),
                   ),
+                  if (it.label == 'Notifications' && unreadCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('$unreadCount',
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
                 ],
               ],
             ),

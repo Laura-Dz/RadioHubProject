@@ -21,23 +21,31 @@ class _EditSlotModalState extends State<EditSlotModal> {
   int _weekday = 1;
   int _startHour = 8;
   int _startMinute = 0;
-  int _endHour = 9;
-  int _endMinute = 0;
+  int _durationMinutes = 60;
+  final _durCtrl = TextEditingController(text: '60');
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.slot != null) {
-      _weekday = widget.slot!.weekday;
-      _startHour = widget.slot!.startHour;
-      _startMinute = widget.slot!.startMinute;
-      _endHour = widget.slot!.endHour;
-      _endMinute = widget.slot!.endMinute;
-      _hostIds = List<String>.from(widget.slot!.hostIds);
+      final s = widget.slot!;
+      _weekday = s.weekday;
+      _startHour = s.startHour;
+      _startMinute = s.startMinute;
+      _durationMinutes = (s.endHour * 60 + s.endMinute) - (s.startHour * 60 + s.startMinute);
+      if (_durationMinutes <= 0) _durationMinutes = 60;
+      _durCtrl.text = _durationMinutes.toString();
+      _hostIds = List<String>.from(s.hostIds);
     } else if (widget.initialWeekday != null) {
       _weekday = widget.initialWeekday!;
     }
+  }
+
+  @override
+  void dispose() {
+    _durCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -147,44 +155,12 @@ class _EditSlotModalState extends State<EditSlotModal> {
               ),
               const SizedBox(height: 14),
 
-              // Time range
-              const Text('Time range',
+              // Time and duration
+              const Text('Time & duration',
                   style: TextStyle(
                       fontSize: 12.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: _timeField(
-                      label: 'Start',
-                      hour: _startHour,
-                      minute: _startMinute,
-                      onPick: (h, m) => setState(() {
-                        _startHour = h;
-                        _startMinute = m;
-                        // Auto-adjust end if before start
-                        if (_endHour < h ||
-                            (_endHour == h && _endMinute <= m)) {
-                          _endHour = (h + 1) % 24;
-                          _endMinute = m;
-                        }
-                      }),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _timeField(
-                      label: 'End',
-                      hour: _endHour,
-                      minute: _endMinute,
-                      onPick: (h, m) => setState(() {
-                        _endHour = h;
-                        _endMinute = m;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
+              _timeAndDuration(),
               const SizedBox(height: 14),
 
               // Hosts for slot (scoped to program pool)
@@ -285,52 +261,92 @@ class _EditSlotModalState extends State<EditSlotModal> {
     );
   }
 
-  Widget _timeField({
-    required String label,
-    required int hour,
-    required int minute,
-    required Function(int, int) onPick,
-  }) =>
-      InkWell(
+  Widget _timeAndDuration() {
+    final endTotalMin = _startHour * 60 + _startMinute + _durationMinutes;
+    final endH = (endTotalMin ~/ 60) % 24;
+    final endM = endTotalMin % 60;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _startTimeField(),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _durationField(),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('End (auto)',
+                    style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(
+                  '${endH.toString().padLeft(2, '0')}:${endM.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _startTimeField() => InkWell(
         onTap: () async {
           final t = await showTimePicker(
             context: context,
-            initialTime: TimeOfDay(hour: hour, minute: minute),
+            initialTime: TimeOfDay(hour: _startHour, minute: _startMinute),
           );
-          if (t != null) onPick(t.hour, t.minute);
+          if (t != null) {
+            setState(() {
+              _startHour = t.hour;
+              _startMinute = t.minute;
+            });
+          }
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.border),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.access_time,
-                  size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textMuted)),
-                    Text(
-                      '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
+              const Text('Start',
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+              Text(
+                '${_startHour.toString().padLeft(2, '0')}:${_startMinute.toString().padLeft(2, '0')}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),
         ),
+      );
+
+  Widget _durationField() => TextField(
+        controller: _durCtrl,
+        keyboardType: TextInputType.number,
+        decoration: _dec('').copyWith(
+          labelText: 'Duration (min)',
+          isDense: true,
+        ),
+        onChanged: (v) {
+          final n = int.tryParse(v);
+          if (n != null && n > 0) setState(() => _durationMinutes = n);
+        },
       );
 
   InputDecoration _dec(String hint) => InputDecoration(
@@ -357,40 +373,56 @@ class _EditSlotModalState extends State<EditSlotModal> {
       );
       return;
     }
-    if (_endHour < _startHour ||
-        (_endHour == _startHour && _endMinute <= _startMinute)) {
+    if (_durationMinutes <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('End time must be after start time'),
+            content: Text('Duration must be positive'),
             backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    final endTotalMin = _startHour * 60 + _startMinute + _durationMinutes;
+    final endH = (endTotalMin ~/ 60) % 24;
+    final endM = endTotalMin % 60;
+
+    final vm = context.read<TechnicianViewModel>();
+    final hostNames = <String>[];
+    for (final id in _hostIds) {
+      final h = vm.hosts.where((x) => x.id == id);
+      if (h.isNotEmpty) hostNames.add(h.first.name);
+    }
+
+    final candidate = TimetableSlot(
+      id: widget.slot?.id ?? '',
+      radioId: vm.radioId,
+      programId: _program!.id,
+      programName: _program!.name,
+      weekday: _weekday,
+      startHour: _startHour,
+      startMinute: _startMinute,
+      endHour: endH,
+      endMinute: endM,
+      hostIds: _hostIds,
+      hostNames: hostNames,
+      createdAt: DateTime.now(),
+    );
+
+    if (vm.timetableOverlaps(candidate, excludeSlotId: widget.slot?.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'This slot overlaps an existing slot on ${TimetableSlot.dayNames[_weekday - 1]}.'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
 
     setState(() => _submitting = true);
     try {
-      final vm = context.read<TechnicianViewModel>();
-      final hostNames = <String>[];
-      for (final id in _hostIds) {
-        final h = vm.hosts.where((x) => x.id == id);
-        if (h.isNotEmpty) hostNames.add(h.first.name);
-      }
-
       if (widget.slot == null) {
-        await vm.createSlot(TimetableSlot(
-          id: '',
-          radioId: vm.radioId,
-          programId: _program!.id,
-          programName: _program!.name,
-          weekday: _weekday,
-          startHour: _startHour,
-          startMinute: _startMinute,
-          endHour: _endHour,
-          endMinute: _endMinute,
-          hostIds: _hostIds,
-          hostNames: hostNames,
-          createdAt: DateTime.now(),
-        ));
+        await vm.createSlot(candidate);
       } else {
         await vm.updateSlot(widget.slot!.id, {
           'programId': _program!.id,
@@ -398,8 +430,8 @@ class _EditSlotModalState extends State<EditSlotModal> {
           'weekday': _weekday,
           'startHour': _startHour,
           'startMinute': _startMinute,
-          'endHour': _endHour,
-          'endMinute': _endMinute,
+          'endHour': endH,
+          'endMinute': endM,
           'hostIds': _hostIds,
           'hostNames': hostNames,
         });

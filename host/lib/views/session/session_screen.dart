@@ -7,6 +7,7 @@ import '../ended/session_ended_screen.dart';
 import 'widgets/comments_column.dart';
 import 'widgets/live_broadcast_timer.dart';
 import 'widgets/side_panel.dart';
+import 'widgets/create_poll_modal.dart';
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({Key? key}) : super(key: key);
@@ -88,6 +89,15 @@ class _State extends State<SessionScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Create poll',
+            icon: const Icon(Icons.poll_outlined),
+            onPressed: () => showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const CreatePollModal(),
+            ),
+          ),
           LiveBroadcastTimerBadge(
             scheduledStart: session.scheduledStart,
             scheduledEnd: session.scheduledEnd,

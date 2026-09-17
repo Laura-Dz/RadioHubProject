@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../view_models/schedule_view_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/placeholder_image.dart';
+import '../../../core/widgets/safe_image.dart';
 import '../widgets/live_badge.dart';
 
 class ScheduleTab extends StatefulWidget {
@@ -224,28 +225,34 @@ class _ScheduleTabState extends State<ScheduleTab> with AutomaticKeepAliveClient
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),
-        leading: Container(
+        leading: SizedBox(
           width: 60,
           height: 60,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            image: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                ? DecorationImage(image: NetworkImage(item.imageUrl!), fit: BoxFit.cover)
-                : null,
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SafeImage(
+                  imageUrl: item.imageUrl,
+                  width: 60,
+                  height: 60,
+                  fallback: const PlaceholderImage(width: 60, height: 60),
+                ),
+              ),
+              if (isNow)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          child: isNow
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Center(
-                    child: Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                )
-              : (item.imageUrl == null || item.imageUrl!.isEmpty)
-                  ? const PlaceholderImage(width: 60, height: 60)
-                  : null,
         ),
         title: Text(
           item.title,

@@ -58,13 +58,17 @@ class ScheduleService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('startTime', isLessThanOrEqualTo: now)
-          .where('endTime', isGreaterThanOrEqualTo: now)
           .orderBy('startTime', descending: true)
-          .limit(1)
+          .limit(10)
           .get();
 
-      if (snapshot.docs.isEmpty) return null;
-      return ScheduleItem.fromFirestore(snapshot.docs.first.data() as Map<String, dynamic>, snapshot.docs.first.id);
+      for (final doc in snapshot.docs) {
+        final item = ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+        if (item.endTime.isAfter(now)) {
+          return item;
+        }
+      }
+      return null;
     } catch (e) {
       print('Error getting now playing: $e');
       return null;
@@ -77,13 +81,14 @@ class ScheduleService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('startTime', isGreaterThanOrEqualTo: now)
-          .where('type', isNotEqualTo: 'flash')
           .orderBy('startTime')
-          .limit(limit)
+          .limit(limit * 2)
           .get();
 
       return snapshot.docs
           .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .where((item) => item.type.toString().split('.').last != 'flash')
+          .take(limit)
           .toList();
     } catch (e) {
       print('Error getting upcoming shows: $e');
@@ -96,15 +101,15 @@ class ScheduleService {
       final now = DateTime.now();
       final snapshot = await _firestore
           .collection(_collection)
-          .where('startTime', isGreaterThanOrEqualTo: now)
           .where('type', isEqualTo: 'special')
-          .orderBy('startTime')
-          .limit(limit)
           .get();
 
-      return snapshot.docs
+      final items = snapshot.docs
           .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .where((item) => item.startTime.isAfter(now))
           .toList();
+      items.sort((a, b) => a.startTime.compareTo(b.startTime));
+      return items.take(limit).toList();
     } catch (e) {
       print('Error getting special events: $e');
       return [];
@@ -117,14 +122,24 @@ class ScheduleService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('channelId', isEqualTo: radioId)
-          .where('startTime', isLessThanOrEqualTo: now)
-          .where('endTime', isGreaterThanOrEqualTo: now)
-          .orderBy('startTime', descending: true)
-          .limit(1)
           .get();
 
-      if (snapshot.docs.isEmpty) return null;
-      return ScheduleItem.fromFirestore(snapshot.docs.first.data() as Map<String, dynamic>, snapshot.docs.first.id);
+      final items = snapshot.docs
+          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+
+      for (final item in items) {
+        if (item.startTime.isBefore(now) && item.endTime.isAfter(now)) {
+          return item;
+        }
+      }
+
+      final past = items.where((item) => item.startTime.isBefore(now)).toList();
+      if (past.isNotEmpty) {
+        past.sort((a, b) => b.startTime.compareTo(a.startTime));
+        return past.first;
+      }
+      return null;
     } catch (e) {
       print('Error getting current program: $e');
       return null;
@@ -138,14 +153,14 @@ class ScheduleService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('channelId', isEqualTo: radioId)
-          .where('startTime', isGreaterThanOrEqualTo: now)
-          .where('startTime', isLessThanOrEqualTo: tomorrow)
-          .orderBy('startTime')
           .get();
 
-      return snapshot.docs
+      final items = snapshot.docs
           .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .where((item) => item.startTime.isAfter(now) && item.startTime.isBefore(tomorrow))
           .toList();
+      items.sort((a, b) => a.startTime.compareTo(b.startTime));
+      return items;
     } catch (e) {
       print('Error getting upcoming programs: $e');
       return [];
@@ -153,18 +168,20 @@ class ScheduleService {
   }
 
   Stream<List<ScheduleItem>> streamScheduleForRadio(String radioId) {
-    final now = DateTime.now();
-    final tomorrow = now.add(const Duration(hours: 24));
     return _firestore
         .collection(_collection)
         .where('channelId', isEqualTo: radioId)
-        .where('startTime', isGreaterThanOrEqualTo: now)
-        .where('startTime', isLessThanOrEqualTo: tomorrow)
-        .orderBy('startTime')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+        .map((snapshot) {
+          final now = DateTime.now();
+          final tomorrow = now.add(const Duration(hours: 24));
+          final items = snapshot.docs
+              .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+              .where((item) => item.startTime.isAfter(now) && item.startTime.isBefore(tomorrow))
+              .toList();
+          items.sort((a, b) => a.startTime.compareTo(b.startTime));
+          return items;
+        });
   }
 
   Stream<List<Comment>> streamComments(String programId) {
@@ -184,13 +201,15 @@ class ScheduleService {
       final snapshot = await _firestore
           .collection('flashes')
           .where('isActive', isEqualTo: true)
-          .where('expiresAt', isGreaterThan: now)
-          .orderBy('createdAt', descending: true)
+          .limit(25)
           .get();
 
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => FlashProgram.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .where((f) => f.expiresAt == null || f.expiresAt!.isAfter(now))
           .toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     } catch (e) {
       print('Error getting active flashes: $e');
       return [];

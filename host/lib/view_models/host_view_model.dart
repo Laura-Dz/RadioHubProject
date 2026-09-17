@@ -120,7 +120,7 @@ class HostViewModel extends ChangeNotifier {
 
   Future<void> acceptCall(Call c) async {
     try {
-      await _calls.accept(c.id);
+      await _calls.accept(c.id, sessionId: _sessionId ?? c.sessionId);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -129,7 +129,7 @@ class HostViewModel extends ChangeNotifier {
 
   Future<void> holdCall(Call c) async {
     try {
-      await _calls.hold(c.id);
+      await _calls.hold(c.id, sessionId: _sessionId ?? c.sessionId);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -138,7 +138,7 @@ class HostViewModel extends ChangeNotifier {
 
   Future<void> declineCall(Call c) async {
     try {
-      await _calls.decline(c.id);
+      await _calls.decline(c.id, sessionId: _sessionId ?? c.sessionId);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -147,7 +147,7 @@ class HostViewModel extends ChangeNotifier {
 
   Future<void> endCall(Call c) async {
     try {
-      await _calls.end(c.id);
+      await _calls.end(c.id, sessionId: _sessionId ?? c.sessionId);
     } catch (e) {
       _error = e.toString();
       notifyListeners();

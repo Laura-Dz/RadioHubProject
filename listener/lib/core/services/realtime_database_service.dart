@@ -1,14 +1,30 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 /// Service for Firebase Realtime Database.
 ///
 /// Use cases in RadioHub:
-/// - Live comments during shows (per program)
+/// - Live comments during shows (per program / session)
 /// - Ephemeral program chat
 /// - Live listener counts / reactions
+/// - Real-time polls and live vote tallies
 class RealtimeDatabaseService {
-  final FirebaseDatabase _db = FirebaseDatabase.instance;
+  static const String databaseUrl =
+      'https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app';
+
+  static FirebaseDatabase get database {
+    try {
+      return FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: databaseUrl,
+      );
+    } catch (_) {
+      return FirebaseDatabase.instance;
+    }
+  }
+
+  FirebaseDatabase get _db => database;
 
   /// Push a new comment into the live chat for a program.
   /// Returns the generated comment key.

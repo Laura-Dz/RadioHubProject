@@ -72,12 +72,13 @@ class HomeViewModel extends BaseViewModel {
       final snapshot = await _firestore
           .collection('shows')
           .where('status', isEqualTo: 'live')
-          .orderBy('listenerCount', descending: true)
-          .limit(10)
+          .limit(20)
           .get();
-      _liveShows = snapshot.docs
+      final list = snapshot.docs
           .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      list.sort((a, b) => b.listenerCount.compareTo(a.listenerCount));
+      _liveShows = list.take(10).toList();
     } catch (e) {
       debugPrint('Error loading live shows: $e');
       _liveShows = [];
@@ -87,20 +88,25 @@ class HomeViewModel extends BaseViewModel {
   Future<void> _loadFollowedShows() async {
     try {
       final userId = _firestoreService.getCurrentUserId();
-      if (userId == null) {
+      if (userId == null || userId.isEmpty) {
         _followedShows = [];
         return;
       }
       final snapshot = await _firestore
           .collection('shows')
           .where('followers', arrayContains: userId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('startTime')
-          .limit(10)
+          .limit(20)
           .get();
-      _followedShows = snapshot.docs
+      final list = snapshot.docs
+          .where((doc) => (doc.data()['isActive'] ?? true) != false)
           .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      list.sort((a, b) {
+        if (a.startTime == null) return 1;
+        if (b.startTime == null) return -1;
+        return a.startTime!.compareTo(b.startTime!);
+      });
+      _followedShows = list.take(10).toList();
     } catch (e) {
       debugPrint('Error loading followed shows: $e');
       _followedShows = [];
@@ -109,15 +115,22 @@ class HomeViewModel extends BaseViewModel {
 
   Future<void> _loadChannels() async {
     try {
-      final snapshot = await _firestore
-          .collection('channels')
-          .where('isActive', isEqualTo: true)
-          .orderBy('followerCount', descending: true)
-          .limit(10)
+      var snapshot = await _firestore
+          .collection('radios')
+          .limit(20)
           .get();
-      _channels = snapshot.docs
+      if (snapshot.docs.isEmpty) {
+        snapshot = await _firestore
+            .collection('channels')
+            .limit(20)
+            .get();
+      }
+      final list = snapshot.docs
+          .where((doc) => (doc.data()['isActive'] ?? true) != false)
           .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      list.sort((a, b) => (b.followerCount ?? 0).compareTo(a.followerCount ?? 0));
+      _channels = list.take(10).toList();
     } catch (e) {
       debugPrint('Error loading channels: $e');
       _channels = [];
@@ -128,13 +141,14 @@ class HomeViewModel extends BaseViewModel {
     try {
       final snapshot = await _firestore
           .collection('shows')
-          .where('isActive', isEqualTo: true)
-          .orderBy('rating', descending: true)
-          .limit(10)
+          .limit(20)
           .get();
-      _recommendedShows = snapshot.docs
+      final list = snapshot.docs
+          .where((doc) => (doc.data()['isActive'] ?? true) != false)
           .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      list.sort((a, b) => b.rating.compareTo(a.rating));
+      _recommendedShows = list.take(10).toList();
     } catch (e) {
       debugPrint('Error loading recommended shows: $e');
       _recommendedShows = [];
@@ -145,13 +159,14 @@ class HomeViewModel extends BaseViewModel {
     try {
       final snapshot = await _firestore
           .collection('shows')
-          .where('isActive', isEqualTo: true)
-          .orderBy('listenerCount', descending: true)
-          .limit(10)
+          .limit(20)
           .get();
-      _trendingShows = snapshot.docs
+      final list = snapshot.docs
+          .where((doc) => (doc.data()['isActive'] ?? true) != false)
           .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      list.sort((a, b) => b.listenerCount.compareTo(a.listenerCount));
+      _trendingShows = list.take(10).toList();
     } catch (e) {
       debugPrint('Error loading trending shows: $e');
       _trendingShows = [];
@@ -162,13 +177,18 @@ class HomeViewModel extends BaseViewModel {
     try {
       final snapshot = await _firestore
           .collection('shows')
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .limit(10)
+          .limit(20)
           .get();
-      _newEpisodes = snapshot.docs
+      final list = snapshot.docs
+          .where((doc) => (doc.data()['isActive'] ?? true) != false)
           .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      list.sort((a, b) {
+        final aDate = a.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+      _newEpisodes = list.take(10).toList();
     } catch (e) {
       debugPrint('Error loading new episodes: $e');
       _newEpisodes = [];

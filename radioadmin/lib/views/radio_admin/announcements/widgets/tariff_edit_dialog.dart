@@ -15,6 +15,8 @@ class TariffEditDialog extends StatefulWidget {
 class _State extends State<TariffEditDialog> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _rate;
+  late final TextEditingController _nameController;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -22,18 +24,23 @@ class _State extends State<TariffEditDialog> {
     _rate = TextEditingController(
       text: widget.tariff.ratePer15SecUnit > 0 ? widget.tariff.ratePer15SecUnit.toStringAsFixed(0) : '',
     );
+    _nameController = TextEditingController(
+      text: widget.tariff.categoryLabel,
+    );
   }
 
   @override
   void dispose() {
     _rate.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.tariff.category.name[0].toUpperCase() +
-        widget.tariff.category.name.substring(1);
+    final label = widget.tariff.categoryLabel;
+    final isCustom = widget.tariff.isCustom;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: ConstrainedBox(
@@ -51,8 +58,10 @@ class _State extends State<TariffEditDialog> {
                     const Icon(Icons.price_change_outlined, color: AppColors.gold),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('$label rate',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        isCustom ? 'Edit $label Category' : '$label Rate',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18),
@@ -66,6 +75,22 @@ class _State extends State<TariffEditDialog> {
                   style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
+                if (isCustom) ...[
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Category Name',
+                      filled: true,
+                      fillColor: AppColors.background,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 TextFormField(
                   controller: _rate,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -89,16 +114,25 @@ class _State extends State<TariffEditDialog> {
                 ),
                 const SizedBox(height: 20),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (isCustom && widget.tariff.id.isNotEmpty) ...[
+                      TextButton.icon(
+                        onPressed: _saving ? null : _delete,
+                        icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+                        label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+                      ),
+                    ],
+                    const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.check, size: 16),
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.check, size: 16),
                       label: const Text('Save rate'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -117,11 +151,15 @@ class _State extends State<TariffEditDialog> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final isCustom = widget.tariff.isCustom;
     final updated = AnnouncementTariff(
       id: widget.tariff.id,
       radioId: widget.tariff.radioId,
       category: widget.tariff.category,
-      ratePer15SecUnit: double.parse(_rate.text),
+      customCategoryName: isCustom ? _nameController.text.trim() : widget.tariff.customCategoryName,
+      ratePer15SecUnit: double.parse(_rate.text.trim()),
+      isActive: true,
       updatedAt: DateTime.now(),
     );
     await context.read<RadioAdminViewModel>().updateTariff(updated);
@@ -129,6 +167,33 @@ class _State extends State<TariffEditDialog> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Rate updated'), backgroundColor: AppColors.success),
+      );
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Category?'),
+        content: Text('Are you sure you want to delete the "${widget.tariff.categoryLabel}" category?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _saving = true);
+    await context.read<RadioAdminViewModel>().deleteTariff(widget.tariff.id);
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Category deleted'), backgroundColor: AppColors.info),
       );
     }
   }

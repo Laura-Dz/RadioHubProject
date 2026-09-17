@@ -30,7 +30,7 @@ class NetworkTimeService {
     try {
       final r = await http
           .get(Uri.parse('https://timeapi.io/api/time/current/zone?timeZone=Africa/Douala'))
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(milliseconds: 2500));
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body) as Map<String, dynamic>;
         final dtStr = data['dateTime'] as String?;
@@ -49,19 +49,17 @@ class NetworkTimeService {
           _synced = true;
           _lastSync = DateTime.now();
           debugPrint(
-              'Host NetworkTimeService [timeapi.io]: Synced! Cameroon time is ${now()} (drift: ${_drift.inMinutes}m)');
+              'Host NetworkTimeService: Synced via timeapi.io! Cameroon time is ${now()} (drift: ${_drift.inMinutes}m)');
           return;
         }
       }
-    } catch (e) {
-      debugPrint('Host NetworkTimeService [timeapi.io] failed: $e');
-    }
+    } catch (_) {}
 
     // Try 2: Cloudflare trace (CORS: *, ts=UTC epoch)
     try {
       final r = await http
           .get(Uri.parse('https://cloudflare.com/cdn-cgi/trace'))
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(milliseconds: 2500));
       if (r.statusCode == 200) {
         for (final line in r.body.split('\n')) {
           if (line.startsWith('ts=')) {
@@ -85,21 +83,19 @@ class NetworkTimeService {
               _synced = true;
               _lastSync = DateTime.now();
               debugPrint(
-                  'Host NetworkTimeService [cloudflare]: Synced! Cameroon time is ${now()} (drift: ${_drift.inMinutes}m)');
+                  'Host NetworkTimeService: Synced via cloudflare! Cameroon time is ${now()} (drift: ${_drift.inMinutes}m)');
               return;
             }
           }
         }
       }
-    } catch (e) {
-      debugPrint('Host NetworkTimeService [cloudflare] failed: $e');
-    }
+    } catch (_) {}
 
     // Try 3: worldtimeapi.org (fallback)
     try {
       final r = await http
           .get(Uri.parse('https://worldtimeapi.org/api/timezone/Africa/Douala'))
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(milliseconds: 2500));
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body) as Map<String, dynamic>;
         final unixSeconds = data['unixtime'] as int?;
@@ -121,12 +117,10 @@ class NetworkTimeService {
           _synced = true;
           _lastSync = DateTime.now();
           debugPrint(
-              'Host NetworkTimeService [worldtimeapi]: Synced! Cameroon time is ${now()} (drift: ${_drift.inMinutes}m)');
+              'Host NetworkTimeService: Synced via worldtimeapi! Cameroon time is ${now()} (drift: ${_drift.inMinutes}m)');
           return;
         }
       }
-    } catch (e) {
-      debugPrint('Host NetworkTimeService [worldtimeapi] failed: $e');
-    }
+    } catch (_) {}
   }
 }

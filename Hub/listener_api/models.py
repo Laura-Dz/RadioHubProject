@@ -1,3 +1,4 @@
+import secrets
 from django.db import models
 from django.utils import timezone
 
@@ -85,3 +86,46 @@ class Announcement(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class StationStreamKey(models.Model):
+    radio_id = models.CharField(max_length=100, unique=True, db_index=True)
+    radio_name = models.CharField(max_length=200, blank=True)
+    api_key = models.CharField(max_length=128, unique=True, help_text="Station authorization key for fetching stream AES key")
+    aes_key_hex = models.CharField(max_length=64, help_text="AES-128 key in hex (32 hex characters = 16 bytes)")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Station Stream Key"
+        verbose_name_plural = "Station Stream Keys"
+        ordering = ["radio_id"]
+
+    def __str__(self) -> str:
+        return f"{self.radio_name or self.radio_id} ({self.radio_id})"
+
+    def get_aes_bytes(self) -> bytes:
+        return bytes.fromhex(self.aes_key_hex)
+
+    def rotate_aes_key(self) -> str:
+        self.aes_key_hex = secrets.token_hex(16)
+        self.save(update_fields=["aes_key_hex", "updated_at"])
+        return self.aes_key_hex
+
+    @classmethod
+    def generate_key_pair(cls, radio_id: str, radio_name: str = ""):
+        """Utility to generate a new station key entry with random API key and AES-128 key"""
+        api_key = secrets.token_urlsafe(32)
+        aes_key = secrets.token_hex(16)  # 16 bytes = 32 hex chars
+        obj, _ = cls.objects.update_or_create(
+            radio_id=radio_id,
+            defaults={
+                "radio_name": radio_name,
+                "api_key": api_key,
+                "aes_key_hex": aes_key,
+                "is_active": True,
+            },
+        )
+        return obj
+

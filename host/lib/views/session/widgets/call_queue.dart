@@ -106,9 +106,42 @@ class _CallRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(call.userName,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(call.userName,
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('VOIP',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary)),
+                        ),
+                      ],
+                    ),
+                    if (call.topic.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          call.topic,
+                          style: const TextStyle(
+                              fontSize: 11.5,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     Text(
                       held ? 'On hold · ${_held(call)}' : _waiting(call),
                       style: TextStyle(
@@ -126,6 +159,15 @@ class _CallRow extends StatelessWidget {
           if (held)
             Row(
               children: [
+                Expanded(
+                  child: _action(
+                    'Resume',
+                    Icons.play_arrow,
+                    AppColors.success,
+                    () => vm.acceptCall(call),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: _action(
                     'Decline',

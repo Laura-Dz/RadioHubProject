@@ -1,11 +1,21 @@
+import os
+import secrets
+import requests
+from pathlib import Path
+from django.http import StreamingHttpResponse, HttpResponse
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets, permissions
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from listener_api.models import LiveStreamConfig, Episode, Show, Announcement
+from listener_api.models import LiveStreamConfig, Episode, Show, Announcement, StationStreamKey
 from listener_api.serializers import (
     LiveStreamConfigSerializer,
     EpisodeSerializer,
@@ -185,4 +195,153 @@ class CalculateAnnouncementPriceView(APIView):
             "currency": "XAF",
             "fee_percentage": 4.0,
         }, status=status.HTTP_200_OK)
+
+
+KEY_FILE_DEFAULT = Path("/opt/radio/current.key")
+IV = b"\x00" * 16
+
+
+def _load_aes_key() -> bytes | None:
+    env_path = os.environ.get("AES_KEY_FILE")
+    candidates = [
+        Path(env_path) if env_path else None,
+        KEY_FILE_DEFAULT,
+        Path(__file__).resolve().parent.parent / "current.key",
+        Path(__file__).resolve().parent.parent.parent / "scripts" / "radio" / "current.key",
+    ]
+    for p in candidates:
+        if p and p.exists():
+            try:
+                data = p.read_bytes()
+                if len(data) == 16:
+                    return data
+            except Exception:
+                pass
+    return None
+
+
+def _get_station_aes_key(radio_id: str) -> bytes | None:
+    """
+    Look up station-specific AES key from StationStreamKey model.
+    Falls back to local key file / env if station record does not exist.
+    """
+    try:
+        station = StationStreamKey.objects.filter(radio_id=radio_id, is_active=True).first()
+        if station:
+            return station.get_aes_bytes()
+    except Exception:
+        pass
+    return _load_aes_key()
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def get_or_rotate_stream_key(request, radio_id):
+    """
+    Secure endpoint for studio encoders (encrypt_and_forward.py) to dynamically
+    fetch their station's 16-byte AES-128 stream encryption key over HTTPS.
+    
+    Authentication via:
+      Header: X-Station-Key: <api_key>
+      OR Header: Authorization: Bearer <api_key>
+    
+    Optional rotation:
+      POST with ?rotate=true or body {"rotate": true} rotates the AES key.
+    """
+    auth_key = request.headers.get("X-Station-Key")
+    if not auth_key:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            auth_key = auth_header[7:].strip()
+
+    if not auth_key:
+        return HttpResponse("Missing station authentication key (header 'X-Station-Key' required)", status=401)
+
+    try:
+        station = StationStreamKey.objects.get(radio_id=radio_id, is_active=True)
+    except StationStreamKey.DoesNotExist:
+        return HttpResponse("Station not found or inactive", status=404)
+
+    if not secrets.compare_digest(station.api_key, auth_key):
+        return HttpResponse("Invalid station credentials", status=403)
+
+    rotate = request.GET.get("rotate", "").lower() in ("true", "1")
+    if request.method == "POST" and not rotate:
+        try:
+            import json
+            body = json.loads(request.body) if request.body else {}
+            if body.get("rotate") is True:
+                rotate = True
+        except Exception:
+            pass
+
+    if rotate:
+        station.rotate_aes_key()
+
+    aes_bytes = station.get_aes_bytes()
+    response = HttpResponse(aes_bytes, content_type="application/octet-stream")
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response["X-AES-Key-Hex"] = station.aes_key_hex
+    response["X-Radio-Id"] = station.radio_id
+    return response
+
+
+@never_cache
+def stream_radio(request, radio_id):
+    """
+    Proxy live audio stream from internal Shoutcast instance (127.0.0.1:8000).
+    Decrypts AES-128-CBC encrypted stream from Shoutcast before sending plain MP3 to listener.
+    """
+    key = _get_station_aes_key(radio_id)
+    if not key:
+        return HttpResponse("Server key missing or misconfigured for station", status=500)
+
+    shoutcast_host = os.environ.get("SHOUTCAST_HOST", "127.0.0.1")
+    shoutcast_port = os.environ.get("SHOUTCAST_PORT", "8000")
+    shoutcast_mount = os.environ.get("SHOUTCAST_MOUNT", "stream")
+    shoutcast_url = f"http://{shoutcast_host}:{shoutcast_port}/{shoutcast_mount}"
+
+    try:
+        upstream = requests.get(
+            shoutcast_url,
+            stream=True,
+            timeout=10,
+        )
+        if upstream.status_code != 200:
+            return HttpResponse("Stream unavailable", status=503)
+    except requests.RequestException:
+        return HttpResponse("Stream unavailable", status=503)
+
+    def decrypt_chunks():
+        cipher = Cipher(
+            algorithms.AES(key),
+            modes.CBC(IV),
+            backend=default_backend(),
+        )
+        decryptor = cipher.decryptor()
+        buffer = b""
+        try:
+            for chunk in upstream.iter_content(chunk_size=16384):
+                if not chunk:
+                    continue
+                buffer += chunk
+                aligned = len(buffer) - (len(buffer) % 16)
+                if aligned > 0:
+                    plain = decryptor.update(buffer[:aligned])
+                    yield plain
+                    buffer = buffer[aligned:]
+        finally:
+            upstream.close()
+
+    response = StreamingHttpResponse(
+        decrypt_chunks(),
+        content_type="audio/mpeg",
+    )
+    response["Cache-Control"] = "no-cache, no-store"
+    response["X-Accel-Buffering"] = "no"
+    response["Icy-Name"] = f"RadioHub - {radio_id}"
+    response["Icy-Genre"] = "Live Radio"
+    return response
+
+
 

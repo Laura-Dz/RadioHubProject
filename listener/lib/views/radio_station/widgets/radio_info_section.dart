@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../../../core/models/radio_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 
 class RadioInfoSection extends StatefulWidget {
   final RadioModel radio;
@@ -69,9 +70,15 @@ class _RadioInfoSectionState extends State<RadioInfoSection> {
                         items: images.map((url) => Container(
                           width: double.infinity,
                           margin: const EdgeInsets.symmetric(horizontal: 2),
-                          decoration: BoxDecoration(
+                          child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
+                            child: SafeImage(
+                              imageUrl: url,
+                              width: double.infinity,
+                              height: 160,
+                              fit: BoxFit.cover,
+                              fallback: _buildPlaceholderBanner(),
+                            ),
                           ),
                         )).toList(),
                       ),

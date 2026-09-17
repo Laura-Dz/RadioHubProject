@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ShowModel {
   final String id;
+  final String? radioId;
   final String title;
   final String host;
   final String? imageUrl;
@@ -22,6 +23,7 @@ class ShowModel {
 
   ShowModel({
     required this.id,
+    this.radioId,
     required this.title,
     required this.host,
     this.imageUrl,
@@ -74,11 +76,30 @@ class ShowModel {
   }
 
   factory ShowModel.fromFirestore(Map<String, dynamic> data, String id) {
+    String resolveHost() {
+      if (data['host'] != null && data['host'].toString().trim().isNotEmpty) {
+        return data['host'].toString();
+      }
+      if (data['hosts'] is List && (data['hosts'] as List).isNotEmpty) {
+        return (data['hosts'] as List).first.toString();
+      }
+      return 'RadioHub';
+    }
+
+    String? resolveImage() {
+      final img = data['imageUrl'] ?? data['logoUrl'] ?? data['bannerUrl'] ?? data['coverImageUrl'] ?? data['logo'] ?? data['banner'];
+      if (img != null && img.toString().trim().isNotEmpty) {
+        return img.toString().trim();
+      }
+      return null;
+    }
+
     return ShowModel(
       id: id,
-      title: data['title'] ?? 'Untitled Show',
-      host: data['host'] ?? 'Unknown Host',
-      imageUrl: data['imageUrl'],
+      radioId: data['radioId']?.toString() ?? data['channelId']?.toString() ?? data['stationId']?.toString(),
+      title: data['title'] ?? data['name'] ?? 'Untitled Show',
+      host: resolveHost(),
+      imageUrl: resolveImage(),
       category: ShowCategory.values.firstWhere(
         (e) => e.toString() == data['category'],
         orElse: () => ShowCategory.music,

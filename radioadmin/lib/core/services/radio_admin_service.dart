@@ -128,6 +128,7 @@ class RadioAdminService {
     required int days,
     required String planName,
     required String paymentMethod,
+    String? paymentAccount,
   }) async {
     final now = DateTime.now();
     final endDate = now.add(Duration(days: days));
@@ -142,6 +143,8 @@ class RadioAdminService {
       'startDate': Timestamp.fromDate(now),
       'endDate': Timestamp.fromDate(endDate),
       'paymentMethod': paymentMethod,
+      if (paymentAccount != null && paymentAccount.isNotEmpty)
+        'paymentAccount': paymentAccount,
       'autoRenew': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -159,6 +162,8 @@ class RadioAdminService {
       'currency': 'XAF',
       'subscriptionId': subRef.id,
       'paymentMethod': paymentMethod,
+      if (paymentAccount != null && paymentAccount.isNotEmpty)
+        'paymentAccount': paymentAccount,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -347,10 +352,18 @@ class RadioAdminService {
 
   Future<void> upsertTariff(AnnouncementTariff tariff) async {
     try {
+      if (tariff.id.isNotEmpty) {
+        await _firestore.collection('announcement_tariffs').doc(tariff.id).set(tariff.toFirestore(), SetOptions(merge: true));
+        return;
+      }
+      final categoryKey = (tariff.customCategoryName != null && tariff.customCategoryName!.isNotEmpty)
+          ? tariff.customCategoryName!
+          : tariff.category.name;
+
       final snap = await _firestore
           .collection('announcement_tariffs')
           .where('radioId', isEqualTo: tariff.radioId)
-          .where('category', isEqualTo: tariff.category.name)
+          .where('category', isEqualTo: categoryKey)
           .limit(1)
           .get();
       if (snap.docs.isEmpty) {
@@ -360,6 +373,16 @@ class RadioAdminService {
       }
     } catch (e) {
       debugPrint('upsertTariff: $e');
+    }
+  }
+
+  Future<void> deleteTariff(String tariffId) async {
+    try {
+      if (tariffId.isNotEmpty) {
+        await _firestore.collection('announcement_tariffs').doc(tariffId).delete();
+      }
+    } catch (e) {
+      debugPrint('deleteTariff: $e');
     }
   }
 

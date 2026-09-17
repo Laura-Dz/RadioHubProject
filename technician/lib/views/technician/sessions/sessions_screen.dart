@@ -278,7 +278,7 @@ class _LiveCardState extends State<_LiveCard> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _LiveCard._endSession(context, session),
+                  onPressed: () => _endSession(context, session),
                   icon: const Icon(Icons.stop, size: 16),
                   label: const Text('End session'),
                   style: ElevatedButton.styleFrom(
@@ -295,6 +295,8 @@ class _LiveCardState extends State<_LiveCard> {
         ],
       ),
     );
+  }
+
   Widget _pulsingDot({Color color = AppColors.success}) {
     return _PulsingDot(color: color);
   }
@@ -314,7 +316,7 @@ class _LiveCardState extends State<_LiveCard> {
           ),
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('End'),
+            label: const Text('End'),
             icon: const Icon(Icons.stop, size: 16),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,

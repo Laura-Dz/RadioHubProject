@@ -54,12 +54,6 @@ class MainLayoutViewModel extends BaseViewModel {
       case NavigationTabs.channels:
         _currentTitle = 'Channels';
         break;
-      case NavigationTabs.schedule:
-        _currentTitle = 'Schedule';
-        break;
-      case NavigationTabs.timetable:
-        _currentTitle = 'Timetable';
-        break;
       case NavigationTabs.announcements:
         _currentTitle = 'Announcements';
         break;
@@ -92,8 +86,6 @@ class MainLayoutViewModel extends BaseViewModel {
 
   void navigateToHome() => setTab(NavigationTabs.home);
   void navigateToChannels() => setTab(NavigationTabs.channels);
-  void navigateToSchedule() => setTab(NavigationTabs.schedule);
-  void navigateToTimetable() => setTab(NavigationTabs.timetable);
   void navigateToProfile() => setTab(NavigationTabs.profile);
   void navigateToSettings() => setTab(NavigationTabs.settings);
 

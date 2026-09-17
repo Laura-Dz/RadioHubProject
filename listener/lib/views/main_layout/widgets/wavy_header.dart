@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 
 class WavyHeader extends StatelessWidget {
   final String welcomeMessage;
@@ -47,11 +48,15 @@ class WavyHeader extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
                       ),
-                      child: userImage != null
-                          ? ClipOval(
-                              child: Image.network(userImage!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 24)),
-                            )
-                          : const Icon(Icons.person, color: Colors.white, size: 24),
+                      child: ClipOval(
+                        child: SafeImage(
+                          imageUrl: userImage,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          fallback: const Icon(Icons.person, color: Colors.white, size: 24),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

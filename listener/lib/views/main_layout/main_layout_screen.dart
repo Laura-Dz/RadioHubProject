@@ -6,13 +6,10 @@ import 'widgets/custom_app_bar.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/channels_tab.dart';
-import 'tabs/schedule_tab.dart';
-import 'tabs/timetable_tab.dart';
+import 'tabs/announcements_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'tabs/settings_tab.dart';
 import '../../core/enums/navigation_tabs.dart';
-
-import 'tabs/announcements_tab.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -31,7 +28,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 7,
+      length: NavigationTabs.values.length,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -69,8 +66,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
         children: const [
           HomeTab(),
           ChannelsTab(),
-          ScheduleTab(),
-          TimetableTab(),
           AnnouncementsTab(),
           ProfileTab(),
           SettingsTab(),

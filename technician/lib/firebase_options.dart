@@ -46,6 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '615367902140',
     projectId: 'radiohub12',
     authDomain: 'radiohub12.firebaseapp.com',
+    databaseURL: 'https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'radiohub12.firebasestorage.app',
     measurementId: 'G-686T4WPP5E',
   );
@@ -55,6 +56,7 @@ class DefaultFirebaseOptions {
     appId: '1:615367902140:android:c887920be466328d5661b9',
     messagingSenderId: '615367902140',
     projectId: 'radiohub12',
+    databaseURL: 'https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'radiohub12.firebasestorage.app',
   );
 
@@ -63,6 +65,7 @@ class DefaultFirebaseOptions {
     appId: '1:615367902140:ios:1c6f4313147b1b8b5661b9',
     messagingSenderId: '615367902140',
     projectId: 'radiohub12',
+    databaseURL: 'https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'radiohub12.firebasestorage.app',
     iosBundleId: 'com.example.technician',
   );
@@ -72,6 +75,7 @@ class DefaultFirebaseOptions {
     appId: '1:615367902140:ios:1c6f4313147b1b8b5661b9',
     messagingSenderId: '615367902140',
     projectId: 'radiohub12',
+    databaseURL: 'https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'radiohub12.firebasestorage.app',
     iosBundleId: 'com.example.technician',
   );
@@ -82,6 +86,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '615367902140',
     projectId: 'radiohub12',
     authDomain: 'radiohub12.firebaseapp.com',
+    databaseURL: 'https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'radiohub12.firebasestorage.app',
     measurementId: 'G-1N31Y1YDJF',
   );

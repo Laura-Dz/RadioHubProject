@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import '../core/services/user_interaction_service.dart';
 import '../core/models/user_interaction_model.dart';
@@ -33,29 +34,41 @@ class UserInteractionViewModel extends BaseViewModel {
 
   void _loadInitialData() {
     _subscriptions.add(
-      _interactionService.streamStarredChannels(userId).listen((stars) {
-        _starredChannelIds = stars.map((s) => s.channelId).toList();
-        if (!_disposed) notifyListeners();
-      }),
+      _interactionService.streamStarredChannels(userId).listen(
+        (stars) {
+          _starredChannelIds = stars.map((s) => s.channelId).toList();
+          if (!_disposed) notifyListeners();
+        },
+        onError: (e) => debugPrint('streamStarredChannels error: $e'),
+      ),
     );
     _subscriptions.add(
-      _interactionService.streamFollowedShows(userId).listen((follows) {
-        _followedShowIds = follows.map((f) => f.showId).toList();
-        if (!_disposed) notifyListeners();
-      }),
+      _interactionService.streamFollowedShows(userId).listen(
+        (follows) {
+          _followedShowIds = follows.map((f) => f.showId).toList();
+          if (!_disposed) notifyListeners();
+        },
+        onError: (e) => debugPrint('streamFollowedShows error: $e'),
+      ),
     );
     _subscriptions.add(
-      _interactionService.streamActiveReminders(userId).listen((reminders) {
-        _activeReminders = reminders;
-        if (!_disposed) notifyListeners();
-      }),
+      _interactionService.streamActiveReminders(userId).listen(
+        (reminders) {
+          _activeReminders = reminders;
+          if (!_disposed) notifyListeners();
+        },
+        onError: (e) => debugPrint('streamActiveReminders error: $e'),
+      ),
     );
     _subscriptions.add(
-      _interactionService.streamNotifications(userId).listen((notifications) {
-        _notifications = notifications;
-        _unreadCount = notifications.where((n) => !n.isRead).length;
-        if (!_disposed) notifyListeners();
-      }),
+      _interactionService.streamNotifications(userId).listen(
+        (notifications) {
+          _notifications = notifications;
+          _unreadCount = notifications.where((n) => !n.isRead).length;
+          if (!_disposed) notifyListeners();
+        },
+        onError: (e) => debugPrint('streamNotifications error: $e'),
+      ),
     );
   }
 

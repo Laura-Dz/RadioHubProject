@@ -4,6 +4,7 @@ class UserModel {
   final String id;
   final String email;
   final String? displayName;
+  final String? photoUrl;
   final String? phoneNumber;
   final String role;
   final String? subscription;
@@ -17,6 +18,7 @@ class UserModel {
     required this.id,
     required this.email,
     this.displayName,
+    this.photoUrl,
     this.phoneNumber,
     this.role = 'listener',
     this.subscription,
@@ -28,10 +30,12 @@ class UserModel {
   });
 
   factory UserModel.fromFirestore(Map<String, dynamic> data, String id) {
+    final rawName = data['displayName'] ?? data['name'] ?? data['fullName'] ?? data['username'];
     return UserModel(
       id: id,
       email: data['email'] ?? '',
-      displayName: data['displayName'],
+      displayName: rawName?.toString().trim(),
+      photoUrl: data['photoUrl'] ?? data['photoURL'] ?? data['avatarUrl'],
       phoneNumber: data['phoneNumber'],
       role: data['role'] ?? 'listener',
       subscription: data['subscription'],

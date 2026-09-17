@@ -10,10 +10,12 @@ class CommentService {
     return _db
         .collection('comments')
         .where('sessionId', isEqualTo: sessionId)
-        .orderBy('createdAt', descending: true)
-        .limit(100)
         .snapshots()
-        .map((s) => s.docs.map((d) => Comment.fromFirestore(d.data(), d.id)).toList());
+        .map((s) {
+          final list = s.docs.map((d) => Comment.fromFirestore(d.data(), d.id)).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<void> setReplying(String commentId, bool replying) async {
@@ -27,7 +29,8 @@ class CommentService {
       // Direct Firestore update fallback
       try {
         await _db.collection('comments').doc(commentId).update({
-          'status': replying ? 'replying' : 'approved',
+          'status': replying ? 'replying' : 'pending',
+          'replyingSince': replying ? FieldValue.serverTimestamp() : null,
           'replyingAt': replying ? FieldValue.serverTimestamp() : null,
         });
       } catch (dbErr) {
@@ -50,6 +53,9 @@ class CommentService {
       // Direct Firestore update fallback
       try {
         await _db.collection('comments').doc(commentId).update({
+          'hostReply': reply,
+          'hostReplyAt': FieldValue.serverTimestamp(),
+          'replyingSince': null,
           'replyText': reply,
           'status': 'replied',
           'repliedAt': FieldValue.serverTimestamp(),

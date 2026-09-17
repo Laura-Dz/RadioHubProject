@@ -1,5 +1,5 @@
 from django.contrib import admin
-from listener_api.models import Category, Show, Episode, LiveStreamConfig, Announcement
+from listener_api.models import Category, Show, Episode, LiveStreamConfig, Announcement, StationStreamKey
 
 
 @admin.register(Category)
@@ -36,3 +36,12 @@ class AnnouncementAdmin(admin.ModelAdmin):
     list_display = ("title", "type", "is_active", "start_time", "end_time")
     list_filter = ("type", "is_active", "start_time", "end_time")
     search_fields = ("title", "message")
+
+
+@admin.register(StationStreamKey)
+class StationStreamKeyAdmin(admin.ModelAdmin):
+    list_display = ("radio_id", "radio_name", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("radio_id", "radio_name", "api_key")
+    readonly_fields = ("created_at", "updated_at")
+

@@ -27,6 +27,13 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
   String _category = 'Birthday';
   String _paymentMethod = 'MoMo';
 
+  // Date and Period
+  DateTime _startDate = DateTime.now();
+  int _diffusionDays = 7;
+  int _diffusionsPerDay = 1;
+
+  DateTime get _endDate => _startDate.add(Duration(days: _diffusionDays));
+
   // AI Notor 1
   String _finalText = '';
   int _wordCount = 0;
@@ -37,6 +44,8 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
   double _transferFee = 0.0;
   double _finalPrice = 0.0;
 
+  String? _submittedRefId;
+
   final List<String> _categories = [
     'Birthday',
     'Anniversary',
@@ -46,6 +55,20 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
     'Event',
     'General',
   ];
+
+  final List<int> _periodOptions = [1, 3, 7, 14, 30];
+  final List<int> _diffusionsPerDayOptions = [1, 2, 3];
+
+  String _formatDate(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
+  }
+
+  @override
+  void dispose() {
+    _draftController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,16 +129,137 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
           value: _category,
           items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
           onChanged: (v) => setState(() => _category = v!),
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+          decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+        ),
+        const SizedBox(height: 16),
+
+        // Date selection before period (Start Date)
+        const Text('Start Date', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: _pickStartDate,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey.shade50,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_month, color: AppColors.primary, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  _formatDate(_startDate),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                const Text('Change', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Diffusion Period (Days)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Diffusion Period', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text('$_diffusionDays days', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: _periodOptions.map((days) {
+            final isSelected = _diffusionDays == days;
+            return ChoiceChip(
+              label: Text('$days ${days == 1 ? "day" : "days"}'),
+              selected: isSelected,
+              selectedColor: AppColors.primary.withOpacity(0.15),
+              labelStyle: TextStyle(
+                color: isSelected ? AppColors.primary : Colors.black87,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              onSelected: (selected) {
+                if (selected) setState(() => _diffusionDays = days);
+              },
+            );
+          }).toList(),
         ),
         const SizedBox(height: 12),
+
+        // Diffusions per day
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Broadcasts per Day', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text('${_diffusionsPerDay}x / day', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: _diffusionsPerDayOptions.map((count) {
+            final isSelected = _diffusionsPerDay == count;
+            return ChoiceChip(
+              label: Text('${count}x / day'),
+              selected: isSelected,
+              selectedColor: AppColors.primary.withOpacity(0.15),
+              labelStyle: TextStyle(
+                color: isSelected ? AppColors.primary : Colors.black87,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              onSelected: (selected) {
+                if (selected) setState(() => _diffusionsPerDay = count);
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+
+        // Schedule summary banner
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.date_range, color: AppColors.primary, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Schedule: ${_formatDate(_startDate)}  ➔  ${_formatDate(_endDate)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_diffusionDays days · ${_diffusionDays * _diffusionsPerDay} total broadcasts',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
         const Text('Your Message Draft', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         TextField(
           controller: _draftController,
           maxLines: 4,
           decoration: const InputDecoration(
-            hintText: 'Type your message...',
+            hintText: 'Type your message (e.g. Wishing happy birthday to...)',
             border: OutlineInputBorder(),
           ),
         ),
@@ -132,6 +276,7 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ),
@@ -164,22 +309,34 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
           decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             Chip(label: Text('Word Count: $_wordCount')),
-            const SizedBox(width: 8),
             Chip(label: Text('Duration: ${_durationSeconds}s')),
+            Chip(label: Text('Schedule: ${_diffusionDays}d (${_diffusionDays * _diffusionsPerDay}x)')),
+            Chip(label: Text('${_formatDate(_startDate)} - ${_formatDate(_endDate)}')),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            OutlinedButton(onPressed: () => setState(() => _step = 1), child: const Text('Back')),
+            OutlinedButton(
+              onPressed: () => setState(() => _step = 1),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+              child: const Text('Back'),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
                 onPressed: _loading ? null : _calculatePrice,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
                 child: _loading
                     ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Text('Calculate Price (AI Notor 2)'),
@@ -195,6 +352,46 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Schedule summary box
+        Container(
+          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.bottom(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.radio, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text(widget.viewModel.radio?.name ?? 'Radio Station', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text(_category, style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+              const Divider(height: 12),
+              Text(
+                '📅 ${_formatDate(_startDate)}  ➔  ${_formatDate(_endDate)}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$_diffusionDays days · ${_diffusionDays * _diffusionsPerDay} broadcasts (${_durationSeconds}s each)',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+
+        // Tariff breakdown
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -229,15 +426,24 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
         const SizedBox(height: 16),
         Row(
           children: [
-            OutlinedButton(onPressed: () => setState(() => _step = 2), child: const Text('Back')),
+            OutlinedButton(
+              onPressed: () => setState(() => _step = 2),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+              child: const Text('Back'),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
                 onPressed: _loading ? null : _submit,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
                 child: _loading
                     ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text('Pay ${_finalPrice.toStringAsFixed(0)} XAF'),
+                    : Text('Pay & Hold in Escrow (${_finalPrice.toStringAsFixed(0)} XAF)'),
               ),
             ),
           ],
@@ -249,22 +455,43 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
   Widget _buildStep4() {
     return Column(
       children: [
-        const Icon(Icons.check_circle, color: Colors.green, size: 48),
+        const Icon(Icons.check_circle, color: Colors.green, size: 52),
         const SizedBox(height: 12),
         const Text('Announcement Submitted!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade200)),
+          child: Column(
+            children: [
+              if (_submittedRefId != null) ...[
+                Text('Ref: $_submittedRefId', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 4),
+              ],
+              Text('Schedule: ${_formatDate(_startDate)} - ${_formatDate(_endDate)}', style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 2),
+              Text('Status: In Escrow (${_finalPrice.toStringAsFixed(0)} XAF held)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.green)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         const Text(
-          'Your payment is held in escrow until validated by the radio station admin. You will be notified when it is scheduled.',
+          'Your base payment is securely held in escrow until validated by the radio station admin. If rejected, your base tariff will be refunded directly to your wallet.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: Colors.black87),
         ),
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             onPressed: widget.onRequestSubmitted,
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-            child: const Text('Close'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Done'),
           ),
         ),
       ],
@@ -279,6 +506,18 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
         Text(value, style: TextStyle(fontSize: bold ? 16 : 13, fontWeight: FontWeight.bold, color: bold ? AppColors.primary : Colors.black87)),
       ],
     );
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _startDate = picked);
+    }
   }
 
   Future<void> _runAiEnhancement() async {
@@ -296,10 +535,11 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
 
   Future<void> _calculatePrice() async {
     setState(() => _loading = true);
+    final totalDiffusions = _diffusionDays * _diffusionsPerDay;
     final res = await _service.calculatePrice(
       wordCount: _wordCount,
       durationSeconds: _durationSeconds,
-      diffusionCount: 1,
+      diffusionCount: totalDiffusions,
     );
     setState(() {
       _baseTariff = (res['base_tariff'] as num).toDouble();
@@ -312,7 +552,8 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
 
   Future<void> _submit() async {
     setState(() => _loading = true);
-    await _service.submitAnnouncementRequest(
+    final totalDiffusions = _diffusionDays * _diffusionsPerDay;
+    final id = await _service.submitAnnouncementRequest(
       radioId: widget.viewModel.radio?.id ?? 'radio_1',
       radioName: widget.viewModel.radio?.name ?? 'Radio Sunshine',
       listenerId: 'listener_123',
@@ -323,13 +564,18 @@ class _AnnouncementModalState extends State<AnnouncementModal> {
       finalText: _finalText,
       wordCount: _wordCount,
       durationSeconds: _durationSeconds,
-      diffusionCount: 1,
+      diffusionCount: totalDiffusions,
       baseTariff: _baseTariff,
       transferFee: _transferFee,
       finalPrice: _finalPrice,
       paymentMethod: _paymentMethod,
+      startDate: _startDate,
+      endDate: _endDate,
+      diffusionPeriodDays: _diffusionDays,
+      diffusionsPerDay: _diffusionsPerDay,
     );
     setState(() {
+      _submittedRefId = id.isNotEmpty ? id : null;
       _loading = false;
       _step = 4;
     });

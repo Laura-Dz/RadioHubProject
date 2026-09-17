@@ -23,4 +23,9 @@ class AppColors {
   static const Color overlay = Color(0x80000000);
   static const Color shimmerBase = Color(0xFFE0E0E0);
   static const Color shimmerHighlight = Color(0xFFF5F5F5);
+  static const Color border = Color(0xFFE1E7F0);
+  static const Color divider = Color(0xFFEEF1F8);
+  static const Color textMuted = Color(0xFFA0A0B8);
+  static const Color surfaceAlt = Color(0xFFF4F6FC);
+  static const Color gold = Color(0xFFFFD700);
 }

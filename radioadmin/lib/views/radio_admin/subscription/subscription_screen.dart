@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../view_models/radio_admin_view_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/subscription_plan_service.dart';
+import 'widgets/subscription_payment_dialog.dart';
 
 class SubscriptionScreen extends StatelessWidget {
   const SubscriptionScreen({Key? key}) : super(key: key);
@@ -33,6 +34,13 @@ class SubscriptionScreen extends StatelessWidget {
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,14 +128,27 @@ class SubscriptionScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 16),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: vm.plans.map((plan) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 14),
-                  child: _PlanCard(plan: plan),
-                ),
-              )).toList(),
+            // Responsive Plans Cards
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 720) {
+                  return Column(
+                    children: vm.plans.map((plan) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _PlanCard(plan: plan),
+                    )).toList(),
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: vm.plans.map((plan) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 14),
+                      child: _PlanCard(plan: plan),
+                    ),
+                  )).toList(),
+                );
+              },
             ),
           ],
         ),
@@ -148,6 +169,13 @@ class _PlanCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,6 +218,7 @@ class _PlanCard extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: const Text('Choose Plan'),
@@ -201,63 +230,10 @@ class _PlanCard extends StatelessWidget {
   }
 
   void _showPaymentDialog(BuildContext context, SubscriptionPlan plan) {
-    String method = 'MoMo';
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Pay for ${plan.label} Plan'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Amount: ${plan.amount.toStringAsFixed(0)} ${plan.currency} (${plan.days} days)',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              const Text('Select payment method:'),
-              const SizedBox(height: 8),
-              RadioListTile<String>(
-                title: const Text('MTN Mobile Money (MoMo)'),
-                value: 'MoMo',
-                groupValue: method,
-                onChanged: (v) => setDialogState(() => method = v!),
-              ),
-              RadioListTile<String>(
-                title: const Text('Orange Money (OM)'),
-                value: 'OrangeMoney',
-                groupValue: method,
-                onChanged: (v) => setDialogState(() => method = v!),
-              ),
-              RadioListTile<String>(
-                title: const Text('Ecobank / Credit Card'),
-                value: 'CreditCard',
-                groupValue: method,
-                onChanged: (v) => setDialogState(() => method = v!),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await context.read<RadioAdminViewModel>().paySubscription(
-                  plan: plan,
-                  paymentMethod: method,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Subscription activated!'), backgroundColor: AppColors.success),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-              child: const Text('Pay & Activate'),
-            ),
-          ],
-        ),
-      ),
+      barrierDismissible: true,
+      builder: (_) => SubscriptionPaymentDialog(plan: plan),
     );
   }
 }

@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/home_view_model.dart';
+import '../../../view_models/main_layout_view_model.dart';
+import '../../../view_models/channels_view_model.dart';
+import '../../../core/enums/navigation_tabs.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../radio_station/radio_station_page.dart';
 import '../widgets/wavy_header.dart';
 import '../widgets/show_card.dart';
 import '../widgets/section_header.dart';
@@ -42,6 +46,24 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     super.dispose();
   }
 
+  void _openRadio(BuildContext context, String radioId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RadioStationPage(radioId: radioId),
+      ),
+    );
+  }
+
+  void _navigateToChannels(BuildContext context, [ChannelFilter? filter]) {
+    if (filter != null) {
+      try {
+        context.read<ChannelsViewModel>().setFilter(filter);
+      } catch (_) {}
+    }
+    context.read<MainLayoutViewModel>().setTab(NavigationTabs.channels);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -53,7 +75,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverToBoxAdapter(child: WavyHeader(welcomeMessage: homeViewModel.welcomeMessage, userImage: homeViewModel.currentUser?.displayName)),
+          SliverToBoxAdapter(child: WavyHeader(welcomeMessage: homeViewModel.welcomeMessage, userImage: homeViewModel.currentUser?.photoUrl)),
           if (homeViewModel.isLoading)
             const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
           else
@@ -62,7 +84,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SectionHeader(title: '🔴 Live Now', subtitle: '${homeViewModel.liveShows.length} shows live', onSeeAll: () {}),
+                    SectionHeader(
+                      title: '🔴 Live Now',
+                      subtitle: '${homeViewModel.liveShows.length} shows live',
+                      onSeeAll: () => _navigateToChannels(context, ChannelFilter.trending),
+                    ),
                     SizedBox(
                       height: 220,
                       child: ListView.builder(
@@ -71,7 +97,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                         itemCount: homeViewModel.liveShows.length,
                         itemBuilder: (context, index) {
                           final show = homeViewModel.liveShows[index];
-                          return ShowCard(show: show, isLive: true, onTap: () {});
+                          return ShowCard(
+                            show: show,
+                            isLive: true,
+                            onTap: () => _openRadio(context, show.radioId ?? show.id),
+                          );
                         },
                       ),
                     ),
@@ -86,7 +116,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionHeader(title: '📌 Your Shows', subtitle: 'Coming up next', onSeeAll: () {}),
+                  SectionHeader(
+                    title: '📌 Your Shows',
+                    subtitle: 'Coming up next',
+                    onSeeAll: () => _navigateToChannels(context, ChannelFilter.following),
+                  ),
                   SizedBox(
                     height: 160,
                     child: ListView.builder(
@@ -95,7 +129,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                       itemCount: homeViewModel.followedShows.length,
                       itemBuilder: (context, index) {
                         final show = homeViewModel.followedShows[index];
-                        return ShowCard(show: show, isCompact: true, onTap: () {});
+                        return ShowCard(
+                          show: show,
+                          isCompact: true,
+                          onTap: () => _openRadio(context, show.radioId ?? show.id),
+                        );
                       },
                     ),
                   ),
@@ -110,7 +148,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionHeader(title: '📻 Channels', subtitle: 'Explore all channels', onSeeAll: () {}),
+                  SectionHeader(
+                    title: '📻 Channels',
+                    subtitle: 'Explore all channels',
+                    onSeeAll: () => _navigateToChannels(context, ChannelFilter.all),
+                  ),
                   SizedBox(
                     height: 160,
                     child: ListView.builder(
@@ -119,7 +161,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                       itemCount: homeViewModel.channels.length,
                       itemBuilder: (context, index) {
                         final show = homeViewModel.channels[index];
-                        return ShowCard(show: show, isChannel: true, onTap: () {});
+                        return ShowCard(
+                          show: show,
+                          isChannel: true,
+                          onTap: () => _openRadio(context, show.radioId ?? show.id),
+                        );
                       },
                     ),
                   ),
@@ -134,10 +180,22 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionHeader(title: '💡 Recommended For You', subtitle: 'Based on your listening', onSeeAll: () {}),
+                  SectionHeader(
+                    title: '💡 Recommended For You',
+                    subtitle: 'Based on your listening',
+                    onSeeAll: () => _navigateToChannels(context, ChannelFilter.forYou),
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(children: homeViewModel.recommendedShows.map((show) => ShowCard(show: show, isVertical: true, onTap: () {})).toList()),
+                    child: Column(
+                      children: homeViewModel.recommendedShows
+                          .map((show) => ShowCard(
+                                show: show,
+                                isVertical: true,
+                                onTap: () => _openRadio(context, show.radioId ?? show.id),
+                              ))
+                          .toList(),
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -150,16 +208,25 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionHeader(title: '🔥 Trending', subtitle: 'Popular right now', onSeeAll: () {}),
+                  SectionHeader(
+                    title: '🔥 Trending',
+                    subtitle: 'Popular right now',
+                    onSeeAll: () => _navigateToChannels(context, ChannelFilter.trending),
+                  ),
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.85),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.85),
                     itemCount: min(4, homeViewModel.trendingShows.length),
                     itemBuilder: (context, index) {
                       final show = homeViewModel.trendingShows[index];
-                      return ShowCard(show: show, isGrid: true, onTap: () {});
+                      return ShowCard(
+                        show: show,
+                        isGrid: true,
+                        onTap: () => _openRadio(context, show.radioId ?? show.id),
+                      );
                     },
                   ),
                   const SizedBox(height: 16),
@@ -173,7 +240,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionHeader(title: '🆕 New Episodes', subtitle: 'From your favorite shows', onSeeAll: () {}),
+                  SectionHeader(
+                    title: '🆕 New Episodes',
+                    subtitle: 'From your favorite shows',
+                    onSeeAll: () => _navigateToChannels(context, ChannelFilter.all),
+                  ),
                   SizedBox(
                     height: 180,
                     child: ListView.builder(
@@ -182,7 +253,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                       itemCount: homeViewModel.newEpisodes.length,
                       itemBuilder: (context, index) {
                         final show = homeViewModel.newEpisodes[index];
-                        return ShowCard(show: show, isNewEpisode: true, onTap: () {});
+                        return ShowCard(
+                          show: show,
+                          isNewEpisode: true,
+                          onTap: () => _openRadio(context, show.radioId ?? show.id),
+                        );
                       },
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -22,7 +23,9 @@ import 'view_models/login_view_model.dart';
 import 'view_models/register_view_model.dart';
 import 'view_models/main_layout_view_model.dart';
 import 'view_models/home_view_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'view_models/channels_view_model.dart';
+import 'view_models/profile_view_model.dart';
 import 'view_models/schedule_view_model.dart';
 import 'view_models/timetable_view_model.dart';
 import 'view_models/radio_station_view_model.dart';
@@ -34,6 +37,7 @@ import 'views/notifications/notification_center.dart';
 import 'views/auth/auth_choice_screen.dart';
 
 import 'core/services/announcement_service.dart';
+import 'view_models/announcement_view_model.dart';
 
 import 'firebase_options.dart';
 
@@ -43,6 +47,11 @@ void main() async {
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
   final prefs = await SharedPreferences.getInstance();
@@ -144,9 +153,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => ChannelsViewModel(
-            ChannelService(),
-          ),
+          create: (_) => ChannelsViewModel()
+            ..attach(FirebaseAuth.instance.currentUser?.uid ?? ''),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ProfileViewModel()..attach(),
         ),
         ChangeNotifierProvider(
           create: (_) => ScheduleViewModel(
@@ -159,12 +170,9 @@ class MyApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => RadioStationViewModel(
-            radioService: RadioService(),
-            scheduleService: ScheduleService(),
-            firestoreService: firestoreService,
-          ),
+          create: (_) => RadioStationViewModel(),
         ),
+        ChangeNotifierProvider(create: (_) => AnnouncementViewModel()),
         ChangeNotifierProxyProvider<FirestoreService, UserInteractionViewModel>(
           create: (context) => UserInteractionViewModel(
             interactionService: userInteractionService,

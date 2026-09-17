@@ -21,15 +21,15 @@ service cloud.firestore {
 
     match /comments/{id} {
       allow read: if true;
-      allow create: if false;   // only via Cloud Function
-      allow update: if isHostOf(resource.data.sessionId);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
       allow delete: if false;
     }
 
     match /calls/{id} {
       allow read: if true;
-      allow create: if false;   // only via Cloud Function
-      allow update: if isTechnician() || isHostOf(resource.data.sessionId);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
       allow delete: if false;
     }
 
@@ -41,6 +41,17 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /polls/{pollId} {
+      allow read: if true;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
+
+      match /votes/{userId} {
+        allow read: if true;
+        allow write: if request.auth != null;
+      }
     }
   }
 }

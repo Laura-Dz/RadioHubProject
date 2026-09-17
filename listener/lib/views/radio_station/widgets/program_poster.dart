@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/radio_model.dart';
 import '../../../core/models/schedule_model.dart';
+import '../../../core/widgets/safe_image.dart';
 import '../../main_layout/widgets/live_badge.dart';
 
 class ProgramPoster extends StatelessWidget {
@@ -34,12 +35,12 @@ class ProgramPoster extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          if (radio.coverImageUrl != null)
+          if (radio.coverImageUrl != null && radio.coverImageUrl!.trim().isNotEmpty)
             Positioned.fill(
-              child: Image.network(
-                radio.coverImageUrl!,
+              child: SafeImage(
+                imageUrl: radio.coverImageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                fallback: const SizedBox.shrink(),
               ),
             ),
           Positioned.fill(

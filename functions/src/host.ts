@@ -4,6 +4,7 @@ import axios from 'axios';
 
 const db = admin.firestore();
 const auth = admin.auth();
+const rtdb = admin.app().database('https://radiohub12-default-rtdb.europe-west1.firebasedatabase.app');
 
 const MODERATION_URL = 'https://api.openai.com/v1/moderations';
 
@@ -91,13 +92,22 @@ export const submitComment = functions
     // Get user profile for display name
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
     const userData = userDoc.data() ?? {};
+    const emailName = context.auth.token?.email ? (context.auth.token.email as string).split('@')[0] : '';
+    const resolvedName = (data?.userName ?? '').toString().trim()
+      || userData.displayName
+      || userData.name
+      || userData.fullName
+      || userData.username
+      || (context.auth.token as any)?.name
+      || emailName
+      || 'Listener';
 
     const commentRef = db.collection('comments').doc();
     await commentRef.set({
       sessionId,
       radioId: s.radioId,
       userId: context.auth.uid,
-      userName: userData.displayName ?? 'Listener',
+      userName: resolvedName,
       text,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       status: 'pending',
@@ -109,12 +119,27 @@ export const submitComment = functions
       pinned: false,
     });
 
+    try {
+      await rtdb.ref(`comments/${sessionId}/${commentRef.id}`).set({
+        id: commentRef.id,
+        sessionId,
+        userId: context.auth.uid,
+        userName: resolvedName,
+        text,
+        message: text,
+        status: 'pending',
+        timestamp: Date.now(),
+      });
+    } catch (rtdbErr) {
+      console.warn('RTDB comment sync fallback:', rtdbErr);
+    }
+
     await sessionRef.update({
       commentsCount: admin.firestore.FieldValue.increment(1),
       engagementCount: admin.firestore.FieldValue.increment(1),
     });
 
-    return { success: true, commentId: commentRef.id };
+    return { success: true, commentId: commentRef.id, userName: resolvedName };
   });
 
 // ----------------------------------------------------------------
@@ -161,14 +186,27 @@ export const submitCallRequest = functions
 
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
     const userData = userDoc.data() ?? {};
+    const emailName = context.auth.token?.email ? (context.auth.token.email as string).split('@')[0] : '';
+    const resolvedName = (data?.userName ?? '').toString().trim()
+      || userData.displayName
+      || userData.name
+      || userData.fullName
+      || userData.username
+      || (context.auth.token as any)?.name
+      || emailName
+      || 'Listener';
+    const topic = (data?.topic ?? '').toString().trim();
 
     const callRef = db.collection('calls').doc();
     await callRef.set({
       sessionId,
       radioId: s.radioId,
       userId: context.auth.uid,
-      userName: userData.displayName ?? 'Listener',
-      userPhone: phone || userData.phone || '',
+      userName: resolvedName,
+      userPhone: phone || userData.phone || 'VOIP',
+      topic,
+      callType: 'voip',
+      isVoip: true,
       status: 'pending',
       requestedAt: admin.firestore.FieldValue.serverTimestamp(),
       acceptedAt: null,
@@ -177,12 +215,30 @@ export const submitCallRequest = functions
       lastActionBy: 'listener',
     });
 
+    try {
+      await rtdb.ref(`calls/${sessionId}/${callRef.id}`).set({
+        id: callRef.id,
+        sessionId,
+        radioId: s.radioId,
+        userId: context.auth.uid,
+        userName: resolvedName,
+        userPhone: phone || userData.phone || 'VOIP',
+        topic,
+        callType: 'voip',
+        isVoip: true,
+        status: 'pending',
+        requestedAt: Date.now(),
+      });
+    } catch (rtdbErr) {
+      console.warn('RTDB call sync fallback:', rtdbErr);
+    }
+
     await sessionRef.update({
       callsCount: admin.firestore.FieldValue.increment(1),
       engagementCount: admin.firestore.FieldValue.increment(1),
     });
 
-    return { success: true, callId: callRef.id };
+    return { success: true, callId: callRef.id, userName: resolvedName };
   });
 
 // ----------------------------------------------------------------
@@ -214,12 +270,18 @@ export const setCommentReplying = functions
         status: 'replying',
         replyingSince: admin.firestore.FieldValue.serverTimestamp(),
       });
+      try {
+        await rtdb.ref(`comments/${c.sessionId}/${commentId}/status`).set('replying');
+      } catch (_) {}
     } else {
       if (c.status === 'replying') {
         await commentRef.update({
           status: 'pending',
           replyingSince: null,
         });
+        try {
+          await rtdb.ref(`comments/${c.sessionId}/${commentId}/status`).set('pending');
+        } catch (_) {}
       }
     }
 
@@ -265,6 +327,14 @@ export const replyToComment = functions
       hostReplyAt: admin.firestore.FieldValue.serverTimestamp(),
       replyingSince: null,
     });
+
+    try {
+      await rtdb.ref(`comments/${c.sessionId}/${commentId}`).update({
+        status: 'replied',
+        hostReply: reply,
+        hostReplyAt: Date.now(),
+      });
+    } catch (_) {}
 
     return { success: true };
   });
@@ -334,6 +404,14 @@ export const updateCallStatus = functions
     }
 
     await callRef.update(update);
+
+    try {
+      await rtdb.ref(`calls/${c.sessionId}/${callId}`).update({
+        status: next,
+        updatedAt: Date.now(),
+      });
+    } catch (_) {}
+
     return { success: true };
   });
 

@@ -180,12 +180,13 @@ class UserInteractionService {
     final snapshot = await _firestore
         .collection('show_reminders')
         .where('userId', isEqualTo: userId)
-        .where('isActive', isEqualTo: true)
-        .orderBy('showStartTime')
         .get();
-    return snapshot.docs
+    final list = snapshot.docs
         .map((doc) => ShowReminder.fromFirestore(doc))
+        .where((r) => r.isActive)
         .toList();
+    list.sort((a, b) => a.showStartTime.compareTo(b.showStartTime));
+    return list;
   }
 
   Future<bool> hasReminder(String userId, String showId) async {
@@ -203,12 +204,15 @@ class UserInteractionService {
     return _firestore
         .collection('show_reminders')
         .where('userId', isEqualTo: userId)
-        .where('isActive', isEqualTo: true)
-        .orderBy('showStartTime')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ShowReminder.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => ShowReminder.fromFirestore(doc))
+              .where((r) => r.isActive)
+              .toList();
+          list.sort((a, b) => a.showStartTime.compareTo(b.showStartTime));
+          return list;
+        });
   }
 
   Future<void> createNotification(NotificationModel notification) async {
@@ -221,12 +225,15 @@ class UserInteractionService {
     final snapshot = await _firestore
         .collection('notifications')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
         .get();
-    return snapshot.docs
+    final list = snapshot.docs
         .map((doc) => NotificationModel.fromFirestore(doc))
         .toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (list.length > limit) {
+      return list.sublist(0, limit);
+    }
+    return list;
   }
 
   Future<int> getUnreadNotificationCount(String userId) async {
@@ -266,12 +273,14 @@ class UserInteractionService {
     return _firestore
         .collection('notifications')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(20)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => NotificationModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => NotificationModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list.take(20).toList();
+        });
   }
 
   Future<void> sendLiveNotifications(String showId, String programName) async {

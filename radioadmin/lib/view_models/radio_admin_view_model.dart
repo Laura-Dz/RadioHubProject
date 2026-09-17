@@ -222,6 +222,10 @@ class RadioAdminViewModel extends ChangeNotifier {
     await _service.upsertTariff(tariff);
   }
 
+  Future<void> deleteTariff(String tariffId) async {
+    await _service.deleteTariff(tariffId);
+  }
+
   Future<void> updateRadioProfile(RadioProfile profile) async {
     await _service.updateRadioProfile(_radioId, profile);
     _radioProfile = profile;
@@ -462,6 +466,7 @@ class RadioAdminViewModel extends ChangeNotifier {
   Future<void> paySubscription({
     required SubscriptionPlan plan,
     required String paymentMethod,
+    String? paymentAccount,
   }) async {
     await _service.paySubscription(
       radioId: _radioId,
@@ -470,6 +475,7 @@ class RadioAdminViewModel extends ChangeNotifier {
       days: plan.days,
       planName: plan.label,
       paymentMethod: paymentMethod,
+      paymentAccount: paymentAccount,
     );
   }
 

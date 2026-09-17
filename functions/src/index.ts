@@ -183,4 +183,8 @@ export const joinSessionWithCode = functions
   });
 
 export * from './host';
+export * from './listener';
+export * from './announcements';
+export * from './polls';
+
 

@@ -120,6 +120,7 @@ class TimetableViewModel extends ChangeNotifier {
       if (s.id == showId) {
         return ShowModel(
           id: s.id,
+          radioId: s.radioId,
           title: s.title,
           description: s.description,
           host: s.host,

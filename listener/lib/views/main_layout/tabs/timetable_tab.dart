@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../view_models/timetable_view_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/placeholder_image.dart';
+import '../../../core/widgets/safe_image.dart';
 
 class TimetableTab extends StatefulWidget {
   const TimetableTab({Key? key}) : super(key: key);
@@ -183,18 +184,14 @@ class _TimetableTabState extends State<TimetableTab> with AutomaticKeepAliveClie
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            image: show.imageUrl != null && show.imageUrl!.isNotEmpty
-                ? DecorationImage(image: NetworkImage(show.imageUrl!), fit: BoxFit.cover)
-                : null,
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SafeImage(
+            imageUrl: show.imageUrl,
+            width: 56,
+            height: 56,
+            fallback: const PlaceholderImage(width: 56, height: 56),
           ),
-          child: show.imageUrl == null || show.imageUrl!.isEmpty
-              ? const PlaceholderImage(width: 56, height: 56)
-              : null,
         ),
         title: Text(
           show.title,

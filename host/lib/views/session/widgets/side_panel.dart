@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../view_models/host_view_model.dart';
 import 'call_queue.dart';
 import 'live_broadcast_timer.dart';
 import 'on_call_card.dart';
+import 'poll_results_card.dart';
 
 class SidePanel extends StatelessWidget {
   const SidePanel({Key? key}) : super(key: key);
@@ -122,7 +122,9 @@ class SidePanel extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            const PollResultsCard(),
+            const SizedBox(height: 12),
             const Divider(height: 1, color: AppColors.divider),
 
             // On call

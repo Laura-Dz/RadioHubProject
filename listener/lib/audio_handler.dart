@@ -121,7 +121,8 @@ class AudioPlayerHandler extends BaseAudioHandler {
     }
   }
 
-  Future<void> playLiveStream(String streamUrl, {String? title, String? artist}) async {
+  Future<void> playLiveStream(String streamUrl,
+      {String? title, String? artist, Map<String, String>? headers}) async {
     final mediaItemValue = MediaItem(
       id: 'live://$streamUrl',
       album: 'Live Stream',
@@ -136,6 +137,7 @@ class AudioPlayerHandler extends BaseAudioHandler {
     await _playlist.add(
       AudioSource.uri(
         Uri.parse(streamUrl),
+        headers: headers,
         tag: {
           'id': mediaItemValue.id,
           'title': mediaItemValue.title,

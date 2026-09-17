@@ -1,8 +1,6 @@
 enum NavigationTabs {
   home,
   channels,
-  schedule,
-  timetable,
   announcements,
   profile,
   settings,
@@ -15,10 +13,6 @@ extension NavigationTabsExtension on NavigationTabs {
         return 'Home';
       case NavigationTabs.channels:
         return 'Channels';
-      case NavigationTabs.schedule:
-        return 'Schedule';
-      case NavigationTabs.timetable:
-        return 'Timetable';
       case NavigationTabs.announcements:
         return 'Announce';
       case NavigationTabs.profile:
@@ -34,10 +28,6 @@ extension NavigationTabsExtension on NavigationTabs {
         return 'home';
       case NavigationTabs.channels:
         return 'radio';
-      case NavigationTabs.schedule:
-        return 'calendar_today';
-      case NavigationTabs.timetable:
-        return 'event';
       case NavigationTabs.announcements:
         return 'campaign';
       case NavigationTabs.profile:
@@ -53,10 +43,6 @@ extension NavigationTabsExtension on NavigationTabs {
         return 'home_filled';
       case NavigationTabs.channels:
         return 'radio_filled';
-      case NavigationTabs.schedule:
-        return 'calendar_today';
-      case NavigationTabs.timetable:
-        return 'event';
       case NavigationTabs.announcements:
         return 'campaign_filled';
       case NavigationTabs.profile:

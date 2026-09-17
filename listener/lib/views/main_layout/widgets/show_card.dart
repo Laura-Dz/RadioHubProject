@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/show_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 import '../../../view_models/user_interaction_view_model.dart';
 import 'live_badge.dart';
 import 'countdown_timer.dart';
@@ -70,9 +71,7 @@ class ShowCard extends StatelessWidget {
                     height: 120,
                     width: double.infinity,
                     decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.3), AppColors.secondary.withOpacity(0.3)])),
-                    child: show.imageUrl != null
-                        ? Image.network(show.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildPlaceholder())
-                        : _buildPlaceholder(),
+                    child: _buildNetworkImage(show.imageUrl),
                   ),
                 ),
                 if (isLive || show.isLive || show.isRediffusion)
@@ -156,7 +155,7 @@ class ShowCard extends StatelessWidget {
                 height: 80,
                 width: double.infinity,
                 decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.2), AppColors.secondary.withOpacity(0.2)])),
-                child: show.imageUrl != null ? Image.network(show.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildPlaceholder()) : _buildPlaceholder(),
+                child: _buildNetworkImage(show.imageUrl),
               ),
             ),
             Padding(
@@ -206,7 +205,7 @@ class ShowCard extends StatelessWidget {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.2), AppColors.secondary.withOpacity(0.2)])),
-                child: show.imageUrl != null ? Image.network(show.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildPlaceholder()) : _buildPlaceholder(),
+                child: _buildNetworkImage(show.imageUrl),
               ),
             ),
             const SizedBox(width: 12),
@@ -263,7 +262,7 @@ class ShowCard extends StatelessWidget {
                     height: 100,
                     width: double.infinity,
                     decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.2), AppColors.secondary.withOpacity(0.2)])),
-                    child: show.imageUrl != null ? Image.network(show.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildPlaceholder()) : _buildPlaceholder(),
+                    child: _buildNetworkImage(show.imageUrl),
                   ),
                 ),
                 if (show.isTrending)
@@ -322,6 +321,14 @@ class ShowCard extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(color: Colors.grey.shade200, child: Center(child: Icon(Icons.radio, color: Colors.grey.shade400, size: 32)));
+  }
+
+  Widget _buildNetworkImage(String? url) {
+    return SafeImage(
+      imageUrl: url,
+      fit: BoxFit.cover,
+      fallback: _buildPlaceholder(),
+    );
   }
 
   String _formatListenerCount(int count) {

@@ -16,6 +16,10 @@ urlpatterns = [
     path("announcement/suggest-text/", views.SuggestAnnouncementTextView.as_view(), name="announcement-suggest-text-slash"),
     path("announcement/calculate-price", views.CalculateAnnouncementPriceView.as_view(), name="announcement-calculate-price"),
     path("announcement/calculate-price/", views.CalculateAnnouncementPriceView.as_view(), name="announcement-calculate-price-slash"),
+    path("stream/<str:radio_id>/", views.stream_radio, name="stream-radio"),
+    path("stream/<str:radio_id>", views.stream_radio, name="stream-radio-noslash"),
+    path("internal/stream-key/<str:radio_id>/", views.get_or_rotate_stream_key, name="internal-stream-key"),
+    path("internal/stream-key/<str:radio_id>", views.get_or_rotate_stream_key, name="internal-stream-key-noslash"),
 ]
 
 

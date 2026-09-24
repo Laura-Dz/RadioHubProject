@@ -10,6 +10,10 @@ import '../core/models/user_mark.dart';
 import '../core/models/poll.dart';
 import '../core/services/user_marks_service.dart';
 import '../core/services/realtime_database_service.dart';
+import '../core/services/cloud_function_caller.dart';
+import '../core/services/voip_audio_service.dart';
+import 'package:just_audio/just_audio.dart';
+import '../core/config/app_config.dart';
 
 class RadioStationViewModel extends ChangeNotifier {
   final _db = FirebaseFirestore.instance;
@@ -27,6 +31,8 @@ class RadioStationViewModel extends ChangeNotifier {
 
   bool _loading = true;
   bool _isPlaying = false;
+  bool _hasRegisteredPresence = false;
+  DatabaseReference? _myPresenceRef;
   String? _error;
 
   Poll? _activePoll;
@@ -178,11 +184,11 @@ class RadioStationViewModel extends ChangeNotifier {
     final userId = uid;
     if (userId != null) {
       _favSub = _marks.streamMarksOfType(userId, MarkType.favouriteProgram)
-          .listen((s) { _favouritePrograms = s; notifyListeners(); });
+          .listen((s) { _favouritePrograms = s; notifyListeners(); }, onError: (e) => debugPrint('favSub error: $e'));
       _remSub = _marks.streamMarksOfType(userId, MarkType.reminder)
-          .listen((s) { _reminders = s; notifyListeners(); });
+          .listen((s) { _reminders = s; notifyListeners(); }, onError: (e) => debugPrint('remSub error: $e'));
       _listSub = _marks.streamMarksOfType(userId, MarkType.listenLater)
-          .listen((s) { _listenLater = s; notifyListeners(); });
+          .listen((s) { _listenLater = s; notifyListeners(); }, onError: (e) => debugPrint('listSub error: $e'));
     }
   }
 
@@ -250,11 +256,160 @@ class RadioStationViewModel extends ChangeNotifier {
     );
   }
 
-  // ---------- Player ----------
+  // ---------- Player & Real-Time Listener Stats ----------
+
+  AudioPlayer? _audioPlayer;
+  bool _audioPlayerInitialized = false;
+
+  void _initAudioPlayer() {
+    if (_audioPlayerInitialized) return;
+    _audioPlayer = AudioPlayer();
+    _audioPlayerInitialized = true;
+
+    _audioPlayer!.playerStateStream.listen((state) {
+      final isActuallyPlaying = state.playing && state.processingState != ProcessingState.completed;
+      if (_isPlaying != isActuallyPlaying) {
+        _isPlaying = isActuallyPlaying;
+        notifyListeners();
+      }
+    });
+
+    _audioPlayer!.playbackEventStream.listen(
+      (event) {},
+      onError: (Object e, StackTrace st) {
+        debugPrint('Audio playback error: $e');
+        _error = 'Audio stream error: $e';
+        notifyListeners();
+      },
+    );
+  }
 
   void togglePlay() {
-    _isPlaying = !_isPlaying;
+    if (_isPlaying) {
+      pausePlayback();
+    } else {
+      startPlayback();
+    }
+  }
+
+  Future<void> startPlayback() async {
+    _initAudioPlayer();
+    _isPlaying = true;
+    _incrementListenerCount();
     notifyListeners();
+
+    try {
+      final primaryUrl = AppConfig.getStreamUrl(_radioId);
+      debugPrint('Connecting to live audio stream: $primaryUrl');
+
+      try {
+        await _audioPlayer!.stop();
+        await _audioPlayer!.setUrl(primaryUrl);
+        await _audioPlayer!.play();
+      } catch (e) {
+        debugPrint('Primary stream connection error ($primaryUrl): $e');
+        // Fall back to verified audio stream for phone hardware testing
+        debugPrint('Falling back to test audio stream: ${AppConfig.testAudioStreamUrl}');
+        await _audioPlayer!.setUrl(AppConfig.testAudioStreamUrl);
+        await _audioPlayer!.play();
+      }
+    } catch (e) {
+      debugPrint('Failed to start radio playback: $e');
+      _isPlaying = false;
+      _error = 'Unable to play stream: $e';
+      notifyListeners();
+    }
+  }
+
+  void pausePlayback() {
+    if (_isPlaying) {
+      _isPlaying = false;
+      _decrementListenerCount();
+      notifyListeners();
+      try {
+        _audioPlayer?.pause();
+      } catch (e) {
+        debugPrint('Error pausing audio player: $e');
+      }
+    }
+  }
+
+  Future<void> _incrementListenerCount() async {
+    if (_radioId.isEmpty) return;
+    try {
+      final curUid = uid ?? 'listener_${DateTime.now().millisecondsSinceEpoch}';
+      final liveId = _liveSession?.id;
+
+      // 1. RTDB presence with onDisconnect hook
+      try {
+        if (liveId != null && liveId.isNotEmpty) {
+          _myPresenceRef = RealtimeDatabaseService.database.ref('sessions/$liveId/listeners/$curUid');
+          await _myPresenceRef!.set({'connectedAt': ServerValue.timestamp});
+          await _myPresenceRef!.onDisconnect().remove();
+          await RealtimeDatabaseService.database.ref('sessions/$liveId/listenerCount').set(ServerValue.increment(1));
+        }
+        await RealtimeDatabaseService.database.ref('radios/$_radioId/listenerCount').set(ServerValue.increment(1));
+      } catch (e) {
+        debugPrint('RTDB presence increment error: $e');
+      }
+
+      // 2. Firestore increment
+      if (liveId != null && liveId.isNotEmpty) {
+        await _db.collection('sessions').doc(liveId).update({
+          'listenerCount': FieldValue.increment(1),
+          'peakListeners': FieldValue.increment(1),
+        }).catchError((_) {});
+
+        // Post timeseries point for technician metrics
+        final currentCount = (_liveSession?.listenerCount ?? 0) + 1;
+        await _db.collection('listener_analytics').add({
+          'sessionId': liveId,
+          'radioId': _radioId,
+          'count': currentCount,
+          'date': FieldValue.serverTimestamp(),
+        }).catchError((_) {});
+      }
+
+      await _db.collection('radios').doc(_radioId).update({
+        'listenerCount': FieldValue.increment(1),
+      }).catchError((_) {});
+
+      _hasRegisteredPresence = true;
+    } catch (e) {
+      debugPrint('Error incrementing listener count: $e');
+    }
+  }
+
+  Future<void> _decrementListenerCount() async {
+    if (!_hasRegisteredPresence) return;
+    _hasRegisteredPresence = false;
+    try {
+      final liveId = _liveSession?.id;
+      // 1. RTDB removal
+      try {
+        await _myPresenceRef?.remove();
+        _myPresenceRef = null;
+        if (liveId != null && liveId.isNotEmpty) {
+          await RealtimeDatabaseService.database.ref('sessions/$liveId/listenerCount').set(ServerValue.increment(-1));
+        }
+        await RealtimeDatabaseService.database.ref('radios/$_radioId/listenerCount').set(ServerValue.increment(-1));
+      } catch (e) {
+        debugPrint('RTDB presence decrement error: $e');
+      }
+
+      // 2. Firestore decrement
+      if (liveId != null && liveId.isNotEmpty) {
+        await _db.collection('sessions').doc(liveId).update({
+          'listenerCount': FieldValue.increment(-1),
+        }).catchError((_) {});
+      }
+
+      await _db.collection('radios').doc(_radioId).update({
+        'listenerCount': FieldValue.increment(-1),
+      }).catchError((_) {});
+    } catch (e) {
+      debugPrint('Error decrementing listener count: $e');
+    }
   }
 
   // ---------- Poll ----------
@@ -271,7 +426,8 @@ class RadioStationViewModel extends ChangeNotifier {
       _rtdbPollSub = rtdbRef.onValue.listen((event) {
         final val = event.snapshot.value;
         if (val != null && val is Map) {
-          final map = Map<String, dynamic>.from(val);
+          final map = <String, dynamic>{};
+          val.forEach((k, v) => map[k.toString()] = v);
           final st = map['status']?.toString();
           if (st == 'active' || st == null) {
             final poll = Poll.fromMap(map, map['id']?.toString() ?? sessionId);
@@ -403,14 +559,12 @@ class RadioStationViewModel extends ChangeNotifier {
 
     // 2. Cloud Function & Firestore fallback
     try {
-      final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
-          .httpsCallable('votePoll');
-      await callable.call({
+      await CloudFunctionCaller.call('votePoll', {
         'pollId': pollId,
         'optionIndex': optionIndex,
       });
     } catch (e) {
-      debugPrint('votePoll callable fallback: $e');
+      debugPrint('votePoll callable note: $e');
       if (curUid != null) {
         try {
           final pollRef = _db.collection('polls').doc(pollId);
@@ -598,24 +752,42 @@ class RadioStationViewModel extends ChangeNotifier {
     final topic = callerTopicOrName.trim();
 
     try {
+      // 1. Stop radio audio playback so background station audio does not feed into caller's mic
+      if (_isPlaying) {
+        pausePlayback();
+      }
+
+      // 2. Request device microphone & speaker permissions via browser/WebRTC
+      try {
+        await VoipAudioService.requestMicAndSpeaker();
+      } catch (micErr) {
+        debugPrint('Voip mic access notice: $micErr');
+      }
+
       final sessionRef = _db.collection('sessions').doc(sessionId);
 
-      // Check existing active calls for this user (single-field query, no composite index)
+      // Clean up any stale active calls for this user (avoids false-positive queue locks)
       final existing = await _db
           .collection('calls')
           .where('userId', isEqualTo: curUid)
           .limit(10)
           .get();
 
-      final activeExisting = existing.docs.where((d) {
-        final data = d.data();
-        if (data['sessionId'] != sessionId) return false;
+      for (final doc in existing.docs) {
+        final data = doc.data();
+        if (data['sessionId'] != sessionId) continue;
         final st = data['status'];
-        return st == 'pending' || st == 'accepted' || st == 'held';
-      });
-
-      if (activeExisting.isNotEmpty) {
-        throw Exception('You already have a VOIP call in progress');
+        if (st == 'pending' || st == 'accepted' || st == 'held') {
+          await doc.reference.update({
+            'status': 'dropped',
+            'endedAt': FieldValue.serverTimestamp(),
+          }).catchError((_) {});
+          try {
+            await RealtimeDatabaseService.database
+                .ref('calls/$sessionId/${doc.id}')
+                .update({'status': 'dropped'});
+          } catch (_) {}
+        }
       }
 
       // Generate a common ID for both Firestore and Realtime Database
@@ -701,6 +873,7 @@ class RadioStationViewModel extends ChangeNotifier {
       }
     }
     _myCallStatus = null;
+    VoipAudioService.stopAudio();
     notifyListeners();
   }
 
@@ -712,6 +885,11 @@ class RadioStationViewModel extends ChangeNotifier {
   }
 
   void _detach() {
+    if (_isPlaying) {
+      _decrementListenerCount();
+      _isPlaying = false;
+    }
+    VoipAudioService.stopAudio();
     _timeTicker?.cancel();
     _radioSub?.cancel();
     _directLiveSub?.cancel();
@@ -731,11 +909,23 @@ class RadioStationViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _detach();
+    _audioPlayer?.dispose();
     super.dispose();
   }
+
+  // Mini-player & station info helpers
+  String? get currentProgramImage => (_liveSession?.imageUrl != null && _liveSession!.imageUrl!.isNotEmpty)
+      ? _liveSession!.imageUrl
+      : (_radio?.bannerUrl != null && _radio!.bannerUrl!.isNotEmpty
+          ? _radio!.bannerUrl
+          : (_radio?.logoUrl != null && _radio!.logoUrl!.isNotEmpty ? _radio!.logoUrl : null));
+  String get currentTitle => _liveSession?.programName ?? _radio?.name ?? 'Radio Station';
+  String get currentSubtitle => _liveSession?.hostName != null && _liveSession!.hostName!.isNotEmpty
+      ? 'Host: ${_liveSession!.hostName}'
+      : (_radio?.city != null && _radio!.city!.isNotEmpty ? '${_radio!.city} · Live' : 'Live On Air');
+  bool get hasActiveSession => _liveSession != null || _radio != null;
 
   // Backward-compatibility aliases
   void loadRadioData(String radioId) => attach(radioId);
   bool get isLoading => _loading;
-
 }

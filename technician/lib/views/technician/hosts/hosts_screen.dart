@@ -186,7 +186,11 @@ class _HostCardState extends State<_HostCard> {
             AppAvatar(
               photoUrl: h.photoUrl,
               name: h.name,
-              radius: 26,
+              radius: 30,
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.25),
+                width: 2,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(

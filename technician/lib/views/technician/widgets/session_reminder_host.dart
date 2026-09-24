@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
+import '../../../core/models/technician/timetable_slot_model.dart';
 import '../../../core/services/network_time_service.dart';
 import '../../../core/constants/app_colors.dart';
+import '../schedule/forced_session_init_modal.dart';
 
 class SessionReminderHost extends StatefulWidget {
   final Widget child;
@@ -23,11 +25,14 @@ class SessionReminderHost extends StatefulWidget {
 class _State extends State<SessionReminderHost> {
   Timer? _timer;
   final Set<String> _shown = {};
+  final Map<String, DateTime> _snoozedSlots = {};
+  final Set<String> _dismissedSlots = {};
+  bool _isModalOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _check());
+    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _check());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await NetworkTimeService().sync();
       _check();
@@ -41,21 +46,81 @@ class _State extends State<SessionReminderHost> {
   }
 
   void _check() {
-    if (!mounted) return;
+    if (!mounted || _isModalOpen) return;
     try {
       final vm = context.read<TechnicianViewModel>();
       final net = NetworkTimeService();
+      final now = net.now();
 
+      // ============================================================
+      // 1. FORCED INITIALIZATION CHECK:
+      // Scheduled timetable slots that have arrived but have NO session
+      // (neither new live session nor rediffusion)
+      // ============================================================
+      final todayWeekday = now.weekday; // 1 = Monday ... 7 = Sunday
+      final todaySlots = vm.timetable
+          .where((slot) => slot.isActive && slot.weekday == todayWeekday)
+          .toList();
+
+      for (final slot in todaySlots) {
+        final slotStart = slot.dateFor(now);
+        final slotEnd = slot.endDateFor(now);
+
+        // Check if air time has arrived (within 5 min before start up until end time)
+        final isTimeArrived = now.isAfter(slotStart.subtract(const Duration(minutes: 5))) &&
+            now.isBefore(slotEnd);
+        if (!isTimeArrived) continue;
+
+        final slotKey = '${slot.id}_${now.year}_${now.month}_${now.day}';
+        final snoozedUntil = _snoozedSlots[slotKey];
+        if (snoozedUntil != null && now.isBefore(snoozedUntil)) continue;
+        if (_dismissedSlots.contains(slotKey)) continue;
+
+        // Check if ANY session exists for this slot today (live, scheduled, ended, or rediffusion)
+        final bool hasSession = vm.sessions.any((s) {
+          final isSameSlot = s.timetableSlotId == slot.id;
+          final isSameProgToday = s.programId == slot.programId &&
+              s.scheduledStart.year == now.year &&
+              s.scheduledStart.month == now.month &&
+              s.scheduledStart.day == now.day &&
+              (s.scheduledStart.difference(slotStart).abs().inMinutes <= 45);
+          return (isSameSlot || isSameProgToday);
+        });
+
+        if (!hasSession) {
+          _isModalOpen = true;
+          ForcedSessionInitModal.show(
+            context,
+            slot: slot,
+            date: now,
+            onSnooze: () {
+              _snoozedSlots[slotKey] = now.add(const Duration(minutes: 5));
+            },
+            onDismiss: () {
+              _dismissedSlots.add(slotKey);
+            },
+          ).then((_) {
+            _isModalOpen = false;
+          });
+          return;
+        }
+      }
+
+      // ============================================================
+      // 2. EXISTING SCHEDULED SESSION REMINDER:
+      // For sessions that are already initialized and scheduled
+      // ============================================================
       for (final s in vm.sessions) {
         if (s.status != SessionStatus.scheduled) continue;
         if (s.isRediffusion) continue;
         if (_shown.contains(s.id)) continue;
 
-        final diff = s.scheduledStart.difference(net.now());
+        final diff = s.scheduledStart.difference(now);
         if (diff.inSeconds <= 300 && diff.inSeconds >= -60) {
           _shown.add(s.id);
           // If a session is already live, don't nag
           if (vm.currentLiveSession != null) continue;
+          _isModalOpen = true;
           _showPopup(s, diff);
           return;
         }
@@ -152,7 +217,9 @@ class _State extends State<SessionReminderHost> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      _isModalOpen = false;
+    });
   }
 
   @override

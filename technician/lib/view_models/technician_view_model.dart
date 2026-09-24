@@ -10,14 +10,17 @@ import '../core/models/technician/host_model.dart';
 import '../core/models/technician/media_item_model.dart';
 import '../core/models/technician/notification_model.dart';
 import '../core/models/technician/metrics_model.dart';
+import '../core/models/technician/technician_announcement.dart';
 import '../core/services/technician_service.dart';
 import '../core/services/storage_service.dart';
 import '../core/services/media_upload_service.dart';
+import '../core/services/technician_announcement_service.dart';
 
 class TechnicianViewModel extends ChangeNotifier {
   final TechnicianService _service;
   final StorageService _storageService;
   final MediaUploadService _uploader = MediaUploadService();
+  final TechnicianAnnouncementService _announcementService = TechnicianAnnouncementService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String _radioId = '';
@@ -39,6 +42,10 @@ class TechnicianViewModel extends ChangeNotifier {
   List<Host> _hosts = [];
   List<MediaItem> _mediaItems = [];
   List<NotificationItem> _notifications = [];
+  List<TechnicianAnnouncement> _announcements = [];
+  final Set<String> _dismissedDueIds = {};
+  TechnicianAnnouncement? _activeDueAnnouncement;
+  Timer? _dueCheckTimer;
 
   RadioMetrics _metrics = RadioMetrics();
   RadioMetrics get metrics => _metrics;
@@ -65,6 +72,7 @@ class TechnicianViewModel extends ChangeNotifier {
   StreamSubscription? _hostsSub;
   StreamSubscription? _mediaSub;
   StreamSubscription? _notifSub;
+  StreamSubscription? _announcementsSub;
 
   TechnicianViewModel({
     required TechnicianService service,
@@ -94,6 +102,17 @@ class TechnicianViewModel extends ChangeNotifier {
   List<NotificationItem> get notifications => _notifications;
   int get unreadNotifications =>
       _notifications.where((n) => !n.isRead).length;
+
+  List<TechnicianAnnouncement> get announcements => _announcements;
+  List<TechnicianAnnouncement> get pendingAnnouncements =>
+      _announcements.where((a) => !a.isAired).toList();
+  List<TechnicianAnnouncement> get intermediaryAnnouncements =>
+      _announcements.where((a) => a.isBetweenSlot).toList();
+  List<TechnicianAnnouncement> get showAnnouncements =>
+      _announcements.where((a) => a.isWithinShowSlot).toList();
+  TechnicianAnnouncement? get activeDueAnnouncement => _activeDueAnnouncement;
+  int get dueAnnouncementCount =>
+      _announcements.where((a) => a.isDueNow(DateTime.now())).length;
 
   void initialize({
     required String radioId,
@@ -205,6 +224,19 @@ class TechnicianViewModel extends ChangeNotifier {
       },
       onError: (e) => debugPrint('Error in streamNotifications: $e'),
     );
+    _announcementsSub = _announcementService.streamAnnouncementsForRadio(_radioId).listen(
+      (list) {
+        _announcements = list;
+        _checkDueAnnouncements();
+        notifyListeners();
+      },
+      onError: (e) => debugPrint('Error in streamAnnouncements: $e'),
+    );
+
+    _dueCheckTimer?.cancel();
+    _dueCheckTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _checkDueAnnouncements();
+    });
   }
 
   void _detachStreams() {
@@ -220,8 +252,52 @@ class TechnicianViewModel extends ChangeNotifier {
     _hostsSub?.cancel();
     _mediaSub?.cancel();
     _notifSub?.cancel();
+    _announcementsSub?.cancel();
+    _dueCheckTimer?.cancel();
     _liveMetricsSub?.cancel();
     _liveMetrics = null;
+  }
+
+  void _checkDueAnnouncements() {
+    final now = DateTime.now();
+    final due = _announcements.where((a) {
+      return a.isDueNow(now) && !_dismissedDueIds.contains(a.id);
+    }).toList();
+
+    if (due.isNotEmpty) {
+      if (_activeDueAnnouncement?.id != due.first.id) {
+        _activeDueAnnouncement = due.first;
+        notifyListeners();
+      }
+    } else if (_activeDueAnnouncement != null) {
+      _activeDueAnnouncement = null;
+      notifyListeners();
+    }
+  }
+
+  void dismissDueAnnouncement(String announcementId) {
+    _dismissedDueIds.add(announcementId);
+    if (_activeDueAnnouncement?.id == announcementId) {
+      _activeDueAnnouncement = null;
+    }
+    notifyListeners();
+  }
+
+  Future<void> markAnnouncementAired(TechnicianAnnouncement a, {String? sessionId}) async {
+    try {
+      await _announcementService.markAsAired(
+        announcementId: a.id,
+        technicianName: _technicianName.isNotEmpty ? _technicianName : 'Technician',
+        sessionId: sessionId,
+      );
+      _dismissedDueIds.add(a.id);
+      if (_activeDueAnnouncement?.id == a.id) {
+        _activeDueAnnouncement = null;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error marking announcement as aired: $e');
+    }
   }
 
   Future<void> refreshData() async {

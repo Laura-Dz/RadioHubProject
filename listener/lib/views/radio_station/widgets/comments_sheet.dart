@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/services/cloud_function_caller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../core/services/realtime_database_service.dart';
@@ -21,7 +21,6 @@ class CommentsSheet extends StatefulWidget {
 
 class _State extends State<CommentsSheet> {
   final _ctrl = TextEditingController();
-  final _fns = FirebaseFunctions.instanceFor(region: 'europe-west1');
   bool _sending = false;
   StreamSubscription? _rtdbSub;
   final Map<String, Map<String, dynamic>> _rtdbComments = {};
@@ -326,13 +325,12 @@ class _State extends State<CommentsSheet> {
 
     // 2. Direct Firestore fallback & Cloud Function moderation
     try {
-      final callable = _fns.httpsCallable('submitComment');
-      final res = await callable.call({
+      final res = await CloudFunctionCaller.call('submitComment', {
         'sessionId': widget.session.id,
         'text': text,
         'userName': userName,
       });
-      final data = Map<String, dynamic>.from(res.data);
+      final data = Map<String, dynamic>.from(res);
 
       if (data['success'] != true) {
         if (mounted) {

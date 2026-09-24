@@ -9,6 +9,7 @@ class AppColors {
   // Gold accent
   static const Color gold = Color(0xFFD4A017);
   static const Color goldLight = Color(0xFFF0C75E);
+  static const Color accent = Color(0xFFEF4444);
 
   // Neutrals
   static const Color background = Color(0xFFF6F8FC);

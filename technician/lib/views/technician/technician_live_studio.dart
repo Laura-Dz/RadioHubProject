@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/models/technician/session_model.dart';
 import '../../core/models/technician/metrics_model.dart';
 import '../../view_models/technician_view_model.dart';
+import 'widgets/announcements_panel.dart';
 
 class TechnicianLiveStudio extends StatefulWidget {
   final Session session;
@@ -28,6 +29,8 @@ class _TechnicianLiveStudioState extends State<TechnicianLiveStudio> {
         padding: const EdgeInsets.all(16),
         children: [
           _MetricsPanel(session: widget.session, viewModel: viewModel),
+          const SizedBox(height: 16),
+          AnnouncementsPanel(activeSessionId: widget.session.id),
           const SizedBox(height: 16),
           _CallRoutingPanel(session: widget.session, viewModel: viewModel),
           const SizedBox(height: 16),

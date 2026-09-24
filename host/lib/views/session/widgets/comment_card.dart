@@ -91,20 +91,21 @@ class _State extends State<CommentCard> {
                     if (c.isReplying)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Icon(Icons.edit_note,
-                                size: 12, color: AppColors.primary),
+                            Icon(Icons.mic,
+                                size: 13, color: AppColors.primary),
                             SizedBox(width: 4),
-                            Text('Replying',
+                            Text('Replying On Air',
                                 style: TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.3)),
@@ -114,7 +115,7 @@ class _State extends State<CommentCard> {
                     else if (c.isReplied)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.success.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
@@ -122,12 +123,12 @@ class _State extends State<CommentCard> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Icon(Icons.check,
-                                size: 12, color: AppColors.success),
+                            Icon(Icons.check_circle,
+                                size: 13, color: AppColors.success),
                             SizedBox(width: 4),
                             Text('Replied',
                                 style: TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     color: AppColors.success,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.3)),
@@ -139,43 +140,51 @@ class _State extends State<CommentCard> {
                 const SizedBox(height: 10),
                 Text(c.text,
                     style: const TextStyle(fontSize: 13.5, height: 1.4)),
-                if (c.hostReply != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: AppColors.success.withOpacity(0.25)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.reply,
-                            size: 14, color: AppColors.success),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('You replied',
-                                  style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.success,
-                                      letterSpacing: 0.3)),
-                              const SizedBox(height: 2),
-                              Text(c.hostReply!,
-                                  style: const TextStyle(
-                                      fontSize: 13, height: 1.35)),
-                            ],
-                          ),
+                const SizedBox(height: 12),
+                // Audio reply state action bar
+                if (c.isReplying || widget.isReplying)
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => _markReplied(context),
+                        icon: const Icon(Icons.check, size: 15),
+                        label: const Text('Mark as Replied'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () => context.read<HostViewModel>().cancelReplying(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        child: const Text('Cancel', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      ),
+                    ],
+                  )
+                else if (!c.isReplied)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _startReplying(context),
+                      icon: const Icon(Icons.mic, size: 14),
+                      label: const Text('Reply On Air'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary.withOpacity(0.4)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        textStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
@@ -184,11 +193,21 @@ class _State extends State<CommentCard> {
     );
   }
 
+  Future<void> _startReplying(BuildContext context) async {
+    final vm = context.read<HostViewModel>();
+    await vm.startReplying(widget.comment);
+  }
+
+  Future<void> _markReplied(BuildContext context) async {
+    final vm = context.read<HostViewModel>();
+    await vm.markCommentReplied(widget.comment);
+  }
+
   Future<void> _onTap(BuildContext context) async {
     final vm = context.read<HostViewModel>();
-    if (widget.isReplying) {
-      await vm.cancelReplying();
-    } else {
+    if (widget.comment.isReplying || widget.isReplying) {
+      await vm.markCommentReplied(widget.comment);
+    } else if (!widget.comment.isReplied) {
       await vm.startReplying(widget.comment);
     }
   }

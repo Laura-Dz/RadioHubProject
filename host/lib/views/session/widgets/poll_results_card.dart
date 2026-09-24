@@ -61,77 +61,129 @@ class PollResultsCard extends StatelessWidget {
   }
 
   Widget _card(BuildContext context, Poll poll, String sessionId) {
+    // Find the highest vote count to highlight the leader
+    int maxVotes = 0;
+    for (final o in poll.options) {
+      final c = poll.countFor(o.index);
+      if (c > maxVotes) maxVotes = c;
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.poll_outlined,
-                  size: 15, color: AppColors.primary),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
               const SizedBox(width: 8),
-              const Text('POLL LIVE',
+              const Text('LIVE POLL • REALTIME',
                   style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: AppColors.primary,
-                      letterSpacing: 0.6)),
+                      letterSpacing: 0.8)),
               const Spacer(),
-              Text('${poll.totalVotes} votes',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('${poll.totalVotes} total votes',
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary)),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(poll.question,
               style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, height: 1.3)),
-          const SizedBox(height: 12),
+                  fontSize: 15, fontWeight: FontWeight.w700, height: 1.35)),
+          const SizedBox(height: 16),
           ...poll.options.map((o) {
             final pct = poll.pctFor(o.index);
+            final count = poll.countFor(o.index);
+            final isLeader = maxVotes > 0 && count == maxVotes;
+
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
+                      if (isLeader) ...[
+                        const Icon(Icons.star_rounded, size: 16, color: Color(0xFFFFB800)),
+                        const SizedBox(width: 4),
+                      ],
                       Expanded(
-                        child: Text(o.text,
-                            style: const TextStyle(fontSize: 12.5)),
+                        child: Text(
+                          o.text,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isLeader ? FontWeight.w700 : FontWeight.w500,
+                            color: isLeader ? AppColors.textPrimary : AppColors.textSecondary,
+                          ),
+                        ),
                       ),
-                      Text('${(pct * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary)),
+                      Text(
+                        '$count vote${count == 1 ? '' : 's'} (${(pct * 100).toStringAsFixed(0)}%)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isLeader ? AppColors.primary : AppColors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: pct,
-                      minHeight: 5,
-                      backgroundColor: AppColors.border,
-                      color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(4),
+                    child: TweenAnimationBuilder<double>(
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOutCubic,
+                      tween: Tween<double>(begin: 0, end: pct),
+                      builder: (context, val, _) {
+                        return LinearProgressIndicator(
+                          value: val,
+                          minHeight: 8,
+                          backgroundColor: AppColors.border.withOpacity(0.4),
+                          color: isLeader ? AppColors.primary : AppColors.primary.withOpacity(0.55),
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
             );
           }),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           SizedBox(
             width: double.infinity,
-            child: TextButton.icon(
+            child: OutlinedButton.icon(
               onPressed: () async {
                 // 1. Instant close in Realtime Database (WebSocket pushes to listeners)
                 try {
@@ -157,10 +209,12 @@ class PollResultsCard extends StatelessWidget {
                   }
                 }
               },
-              icon: const Icon(Icons.stop, size: 14),
-              label: const Text('Close poll'),
-              style: TextButton.styleFrom(
+              icon: const Icon(Icons.stop_circle_outlined, size: 16),
+              label: const Text('End & close poll'),
+              style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error.withOpacity(0.4)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ),

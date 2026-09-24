@@ -69,16 +69,44 @@ class HomeViewModel extends BaseViewModel {
 
   Future<void> _loadLiveShows() async {
     try {
-      final snapshot = await _firestore
-          .collection('shows')
-          .where('status', isEqualTo: 'live')
-          .limit(20)
-          .get();
-      final list = snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
-          .toList();
-      list.sort((a, b) => b.listenerCount.compareTo(a.listenerCount));
-      _liveShows = list.take(10).toList();
+      final List<ShowModel> liveList = [];
+
+      // 1. Fetch active ongoing sessions from 'sessions' collection
+      try {
+        final sessionsSnap = await _firestore
+            .collection('sessions')
+            .where('status', whereIn: ['on_air', 'live'])
+            .limit(20)
+            .get();
+
+        for (final doc in sessionsSnap.docs) {
+          final data = doc.data();
+          liveList.add(ShowModel.fromSession(data, doc.id));
+        }
+      } catch (sessionErr) {
+        debugPrint('Error loading live sessions: $sessionErr');
+      }
+
+      // 2. Also fetch from 'shows' collection where status is live
+      try {
+        final showsSnap = await _firestore
+            .collection('shows')
+            .where('status', isEqualTo: 'live')
+            .limit(20)
+            .get();
+
+        for (final doc in showsSnap.docs) {
+          // Avoid duplicate entry if same show or session
+          if (!liveList.any((s) => s.id == doc.id || s.title == (doc.data()['title'] ?? doc.data()['name']))) {
+            liveList.add(ShowModel.fromFirestore(doc.data(), doc.id));
+          }
+        }
+      } catch (showsErr) {
+        debugPrint('Error loading live shows collection: $showsErr');
+      }
+
+      liveList.sort((a, b) => b.listenerCount.compareTo(a.listenerCount));
+      _liveShows = liveList.take(15).toList();
     } catch (e) {
       debugPrint('Error loading live shows: $e');
       _liveShows = [];

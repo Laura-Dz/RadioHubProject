@@ -121,6 +121,37 @@ class ShowModel {
       allowCalls: data['allowCalls'] != false,
     );
   }
+
+  factory ShowModel.fromSession(Map<String, dynamic> data, String id) {
+    final title = data['programName'] ?? data['title'] ?? data['name'] ?? 'Live Broadcast';
+    final host = data['hostName'] ?? data['host'] ?? 'RadioHub';
+    final img = data['imageUrl'] ?? data['coverUrl'] ?? data['coverImageUrl'];
+    final count = ((data['listenerCount'] ?? 0) as num).toInt();
+    final isRediff = data['isRediffusion'] == true || data['status'] == 'rediffusion';
+    final allowCalls = data['allowCalls'] != false;
+
+    return ShowModel(
+      id: id,
+      radioId: data['radioId']?.toString(),
+      title: title.toString(),
+      host: host.toString(),
+      imageUrl: img?.toString(),
+      category: ShowCategory.talk,
+      status: ShowStatus.live,
+      startTime: (data['startTime'] is Timestamp)
+          ? (data['startTime'] as Timestamp).toDate()
+          : null,
+      endTime: (data['endTime'] is Timestamp)
+          ? (data['endTime'] as Timestamp).toDate()
+          : null,
+      listenerCount: count,
+      rating: 4.8,
+      isFollowed: false,
+      isRediffusion: isRediff,
+      allowCalls: allowCalls,
+      description: data['description']?.toString(),
+    );
+  }
 }
 
 enum ShowCategory { music, talk, news, sports, comedy, education, entertainment, religious }

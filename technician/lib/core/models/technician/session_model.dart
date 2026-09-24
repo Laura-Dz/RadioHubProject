@@ -149,7 +149,11 @@ class Session {
       isRediffusion: d['isRediffusion'] == true,
       sourceSessionId: d['sourceSessionId']?.toString(),
       sessionCode: d['sessionCode']?.toString(),
-      recordingUrl: d['recordingUrl']?.toString(),
+      recordingUrl: (d['recordingUrl'] ??
+              d['audioUrl'] ??
+              d['mediaUrl'] ??
+              d['recording'])
+          ?.toString(),
       listenerCount: FSParsers.toInt(d['listenerCount']),
       completionRate: FSParsers.toDouble(d['completionRate']),
       engagementCount: FSParsers.toInt(d['engagementCount']),

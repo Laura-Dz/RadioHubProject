@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
+import '../../../core/models/technician/host_model.dart';
+import '../../../core/utils/app_avatar.dart';
 import '../../../core/models/technician/timetable_slot_model.dart';
 import '../../../core/services/network_time_service.dart';
 import '../../../core/constants/app_colors.dart';
@@ -448,14 +450,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                   if (s.hostName.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      s.hostName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Builder(
+                      builder: (context) {
+                        final vm = context.watch<TechnicianViewModel>();
+                        final host = vm.hosts.cast<Host?>().firstWhere(
+                              (h) =>
+                                  h?.id == s.hostId ||
+                                  h?.name.toLowerCase() ==
+                                      s.hostName.toLowerCase(),
+                              orElse: () => null,
+                            );
+                        return Row(
+                          children: [
+                            AppAvatar(
+                              photoUrl: host?.photoUrl,
+                              name: s.hostName,
+                              radius: 7,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                s.hostName,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                   // Status pill

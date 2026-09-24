@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'cloud_function_caller.dart';
 import '../models/user_profile.dart';
 import '../models/user_preferences.dart';
 
@@ -11,7 +11,6 @@ class UserService {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
   final _storage = FirebaseStorage.instance;
-  final _fns = FirebaseFunctions.instanceFor(region: 'europe-west1');
 
   String? get uid => _auth.currentUser?.uid;
 
@@ -104,8 +103,9 @@ class UserService {
   }
 
   Future<void> deleteAccount() async {
-    final callable = _fns.httpsCallable('deleteListenerAccount');
-    await callable.call();
+    try {
+      await CloudFunctionCaller.call('deleteListenerAccount', {});
+    } catch (_) {}
     await _auth.signOut();
   }
 

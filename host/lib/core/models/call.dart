@@ -64,7 +64,7 @@ class Call {
       requestedAt: parseTime(d['requestedAt'] ?? d['timestamp']),
       acceptedAt: parseNullable(d['acceptedAt']),
       heldAt: parseNullable(d['heldAt']),
-      holdCount: (d['holdCount'] ?? 0) as int,
+      holdCount: ((d['holdCount'] ?? 0) as num).toInt(),
     );
   }
 
@@ -74,4 +74,5 @@ class Call {
   bool get isPending => status == 'pending';
   bool get isAccepted => status == 'accepted';
   bool get isHeld => status == 'held';
+  bool get isEnded => status == 'ended' || status == 'declined' || status == 'dropped';
 }

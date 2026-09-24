@@ -133,6 +133,8 @@ class _State extends State<TechnicianSidebar> {
     final hov = _hovered == i;
     final unreadCount =
         context.select<TechnicianViewModel, int>((vm) => vm.unreadNotifications);
+    final dueCount =
+        context.select<TechnicianViewModel, int>((vm) => vm.dueAnnouncementCount);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -183,6 +185,19 @@ class _State extends State<TechnicianSidebar> {
                           ),
                         ),
                       ),
+                    if (!_expanded && it.label == 'Dashboard' && dueCount > 0)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.amber,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 if (_expanded) ...[
@@ -208,6 +223,19 @@ class _State extends State<TechnicianSidebar> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text('$unreadCount',
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                  if (it.label == 'Dashboard' && dueCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade700,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('$dueCount',
                           style: const TextStyle(
                               fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),
                     ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../services/storage_service.dart';
 
 class AppAvatar extends StatelessWidget {
   final String? photoUrl;
@@ -56,7 +57,8 @@ class AppAvatar extends StatelessWidget {
       try {
         final commaIdx = trimmed.indexOf(',');
         final rawBase64 = commaIdx != -1 ? trimmed.substring(commaIdx + 1) : trimmed;
-        final bytes = base64Decode(rawBase64);
+        final cleanBase64 = rawBase64.replaceAll(RegExp(r'\s+'), '');
+        final bytes = base64Decode(cleanBase64);
         imageWidget = Image.memory(
           bytes,
           width: radius * 2,
@@ -68,11 +70,16 @@ class AppAvatar extends StatelessWidget {
         return fallback;
       }
     } else {
+      final validUrl = StorageService.ensureValidUrl(trimmed);
       imageWidget = Image.network(
-        trimmed,
+        validUrl,
         width: radius * 2,
         height: radius * 2,
         fit: BoxFit.cover,
+        loadingBuilder: (_, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return fallback;
+        },
         errorBuilder: (_, __, ___) => fallback,
       );
     }

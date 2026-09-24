@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/models/technician/program_model.dart';
 import '../../../core/models/technician/host_model.dart';
 import '../../../core/utils/app_avatar.dart';
+import '../../../core/utils/app_program_image.dart';
 import '../../../view_models/technician_view_model.dart';
 
 class ProgramsSection extends StatelessWidget {
@@ -43,9 +45,12 @@ class ProgramsSection extends StatelessWidget {
                           .toList();
                       return Card(
                         child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blue.shade100,
-                            child: const Icon(Icons.tv, color: Colors.blue),
+                          leading: AppProgramImage(
+                            imageUrl: p.imageUrl,
+                            name: p.name,
+                            width: 44,
+                            height: 44,
+                            borderRadius: 8,
                           ),
                           title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Column(

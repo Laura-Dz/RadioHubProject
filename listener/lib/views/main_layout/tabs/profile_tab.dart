@@ -5,6 +5,7 @@ import '../../../view_models/profile_view_model.dart';
 import '../../../core/constants/app_colors.dart';
 import 'profile/edit_profile_modal.dart';
 import 'profile/change_password_modal.dart';
+import '../../announcements/my_announcements_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({Key? key}) : super(key: key);
@@ -123,6 +124,23 @@ class ProfileTab extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 20),
+
+          // ---------------- Activity section ----------------
+          _sectionHeader('Activity'),
+          _menuCard([
+            _menuItem(
+              icon: Icons.campaign_outlined,
+              title: 'My Announcements',
+              subtitle: 'Track status, scheduled airing times & request another',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyAnnouncementsScreen()),
+                );
+              },
+            ),
+          ]),
           const SizedBox(height: 20),
 
           // ---------------- Account section ----------------

@@ -15,6 +15,7 @@ import '../models/radio_admin/metrics_model.dart';
 import '../models/radio_admin/recommendation_model.dart';
 import '../models/radio_admin/media_model.dart';
 import '../models/radio_admin/session_model.dart';
+import '../models/radio_admin/program_model.dart';
 import 'escrow_service.dart';
 import 'ai_recommendation_service.dart';
 import '../utils/firestore_parsers.dart';
@@ -506,6 +507,52 @@ class RadioAdminService {
           'balance': FieldValue.increment(baseAmount),
         }, SetOptions(merge: true));
       }
+
+      // Generate broadcast handoff notifications for Host and Technician
+      final cat = (data['category'] ?? 'General').toString();
+      final listenerName = (data['listenerName'] ?? 'Listener').toString();
+
+      for (final slot in assignedSlots) {
+        if (slot.slotType == 'within') {
+          // Routed to Host for live reading during the specific program
+          await _firestore.collection('notifications').add({
+            'radioId': radioId,
+            'recipientRole': 'host',
+            'showId': slot.showId,
+            'showName': slot.showName,
+            'type': 'announcement_scheduled',
+            'title': '📢 Announcement Scheduled for Your Show',
+            'body': '$cat announcement from $listenerName scheduled for ${slot.timeLabel} during ${slot.showName ?? "your show"}.',
+            'data': {
+              'announcementId': announcementId,
+              'scheduledTime': slot.startTime.toIso8601String(),
+              'slotType': 'within',
+              'showId': slot.showId,
+              'showName': slot.showName,
+              'durationSeconds': slot.durationSeconds,
+            },
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          // Routed to Technician for intermediary slot between programs
+          await _firestore.collection('notifications').add({
+            'radioId': radioId,
+            'recipientRole': 'technician',
+            'type': 'announcement_scheduled',
+            'title': '📻 Intermediary Announcement Ready for Lineup',
+            'body': '$cat announcement from $listenerName scheduled for ${slot.timeLabel} between programs.',
+            'data': {
+              'announcementId': announcementId,
+              'scheduledTime': slot.startTime.toIso8601String(),
+              'slotType': 'between',
+              'durationSeconds': slot.durationSeconds,
+            },
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
     } catch (e) {
       debugPrint('validateAnnouncement: $e');
       rethrow;
@@ -619,6 +666,58 @@ class RadioAdminService {
           final list = snap.docs.map((d) => Session.fromFirestore(d.data(), d.id)).toList();
           list.sort((a, b) => a.startTime.compareTo(b.startTime));
           return list;
+        });
+  }
+
+  // ==================== PROGRAMS ====================
+
+  Stream<List<Program>> streamPrograms(String radioId) {
+    return _firestore
+        .collection('programs')
+        .where('radioId', isEqualTo: radioId)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snap) {
+          final list = snap.docs.map((d) => Program.fromFirestore(d.data(), d.id)).toList();
+          list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          return list;
+        });
+  }
+
+  Future<String> createProgram(Program p) async {
+    final ref = await _firestore.collection('programs').add(p.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> updateProgram(String id, Map<String, dynamic> updates) async {
+    await _firestore.collection('programs').doc(id).update({
+      ...updates,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> archiveProgram(String id) async {
+    await _firestore.collection('programs').doc(id).update({
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<String>> streamCategories(String radioId) {
+    return _firestore
+        .collection('program_categories')
+        .where('radioId', isEqualTo: radioId)
+        .snapshots()
+        .map((snap) {
+          final names = snap.docs
+              .map((d) => (d.data()['name'] ?? '').toString())
+              .where((n) => n.isNotEmpty)
+              .toList();
+          if (names.isEmpty) {
+            return ['music', 'talk', 'news', 'sports', 'entertainment', 'general'];
+          }
+          names.sort();
+          return names;
         });
   }
 

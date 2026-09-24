@@ -161,15 +161,31 @@ class StorageService {
   }
 
   /// Ensures a given S3 URL is valid and signed.
-  /// If the URL is from our iDrive e2 bucket, it extracts the object key
+  /// If the URL is from our iDrive e2 bucket (or a relative path), it extracts the object key
   /// and generates a fresh 7-day pre-signed GET URL so images and audio never expire.
   static String ensureValidUrl(String url) {
-    if (url.isEmpty ||
-        (!url.contains(host) && !url.contains('s3.eu-central-1.idrivee2.com'))) {
-      return url;
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+
+    // If it's a relative path in our bucket, generate presigned GET URL
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      if (trimmed.startsWith('radios/') ||
+          trimmed.startsWith('/radios/') ||
+          trimmed.contains('/programs/') ||
+          trimmed.contains('/hosts/')) {
+        return generatePresignedGetUrl(
+            path: trimmed.startsWith('/') ? trimmed.substring(1) : trimmed,
+            expiresInSeconds: 604800);
+      }
+      return trimmed;
+    }
+
+    if (!trimmed.contains(host) && !trimmed.contains('s3.eu-central-1.idrivee2.com')) {
+      return trimmed;
     }
     try {
-      String path = url;
+      String path = trimmed;
       if (path.contains('?')) {
         path = path.split('?').first;
       }
@@ -182,7 +198,7 @@ class StorageService {
       }
       return generatePresignedGetUrl(path: key, expiresInSeconds: 604800);
     } catch (_) {
-      return url;
+      return trimmed;
     }
   }
 

@@ -33,22 +33,64 @@ class Poll {
     required this.createdAt,
   });
 
+  static Map<String, int> _parseVoteCounts(dynamic raw) {
+    final Map<String, int> result = {};
+    if (raw is Map) {
+      raw.forEach((k, v) {
+        result[k.toString()] = (v as num?)?.toInt() ?? 0;
+      });
+    } else if (raw is List) {
+      for (int i = 0; i < raw.length; i++) {
+        result[i.toString()] = (raw[i] as num?)?.toInt() ?? 0;
+      }
+    }
+    return result;
+  }
+
+  static List<PollOption> _parseOptions(dynamic raw) {
+    if (raw is List) {
+      return raw.map((o) {
+        if (o is Map) {
+          return PollOption.fromMap(Map<String, dynamic>.from(o));
+        }
+        return PollOption(index: 0, text: o.toString());
+      }).toList();
+    } else if (raw is Map) {
+      final list = <PollOption>[];
+      raw.forEach((k, v) {
+        final idx = int.tryParse(k.toString()) ?? 0;
+        if (v is Map) {
+          list.add(PollOption.fromMap(Map<String, dynamic>.from(v)));
+        } else {
+          list.add(PollOption(index: idx, text: v.toString()));
+        }
+      });
+      list.sort((a, b) => a.index.compareTo(b.index));
+      return list;
+    }
+    return [];
+  }
+
+  static DateTime? _parseDate(dynamic val) {
+    if (val == null) return null;
+    if (val is Timestamp) return val.toDate().toLocal();
+    if (val is num) return DateTime.fromMillisecondsSinceEpoch(val.toInt());
+    if (val is String) return DateTime.tryParse(val);
+    return null;
+  }
+
   factory Poll.fromFirestore(Map<String, dynamic> d, String id) {
-    final optsRaw = (d['options'] as List?) ?? [];
-    final countsRaw = (d['voteCounts'] as Map?) ?? {};
     return Poll(
       id: id,
       sessionId: (d['sessionId'] ?? '').toString(),
       radioId: (d['radioId'] ?? '').toString(),
       question: (d['question'] ?? '').toString(),
-      options: optsRaw
-          .map((o) => PollOption.fromMap(Map<String, dynamic>.from(o)))
-          .toList(),
+      options: _parseOptions(d['options']),
       status: (d['status'] ?? 'active').toString(),
-      closesAt: (d['closesAt'] as Timestamp?)?.toDate().toLocal(),
-      totalVotes: (d['totalVotes'] ?? 0) as int,
-      voteCounts: countsRaw.map((k, v) => MapEntry(k.toString(), (v ?? 0) as int)),
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate().toLocal() ?? DateTime.now(),
+      closesAt: _parseDate(d['closesAt']),
+      totalVotes: (d['totalVotes'] as num?)?.toInt() ?? 0,
+      voteCounts: _parseVoteCounts(d['voteCounts']),
+      createdAt: _parseDate(d['createdAt']) ?? DateTime.now(),
     );
   }
 
@@ -79,37 +121,17 @@ class Poll {
   }
 
   factory Poll.fromMap(Map<String, dynamic> d, String id) {
-    final optsRaw = (d['options'] as List?) ?? [];
-    final countsRaw = (d['voteCounts'] as Map?) ?? {};
-    DateTime? closesAtDate;
-    if (d['closesAt'] is Timestamp) {
-      closesAtDate = (d['closesAt'] as Timestamp).toDate().toLocal();
-    } else if (d['closesAt'] is int) {
-      closesAtDate = DateTime.fromMillisecondsSinceEpoch(d['closesAt'] as int);
-    }
-    DateTime createdAtDate = DateTime.now();
-    if (d['createdAt'] is Timestamp) {
-      createdAtDate = (d['createdAt'] as Timestamp).toDate().toLocal();
-    } else if (d['createdAt'] is int) {
-      createdAtDate = DateTime.fromMillisecondsSinceEpoch(d['createdAt'] as int);
-    }
-
     return Poll(
       id: id,
       sessionId: (d['sessionId'] ?? '').toString(),
       radioId: (d['radioId'] ?? '').toString(),
       question: (d['question'] ?? '').toString(),
-      options: optsRaw.map((o) {
-        if (o is Map) {
-          return PollOption.fromMap(Map<String, dynamic>.from(o));
-        }
-        return PollOption(index: 0, text: o.toString());
-      }).toList(),
+      options: _parseOptions(d['options']),
       status: (d['status'] ?? 'active').toString(),
-      closesAt: closesAtDate,
+      closesAt: _parseDate(d['closesAt']),
       totalVotes: (d['totalVotes'] as num?)?.toInt() ?? 0,
-      voteCounts: countsRaw.map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0)),
-      createdAt: createdAtDate,
+      voteCounts: _parseVoteCounts(d['voteCounts']),
+      createdAt: _parseDate(d['createdAt']) ?? DateTime.now(),
     );
   }
 

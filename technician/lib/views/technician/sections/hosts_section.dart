@@ -41,15 +41,15 @@ class HostsSection extends StatelessWidget {
                           leading: AppAvatar(
                             photoUrl: h.photoUrl,
                             name: h.name,
-                            radius: 20,
+                            radius: 24,
+                            border: Border.all(
+                              color: Theme.of(context).primaryColor.withOpacity(0.25),
+                              width: 1.5,
+                            ),
                           ),
                           title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('${h.email}\n${h.programIds.length} program(s)'),
                           isThreeLine: true,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => viewModel.deleteHost(h.id),
-                          ),
                         ),
                       );
                     },

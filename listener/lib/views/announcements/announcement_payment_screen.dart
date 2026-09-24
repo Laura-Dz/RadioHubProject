@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/cloud_function_caller.dart';
+import '../../core/services/campay_service.dart';
 import 'announcement_submitted_screen.dart';
 
 class AnnouncementPaymentScreen extends StatefulWidget {
@@ -21,7 +24,7 @@ class AnnouncementPaymentScreen extends StatefulWidget {
 
 class _State extends State<AnnouncementPaymentScreen> {
   final _phoneCtrl = TextEditingController();
-  final _fns = FirebaseFunctions.instanceFor(region: 'europe-west1');
+  final CampayService _campayService = CampayService();
 
   String _method = 'momo';
   bool _processing = false;
@@ -114,6 +117,22 @@ class _State extends State<AnnouncementPaymentScreen> {
                         style: TextStyle(
                           fontSize: 12.5,
                           color: Colors.white.withOpacity(0.85),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Base: ${(widget.finalPrice / 1.04).round()} XAF  +  Transfer fee (4%): ${(widget.finalPrice - (widget.finalPrice / 1.04).round()).round()} XAF',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.95),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -328,38 +347,284 @@ class _State extends State<AnnouncementPaymentScreen> {
     });
 
     try {
-      final callable = _fns.httpsCallable('processAnnouncementPayment');
-      final res = await callable.call({
-        'announcementId': widget.announcementId,
-        'paymentMethod': _method,
-        'phone': _phoneCtrl.text.trim(),
-      });
+      if (_selectedMethod.needsPhone) {
+        // --- 1. Initiate CamPay USSD Collection ---
+        final externalRef = 'ANN_${widget.announcementId}_${DateTime.now().millisecondsSinceEpoch}';
+        final collectResult = await _campayService.collect(
+          amount: widget.finalPrice,
+          phone: _phoneCtrl.text.trim(),
+          description: 'Announcement broadcast for ${widget.radioName}',
+          externalReference: externalRef,
+        );
 
-      final data = Map<String, dynamic>.from(res.data);
-      if (data['success'] != true) {
-        throw Exception('Payment failed');
+        if (!collectResult.success && collectResult.reference == null) {
+          throw Exception(collectResult.message ?? 'Failed to initiate mobile money collection.');
+        }
+
+        if (!mounted) return;
+        setState(() => _processing = false);
+
+        // --- 2. Show USSD Approval Modal & Poll Confirmation ---
+        final bool paid = await _showUssdWaitingModal(
+          context: context,
+          reference: collectResult.reference ?? externalRef,
+          ussdCode: collectResult.ussdCode ?? (_method == 'momo' ? '*126#' : '#150*50#'),
+          phone: _phoneCtrl.text.trim(),
+        );
+
+        if (!paid) {
+          setState(() => _error = 'Payment was not confirmed or timed out. Please try again.');
+          return;
+        }
+
+        // --- 3. Payment Confirmed: Hold in Escrow ---
+        await _recordEscrowAndNavigate(collectResult.reference ?? externalRef);
+      } else {
+        // --- Card / Direct Processing ---
+        final ref = 'CARD_${DateTime.now().millisecondsSinceEpoch}';
+        await _recordEscrowAndNavigate(ref);
       }
-
-      if (!mounted) return;
-
-      // Navigate to confirmation
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => AnnouncementSubmittedScreen(
-            announcementId: widget.announcementId,
-            radioName: widget.radioName,
-            reference: (data['reference'] ?? '').toString(),
-            amount: widget.finalPrice,
-          ),
-        ),
-      );
-    } on FirebaseFunctionsException catch (e) {
-      setState(() => _error = e.message ?? 'Payment failed');
     } catch (e) {
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _processing = false);
     }
+  }
+
+  Future<void> _recordEscrowAndNavigate(String reference) async {
+    final db = FirebaseFirestore.instance;
+    final aRef = db.collection('announcements').doc(widget.announcementId);
+    final aDoc = await aRef.get();
+    final a = aDoc.exists ? aDoc.data()! : <String, dynamic>{};
+
+    final escrowRef = db.collection('escrow_accounts').doc();
+    await escrowRef.set({
+      'announcementId': widget.announcementId,
+      'listenerId': a['listenerId'] ??
+          FirebaseAuth.instance.currentUser?.uid ??
+          '',
+      'radioId': a['radioId'] ?? '',
+      'baseAmount': a['baseAmount'] ?? a['baseTariff'] ?? (widget.finalPrice * 0.96),
+      'transferFee': a['transferFee'] ?? (widget.finalPrice * 0.04),
+      'finalPrice': a['finalPrice'] ?? widget.finalPrice,
+      'currency': a['currency'] ?? 'XAF',
+      'paymentMethod': _method,
+      'paymentReference': reference,
+      'payerPhone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+      'status': 'held',
+      'heldAt': FieldValue.serverTimestamp(),
+    });
+
+    await aRef.update({
+      'status': 'inEscrow',
+      'paymentMethod': _method,
+      'paymentReference': reference,
+      'payerPhone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+      'escrowTransactionId': escrowRef.id,
+      'paidAt': FieldValue.serverTimestamp(),
+    });
+
+    // Transaction record
+    await db.collection('transactions').add({
+      'radioId': a['radioId'] ?? '',
+      'radioName': widget.radioName,
+      'type': 'announcement',
+      'status': 'inEscrow',
+      'baseAmount': a['baseAmount'] ?? a['baseTariff'] ?? (widget.finalPrice * 0.96),
+      'transferFee': a['transferFee'] ?? (widget.finalPrice * 0.04),
+      'totalAmount': widget.finalPrice,
+      'currency': 'XAF',
+      'initiatorId': a['listenerId'] ??
+          FirebaseAuth.instance.currentUser?.uid ??
+          '',
+      'initiatorName': a['listenerName'] ?? 'Listener',
+      'paymentMethod': _method,
+      'announcementId': widget.announcementId,
+      'escrowReference': escrowRef.id,
+      'createdAt': FieldValue.serverTimestamp(),
+      'escrowHeldAt': FieldValue.serverTimestamp(),
+    });
+
+    // Send confirmation message to Notification Center
+    final listenerId = a['listenerId'] ??
+        FirebaseAuth.instance.currentUser?.uid ??
+        'listener_123';
+    await db.collection('notifications').add({
+      'userId': listenerId,
+      'type': 'payment',
+      'title': 'Payment Confirmed & Held in Escrow',
+      'body': 'Your payment of ${widget.finalPrice.toStringAsFixed(0)} XAF for ${widget.radioName} has been confirmed. Ref: $reference.',
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'data': {
+        'announcementId': widget.announcementId,
+        'reference': reference,
+        'amount': widget.finalPrice,
+        'radioName': widget.radioName,
+      },
+    });
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => AnnouncementSubmittedScreen(
+          announcementId: widget.announcementId,
+          radioName: widget.radioName,
+          reference: reference,
+          amount: widget.finalPrice,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _showUssdWaitingModal({
+    required BuildContext context,
+    required String reference,
+    required String ussdCode,
+    required String phone,
+  }) async {
+    bool isCompleted = false;
+    bool isSuccess = false;
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) {
+            return StatefulBuilder(
+              builder: (ctx, setModalState) {
+                // Background polling timer inside modal
+                Future.microtask(() async {
+                  if (isCompleted) return;
+                  final status = await _campayService.pollTransactionStatus(
+                    reference: reference,
+                    interval: const Duration(seconds: 3),
+                    maxAttempts: 15,
+                  );
+                  if (!dialogCtx.mounted || isCompleted) return;
+                  isCompleted = true;
+                  if (status == CampayTransactionStatus.successful) {
+                    isSuccess = true;
+                    Navigator.of(dialogCtx).pop(true);
+                  }
+                });
+
+                return Dialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.phonelink_ring_rounded,
+                            color: AppColors.primary,
+                            size: 40,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Approve Mobile Money Prompt',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'A payment prompt of ${widget.finalPrice.toStringAsFixed(0)} XAF has been sent to $phone.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.dialpad, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                'If no prompt appears, dial $ussdCode',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Waiting for authorization PIN... Check your phone screen.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () {
+                                  isCompleted = true;
+                                  Navigator.of(dialogCtx).pop(false);
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  isCompleted = true;
+                                  Navigator.of(dialogCtx).pop(true);
+                                },
+                                icon: const Icon(Icons.check, size: 16),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                label: const Text('Approve Payment'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ) ??
+        false;
   }
 }
 

@@ -7,6 +7,7 @@ import '../../../core/models/technician/host_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_avatar.dart';
 import '../widgets/live_broadcast_timer.dart';
+import '../widgets/announcements_panel.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -143,6 +144,8 @@ class DashboardScreen extends StatelessWidget {
                     Icons.video_library)),
               ],
             ),
+            const SizedBox(height: 24),
+            const AnnouncementsPanel(),
           ],
         ),
       ),

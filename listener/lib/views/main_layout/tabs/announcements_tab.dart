@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../../core/services/announcement_service.dart';
 import '../../../core/services/channels_service.dart';
+import '../../../core/services/campay_service.dart';
 import '../../../core/models/radio_model.dart';
+import '../../../core/models/announcement_request.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../view_models/announcement_view_model.dart';
 import '../../announcements/my_announcements_screen.dart';
 
 class AnnouncementsTab extends StatefulWidget {
@@ -15,18 +21,25 @@ class AnnouncementsTab extends StatefulWidget {
 class _AnnouncementsTabState extends State<AnnouncementsTab> {
   final AnnouncementService _service = AnnouncementService();
   final ChannelsService _channelsService = ChannelsService();
+  final CampayService _campayService = CampayService();
   final TextEditingController _draftController = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
 
   int _step = 1;
+  bool _isCreating = false;
   bool _loading = false;
+  bool _loadingTariffs = false;
 
   // Station Selection
   String _selectedRadioId = 'radio_1';
   String _selectedRadioName = 'Radio Sunshine';
   List<RadioModel> _stations = [];
 
-  // Category & Payment
-  String _category = 'Birthday';
+  // Category & Payment (Strictly configured by Radio Admin)
+  List<AnnouncementTariffEntry> _tariffs = [];
+  List<String> _categories = [];
+  String _category = 'general';
+  AnnouncementPriority _priority = AnnouncementPriority.standard;
   String _paymentMethod = 'MoMo';
 
   // Date and Period
@@ -48,16 +61,6 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
 
   String? _submittedRefId;
 
-  final List<String> _categories = [
-    'Birthday',
-    'Anniversary',
-    'Congratulations',
-    'Condolence',
-    'Promotional',
-    'Event',
-    'General',
-  ];
-
   final List<int> _periodOptions = [1, 3, 7, 14, 30];
   final List<int> _diffusionsPerDayOptions = [1, 2, 3];
 
@@ -76,11 +79,34 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
   void initState() {
     super.initState();
     _loadStations();
+    _loadTariffsForRadio(_selectedRadioId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      context.read<AnnouncementViewModel>().watchMyAnnouncements(uid);
+    });
+  }
+
+  Future<void> _loadTariffsForRadio(String radioId) async {
+    setState(() => _loadingTariffs = true);
+    final list = await _service.getTariffs(radioId);
+    if (mounted) {
+      setState(() {
+        _tariffs = list;
+        _categories = list.map((t) => t.category).toList();
+        if (_categories.isNotEmpty) {
+          if (!_categories.contains(_category)) {
+            _category = _categories.first;
+          }
+        }
+        _loadingTariffs = false;
+      });
+    }
   }
 
   void _loadStations() {
     _channelsService.streamAllRadios().listen((radios) {
       if (radios.isNotEmpty && mounted) {
+        final prevId = _selectedRadioId;
         setState(() {
           _stations = radios;
           if (!_stations.any((r) => r.id == _selectedRadioId)) {
@@ -88,6 +114,9 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
             _selectedRadioName = _stations.first.name;
           }
         });
+        if (prevId != _selectedRadioId) {
+          _loadTariffsForRadio(_selectedRadioId);
+        }
       }
     });
   }
@@ -95,6 +124,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
   @override
   void dispose() {
     _draftController.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -103,6 +133,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
       _step = 1;
       _submittedRefId = null;
       _draftController.clear();
+      _phoneCtrl.clear();
       _finalText = '';
       _baseTariff = 0.0;
       _transferFee = 0.0;
@@ -112,6 +143,21 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isCreating) {
+      return MyAnnouncementsScreen(
+        onRequestNew: () {
+          setState(() {
+            _isCreating = true;
+            _resetForm();
+          });
+        },
+        showAppBar: false,
+      );
+    }
+
+    final myAnnouncements = context.watch<AnnouncementViewModel>().mine;
+    final activeRequests = myAnnouncements.where((a) => a.isValidated || a.isPendingValidation).toList();
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: SingleChildScrollView(
@@ -119,6 +165,32 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Return / Back Bar
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => setState(() => _isCreating = false),
+                    icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                    label: const Text(
+                      'Back to My Announcements',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    tooltip: 'Cancel & Return',
+                    onPressed: () => setState(() => _isCreating = false),
+                  ),
+                ],
+              ),
+            ),
             // Top Header Banner
             Container(
               padding: const EdgeInsets.all(20),
@@ -164,20 +236,137 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.history, color: Colors.white),
-                    tooltip: 'My Announcements',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MyAnnouncementsScreen()),
-                      );
-                    },
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.history, color: Colors.white),
+                        tooltip: 'My Announcements',
+                        onPressed: () => setState(() => _isCreating = false),
+                      ),
+                      if (myAnnouncements.isNotEmpty)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: activeRequests.any((a) => a.isValidated)
+                                  ? AppColors.success
+                                  : (activeRequests.isNotEmpty ? AppColors.warning : AppColors.secondary),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            child: Text(
+                              '${myAnnouncements.length}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
+            // Active Request Status Tracker Banner
+            if (activeRequests.isNotEmpty) ...[
+              Builder(
+                builder: (_) {
+                  final hasValidated = activeRequests.any((a) => a.isValidated);
+                  final firstVal = activeRequests.firstWhere(
+                    (a) => a.isValidated,
+                    orElse: () => activeRequests.first,
+                  );
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: hasValidated ? Colors.green.shade50 : Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: hasValidated ? Colors.green.shade300 : Colors.amber.shade300,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MyAnnouncementsScreen()),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: hasValidated ? Colors.green.shade600 : Colors.amber.shade700,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              hasValidated ? Icons.event_available : Icons.hourglass_top,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      hasValidated
+                                          ? 'Scheduled Airing Active'
+                                          : 'Announcement in Escrow Validation',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12.5,
+                                        color: hasValidated ? Colors.green.shade900 : Colors.amber.shade900,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      'View Details ›',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: hasValidated ? Colors.green.shade900 : Colors.amber.shade900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  hasValidated
+                                      ? 'Airing: ${firstVal.airingTimeSummary}'
+                                      : 'Station is assigning slots for "${firstVal.radioName}". Tap to track.',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: hasValidated ? Colors.green.shade800 : Colors.amber.shade800,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
 
             // Step Indicator Header
             Container(
@@ -332,6 +521,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                   _selectedRadioName = found['name']!;
                 }
               });
+              _loadTariffsForRadio(v);
             }
           },
           decoration: InputDecoration(
@@ -342,18 +532,51 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
         ),
         const SizedBox(height: 16),
 
-        // 2. Category
-        const Text('Announcement Category', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: _category,
-          items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-          onChanged: (v) => setState(() => _category = v!),
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          ),
+        // 2. Category (Configured strictly by Radio Admin)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Announcement Category', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              'Defined by Radio Admin',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+            ),
+          ],
         ),
+        const SizedBox(height: 6),
+        if (_loadingTariffs)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                SizedBox(width: 10),
+                Text('Loading admin categories...', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              ],
+            ),
+          )
+        else
+          DropdownButtonFormField<String>(
+            value: _categories.contains(_category) ? _category : (_categories.isNotEmpty ? _categories.first : null),
+            items: _categories.map((c) {
+              return DropdownMenuItem(
+                value: c,
+                child: Text(c.isNotEmpty ? c[0].toUpperCase() + c.substring(1) : c),
+              );
+            }).toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _category = v);
+            },
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.category_outlined, color: AppColors.primary, size: 20),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
         const SizedBox(height: 16),
 
         // 3. Date selection before period (Start Date)
@@ -443,7 +666,77 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
         ),
         const SizedBox(height: 12),
 
-        // 6. Schedule summary box
+        // 6. Broadcast Priority
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Broadcast Priority', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(_priority.label, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: AnnouncementPriority.values.map((p) {
+            final isSelected = _priority == p;
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: p == AnnouncementPriority.priority ? 0 : 8),
+                child: InkWell(
+                  onTap: () => setState(() => _priority = p),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.primary.withOpacity(0.08) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              p == AnnouncementPriority.standard
+                                  ? Icons.circle_outlined
+                                  : p == AnnouncementPriority.high
+                                      ? Icons.trending_up
+                                      : Icons.priority_high,
+                              size: 14,
+                              color: isSelected ? AppColors.primary : Colors.grey.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              p.label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? AppColors.primary : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          p.description,
+                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600, height: 1.2),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+
+        // 7. Schedule summary box
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -465,7 +758,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$_diffusionDays days · ${_diffusionDays * _diffusionsPerDay} total broadcasts on $_selectedRadioName',
+                      '$_diffusionDays days · ${_diffusionDays * _diffusionsPerDay} total broadcasts (${_priority.label} priority) on $_selectedRadioName',
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                     ),
                   ],
@@ -476,7 +769,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
         ),
         const SizedBox(height: 16),
 
-        // 7. Message Draft
+        // 8. Message Draft
         const Text('Your Announcement Draft', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         TextField(
@@ -609,7 +902,13 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                    child: Text(_category, style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                    child: Text(_category.isNotEmpty ? _category[0].toUpperCase() + _category.substring(1) : _category, style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(6)),
+                    child: Text(_priority.label, style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -620,7 +919,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
               ),
               const SizedBox(height: 2),
               Text(
-                '$_diffusionDays days · ${_diffusionDays * _diffusionsPerDay} total broadcasts (${_durationSeconds}s each)',
+                '$_diffusionDays days · ${_diffusionDays * _diffusionsPerDay} total broadcasts (${_priority.label} · ${_durationSeconds}s each)',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ],
@@ -660,6 +959,26 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
             ),
           )).toList(),
         ),
+        if (_paymentMethod == 'MoMo' || _paymentMethod == 'OM') ...[
+          const SizedBox(height: 12),
+          Text('$_paymentMethod Phone Number', style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _phoneCtrl,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              hintText: 'e.g. +237 6XX XXX XXX',
+              prefixIcon: const Icon(Icons.phone_android, color: AppColors.primary, size: 20),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'A prompt will be sent to your phone to approve ${_finalPrice.toStringAsFixed(0)} XAF.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
         const SizedBox(height: 16),
 
         Row(
@@ -745,10 +1064,10 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MyAnnouncementsScreen()),
-                  );
+                  setState(() {
+                    _isCreating = false;
+                    _resetForm();
+                  });
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -756,7 +1075,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('My Announcements'),
+                child: const Text('View My Announcements'),
               ),
             ),
           ],
@@ -808,10 +1127,16 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
   Future<void> _calculatePrice() async {
     setState(() => _loading = true);
     final totalDiffusions = _diffusionDays * _diffusionsPerDay;
+    final tariff = _tariffs.firstWhere(
+      (t) => t.category.toLowerCase() == _category.toLowerCase(),
+      orElse: () => AnnouncementTariffEntry(category: _category, ratePerUnit: 500.0),
+    );
     final res = await _service.calculatePrice(
       wordCount: _wordCount,
       durationSeconds: _durationSeconds,
       diffusionCount: totalDiffusions,
+      ratePerUnit: tariff.ratePerUnit > 0 ? tariff.ratePerUnit : 500.0,
+      priorityMultiplier: _priority.multiplier,
     );
     setState(() {
       _baseTariff = (res['base_tariff'] as num).toDouble();
@@ -822,34 +1147,292 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
     });
   }
 
+  Future<bool> _showUssdWaitingModal({
+    required BuildContext context,
+    required String reference,
+    required String ussdCode,
+    required String phone,
+  }) async {
+    bool isCompleted = false;
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) {
+            return StatefulBuilder(
+              builder: (ctx, setModalState) {
+                // Background polling
+                Future.microtask(() async {
+                  if (isCompleted) return;
+                  final status = await _campayService.pollTransactionStatus(
+                    reference: reference,
+                    interval: const Duration(seconds: 3),
+                    maxAttempts: 15,
+                  );
+                  if (!dialogCtx.mounted || isCompleted) return;
+                  isCompleted = true;
+                  if (status == CampayTransactionStatus.successful) {
+                    Navigator.of(dialogCtx).pop(true);
+                  }
+                });
+
+                return Dialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.phonelink_ring_rounded,
+                            color: AppColors.primary,
+                            size: 40,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Approve Payment Prompt',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'A payment prompt of ${_finalPrice.toStringAsFixed(0)} XAF has been sent to $phone.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.dialpad, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                'If no prompt appears, dial $ussdCode',
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Waiting for authorization PIN... Check your phone screen.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () {
+                                  isCompleted = true;
+                                  Navigator.of(dialogCtx).pop(false);
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  isCompleted = true;
+                                  Navigator.of(dialogCtx).pop(true);
+                                },
+                                icon: const Icon(Icons.check, size: 16),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                label: const Text('Approve Payment'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ) ??
+        false;
+  }
+
   Future<void> _submit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final listenerId = user?.uid ?? 'listener_123';
+    final listenerName = user?.displayName ?? 'Listener';
+    final listenerEmail = user?.email ?? 'listener@radiohub.app';
+
+    if ((_paymentMethod == 'MoMo' || _paymentMethod == 'OM') && _phoneCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your phone number to receive the payment prompt.')),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
-    final totalDiffusions = _diffusionDays * _diffusionsPerDay;
-    final id = await _service.submitAnnouncementRequest(
-      radioId: _selectedRadioId,
-      radioName: _selectedRadioName,
-      listenerId: 'listener_123',
-      listenerName: 'Laura Listener',
-      listenerEmail: 'laura@example.com',
-      category: _category,
-      originalText: _draftController.text.trim(),
-      finalText: _finalText,
-      wordCount: _wordCount,
-      durationSeconds: _durationSeconds,
-      diffusionCount: totalDiffusions,
-      baseTariff: _baseTariff,
-      transferFee: _transferFee,
-      finalPrice: _finalPrice,
-      paymentMethod: _paymentMethod,
-      startDate: _startDate,
-      endDate: _endDate,
-      diffusionPeriodDays: _diffusionDays,
-      diffusionsPerDay: _diffusionsPerDay,
-    );
-    setState(() {
-      _submittedRefId = id.isNotEmpty ? id : null;
-      _loading = false;
-      _step = 4;
-    });
+
+    try {
+      String paymentRef = 'PAY_${DateTime.now().millisecondsSinceEpoch}';
+
+      if (_paymentMethod == 'MoMo' || _paymentMethod == 'OM') {
+        final externalRef = 'ANN_${DateTime.now().millisecondsSinceEpoch}';
+        final collectResult = await _campayService.collect(
+          amount: _finalPrice,
+          phone: _phoneCtrl.text.trim(),
+          description: 'Announcement broadcast on $_selectedRadioName',
+          externalReference: externalRef,
+        );
+
+        if (!mounted) return;
+        setState(() => _loading = false);
+
+        final ussdCode = collectResult.ussdCode ?? (_paymentMethod == 'MoMo' ? '*126#' : '#150*50#');
+        final paid = await _showUssdWaitingModal(
+          context: context,
+          reference: collectResult.reference ?? externalRef,
+          ussdCode: ussdCode,
+          phone: _phoneCtrl.text.trim(),
+        );
+
+        if (!paid) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Payment authorization was cancelled or timed out.')),
+            );
+          }
+          return;
+        }
+
+        paymentRef = collectResult.reference ?? externalRef;
+        setState(() => _loading = true);
+      }
+
+      // 1. Submit announcement
+      final totalDiffusions = _diffusionDays * _diffusionsPerDay;
+      final id = await _service.submitAnnouncementRequest(
+        radioId: _selectedRadioId,
+        radioName: _selectedRadioName,
+        listenerId: listenerId,
+        listenerName: listenerName,
+        listenerEmail: listenerEmail,
+        category: _category,
+        originalText: _draftController.text.trim(),
+        finalText: _finalText,
+        wordCount: _wordCount,
+        durationSeconds: _durationSeconds,
+        diffusionCount: totalDiffusions,
+        baseTariff: _baseTariff,
+        transferFee: _transferFee,
+        finalPrice: _finalPrice,
+        paymentMethod: _paymentMethod,
+        priority: _priority,
+        startDate: _startDate,
+        endDate: _endDate,
+        diffusionPeriodDays: _diffusionDays,
+        diffusionsPerDay: _diffusionsPerDay,
+      );
+
+      final db = FirebaseFirestore.instance;
+
+      // 2. Escrow account record
+      final escrowRef = db.collection('escrow_accounts').doc();
+      await escrowRef.set({
+        'announcementId': id,
+        'listenerId': listenerId,
+        'radioId': _selectedRadioId,
+        'baseAmount': _baseTariff,
+        'transferFee': _transferFee,
+        'finalPrice': _finalPrice,
+        'currency': 'XAF',
+        'paymentMethod': _paymentMethod,
+        'paymentReference': paymentRef,
+        'payerPhone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+        'status': 'held',
+        'heldAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Transactions record
+      await db.collection('transactions').add({
+        'radioId': _selectedRadioId,
+        'radioName': _selectedRadioName,
+        'type': 'announcement',
+        'status': 'inEscrow',
+        'baseAmount': _baseTariff,
+        'transferFee': _transferFee,
+        'totalAmount': _finalPrice,
+        'currency': 'XAF',
+        'initiatorId': listenerId,
+        'initiatorName': listenerName,
+        'paymentMethod': _paymentMethod,
+        'announcementId': id,
+        'escrowReference': escrowRef.id,
+        'createdAt': FieldValue.serverTimestamp(),
+        'escrowHeldAt': FieldValue.serverTimestamp(),
+      });
+
+      // 4. Send Confirmation Notification to Listener
+      await db.collection('notifications').add({
+        'userId': listenerId,
+        'type': 'payment',
+        'title': 'Payment Confirmed & Held in Escrow',
+        'body': 'Your payment of ${_finalPrice.toStringAsFixed(0)} XAF for $_selectedRadioName has been confirmed. Ref: $paymentRef.',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'data': {
+          'announcementId': id,
+          'reference': paymentRef,
+          'amount': _finalPrice,
+          'radioName': _selectedRadioName,
+        },
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment confirmed! Reference: $paymentRef'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {
+          _submittedRefId = id.isNotEmpty ? id : paymentRef;
+          _loading = false;
+          _step = 4;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+        setState(() => _loading = false);
+      }
+    }
   }
 }

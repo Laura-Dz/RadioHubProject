@@ -10,6 +10,7 @@ import 'announcements/announcements_screen.dart';
 import 'radio_page/radio_page_editor_screen.dart';
 import 'metrics/metrics_screen.dart';
 import 'insights/insights_screen.dart';
+import 'programs/programs_screen.dart';
 import 'schedule/schedule_view_screen.dart';
 import 'media/media_library_screen.dart';
 import 'transactions/transactions_screen.dart';
@@ -51,9 +52,10 @@ class _RadioAdminDashboardState extends State<RadioAdminDashboard> {
       case 4: return const RadioPageEditorScreen();
       case 5: return const MetricsScreen();
       case 6: return const InsightsScreen();
-      case 7: return const ScheduleViewScreen();
-      case 8: return const MediaLibraryScreen();
-      case 9: return const TransactionsScreen();
+      case 7: return const ProgramsScreen();
+      case 8: return const ScheduleViewScreen();
+      case 9: return const MediaLibraryScreen();
+      case 10: return const TransactionsScreen();
       default: return const DashboardScreen();
     }
   }
@@ -67,11 +69,11 @@ class _RadioAdminDashboardState extends State<RadioAdminDashboard> {
           RadioAdminSidebar(
             selectedIndex: _selectedIndex,
             onItemSelected: (i) {
-              if (i == 10) {
+              if (i == 11) {
                 // Settings
                 return;
               }
-              if (i == 11) {
+              if (i == 12) {
                 // Logout
                 Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
                 return;

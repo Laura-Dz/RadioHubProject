@@ -8,6 +8,8 @@ import 'widgets/comments_column.dart';
 import 'widgets/live_broadcast_timer.dart';
 import 'widgets/side_panel.dart';
 import 'widgets/create_poll_modal.dart';
+import 'widgets/live_announcement_banner.dart';
+import 'widgets/announcements_modal.dart';
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({Key? key}) : super(key: key);
@@ -89,6 +91,42 @@ class _State extends State<SessionScreen> {
           ],
         ),
         actions: [
+          // Announcements Action with Badge
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                tooltip: 'Show announcements',
+                icon: const Icon(Icons.campaign_outlined),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const AnnouncementsModal(),
+                ),
+              ),
+              if (vm.unreadAnnouncementCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.gold,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '${vm.unreadAnnouncementCount}',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             tooltip: 'Create poll',
             icon: const Icon(Icons.poll_outlined),
@@ -108,14 +146,21 @@ class _State extends State<SessionScreen> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
         children: [
-          Expanded(flex: 2, child: CommentsColumn()),
-          const SizedBox(width: 1),
-          SizedBox(
-            width: 380,
-            child: SidePanel(),
+          const LiveAnnouncementBanner(),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: CommentsColumn()),
+                const SizedBox(width: 1),
+                SizedBox(
+                  width: 380,
+                  child: SidePanel(),
+                ),
+              ],
+            ),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/firestore_parsers.dart';
+import '../../services/storage_service.dart';
 
 enum RecurrenceType { none, daily, weekdays, weekends, weekly }
 
@@ -93,7 +94,20 @@ class Program {
       allowsCalls: d['allowsCalls'] != false,
       allowsComments: d['allowsComments'] != false,
       isActive: d['isActive'] != false,
-      imageUrl: d['imageUrl']?.toString(),
+      imageUrl: () {
+        final raw = (d['imageUrl'] ??
+                d['posterUrl'] ??
+                d['coverUrl'] ??
+                d['bannerUrl'] ??
+                d['image'] ??
+                d['photoUrl'] ??
+                d['logoUrl'] ??
+                d['coverImageUrl'])
+            ?.toString()
+            .trim();
+        if (raw == null || raw.isEmpty) return null;
+        return StorageService.ensureValidUrl(raw);
+      }(),
       recurrenceType: RecurrenceType.values.firstWhere(
         (e) => e.toString() == 'RecurrenceType.${d['recurrenceType']}',
         orElse: () => RecurrenceType.none,

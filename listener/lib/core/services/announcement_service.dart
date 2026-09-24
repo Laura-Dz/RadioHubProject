@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:http/http.dart' as http;
+import 'cloud_function_caller.dart';
 import '../models/announcement_request.dart';
+import '../config/app_config.dart';
 
 class AnnouncementTariffEntry {
   final String category;
@@ -18,10 +19,9 @@ class AnnouncementTariffEntry {
 
 class AnnouncementService {
   final _db = FirebaseFirestore.instance;
-  final _fns = FirebaseFunctions.instanceFor(region: 'europe-west1');
   final String baseUrl;
 
-  AnnouncementService({this.baseUrl = 'http://localhost:8000'});
+  AnnouncementService({String? baseUrl}) : baseUrl = baseUrl ?? AppConfig.backendUrl;
 
   /// Fetches the announcement categories + tariffs for a radio.
   Future<List<AnnouncementTariffEntry>> getTariffs(String radioId) async {
@@ -34,15 +34,19 @@ class AnnouncementService {
       if (snap.docs.isNotEmpty) {
         final list = snap.docs.map((d) {
           final data = d.data();
+          final catName = (data['customCategoryName'] != null &&
+                  data['customCategoryName'].toString().trim().isNotEmpty)
+              ? data['customCategoryName'].toString().trim()
+              : (data['category'] ?? '').toString().trim();
           return AnnouncementTariffEntry(
-            category: (data['category'] ?? '').toString(),
+            category: catName,
             ratePerUnit: (data['ratePer15SecUnit'] ?? data['ratePerUnit'] ?? 0.0).toDouble(),
             isActive: data['isActive'] != false,
           );
-        }).toList()
+        }).where((t) => t.category.isNotEmpty && t.isActive).toList()
           ..sort((a, b) => a.category.compareTo(b.category));
 
-        return list;
+        if (list.isNotEmpty) return list;
       }
     } catch (e) {
       // Fallback
@@ -66,12 +70,11 @@ class AnnouncementService {
     required String text,
   }) async {
     try {
-      final callable = _fns.httpsCallable('enhanceAnnouncementText');
-      final res = await callable.call({
+      final res = await CloudFunctionCaller.call('enhanceAnnouncementText', {
         'category': category,
         'text': text,
       });
-      final data = Map<String, dynamic>.from(res.data);
+      final data = Map<String, dynamic>.from(res);
       return (data['enhanced'] ?? text).toString();
     } catch (e) {
       // Return original text on network or server error
@@ -100,8 +103,7 @@ class AnnouncementService {
     final effectiveEndDate = endDate ?? effectiveStartDate.add(Duration(days: days));
 
     try {
-      final callable = _fns.httpsCallable('submitAnnouncementRequest');
-      final res = await callable.call({
+      final res = await CloudFunctionCaller.call('submitAnnouncementRequest', {
         'radioId': radioId,
         'radioName': radioName,
         'listenerId': listenerId,
@@ -118,13 +120,13 @@ class AnnouncementService {
         'endDate': effectiveEndDate.toIso8601String(),
         'paymentMethod': paymentMethod,
       });
-      return Map<String, dynamic>.from(res.data);
+      return Map<String, dynamic>.from(res);
     } catch (e) {
       // Client-side fallback submission directly to Firestore if cloud function is unavailable
       final wordCount = finalText.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
       final units = (wordCount == 0 ? 1 : (wordCount / (2.5 * 15)).ceil()).clamp(1, 99);
       const ratePerUnit = 500.0;
-      final baseAmount = ratePerUnit * units * diffusionsPerDay * days;
+      final baseAmount = ratePerUnit * units * diffusionsPerDay * days * priority.multiplier;
       final transferFee = baseAmount * 0.04;
       final finalPrice = baseAmount + transferFee;
 
@@ -208,9 +210,11 @@ class AnnouncementService {
     required int wordCount,
     required int durationSeconds,
     required int diffusionCount,
+    double ratePerUnit = 500.0,
+    double priorityMultiplier = 1.0,
   }) async {
     final units = (durationSeconds / 15).ceil().clamp(1, 99);
-    final base = units * 500.0 * (diffusionCount > 0 ? diffusionCount : 1);
+    final base = units * ratePerUnit * (diffusionCount > 0 ? diffusionCount : 1) * priorityMultiplier;
     final fee = base * 0.04;
     return {
       'base_tariff': base,
@@ -237,6 +241,7 @@ class AnnouncementService {
     required double transferFee,
     required double finalPrice,
     required String paymentMethod,
+    AnnouncementPriority priority = AnnouncementPriority.standard,
     DateTime? startDate,
     DateTime? endDate,
     int diffusionPeriodDays = 1,
@@ -251,7 +256,7 @@ class AnnouncementService {
       isCustomCategory: false,
       originalText: originalText,
       finalText: finalText,
-      priority: AnnouncementPriority.standard,
+      priority: priority,
       diffusionsPerDay: diffusionsPerDay,
       days: diffusionPeriodDays,
       startDate: startDate,

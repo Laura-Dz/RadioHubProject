@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/utils/app_program_image.dart';
 
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/program_model.dart';
@@ -555,20 +555,13 @@ class _State extends State<ProgramEditModal> {
                           fit: BoxFit.cover,
                         )
                       : (_imageUrl != null && _imageUrl!.isNotEmpty
-                          ? Image.network(
-                              _imageUrl!,
+                          ? AppProgramImage(
+                              imageUrl: _imageUrl,
+                              name: _name.text,
+                              width: 140,
+                              height: 140,
+                              borderRadius: 14,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _emptyImageTile(),
-                              loadingBuilder: (_, child, progress) {
-                                if (progress == null) return child;
-                                return const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                );
-                              },
                             )
                           : _emptyImageTile()),
                 ),

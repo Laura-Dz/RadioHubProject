@@ -6,6 +6,7 @@ import 'call_queue.dart';
 import 'live_broadcast_timer.dart';
 import 'on_call_card.dart';
 import 'poll_results_card.dart';
+import 'announcements_modal.dart';
 
 class SidePanel extends StatelessWidget {
   const SidePanel({Key? key}) : super(key: key);
@@ -121,6 +122,49 @@ class SidePanel extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Announcements quick access
+            if (vm.announcements.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: InkWell(
+                  onTap: () => showDialog(
+                    context: context,
+                    builder: (_) => const AnnouncementsModal(),
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.campaign, color: AppColors.gold, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Show Announcements',
+                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                              Text(
+                                '${vm.pendingAnnouncements.length} pending · ${vm.announcements.length - vm.pendingAnnouncements.length} aired',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textMuted),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 12),
             const PollResultsCard(),

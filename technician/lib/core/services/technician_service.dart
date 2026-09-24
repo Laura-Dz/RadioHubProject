@@ -80,16 +80,34 @@ class TechnicianService {
     String radioId,
     String programId,
   ) async {
-    final snap = await _db
-        .collection('sessions')
-        .where('radioId', isEqualTo: radioId)
-        .where('programId', isEqualTo: programId)
-        .where('status', isEqualTo: 'ended')
-        .where('isRediffusion', isEqualTo: false)
-        .orderBy('scheduledStart', descending: true)
-        .limit(50)
-        .get();
-    return snap.docs.map((d) => Session.fromFirestore(d.data(), d.id)).toList();
+    try {
+      final snap = await _db
+          .collection('sessions')
+          .where('programId', isEqualTo: programId)
+          .get();
+
+      final now = DateTime.now();
+      final list = snap.docs
+          .map((d) => Session.fromFirestore(d.data(), d.id))
+          .where((s) {
+            if (radioId.isNotEmpty && s.radioId.isNotEmpty && s.radioId != radioId) {
+              return false;
+            }
+            if (s.isRediffusion) return false;
+            if (s.status == SessionStatus.onAir) return false;
+            return s.status == SessionStatus.ended ||
+                s.actualEnd != null ||
+                s.scheduledEnd.isBefore(now) ||
+                s.scheduledStart.isBefore(now);
+          })
+          .toList();
+
+      list.sort((a, b) => b.scheduledStart.compareTo(a.scheduledStart));
+      return list.take(50).toList();
+    } catch (e) {
+      debugPrint('getPastSessionsForProgram error: $e');
+      return [];
+    }
   }
 
   // ============ SESSION FOR SLOT ============
@@ -645,10 +663,14 @@ class TechnicianService {
         .collection('users')
         .where('radioId', isEqualTo: radioId)
         .where('role', isEqualTo: 'host')
-        .where('isActive', isEqualTo: true)
         .snapshots()
         .map((s) {
-          final list = s.docs.map((d) => Host.fromFirestore(d.data(), d.id)).toList();
+          final list = s.docs
+              .map((d) => Host.fromFirestore(d.data(), d.id))
+              .where((h) =>
+                  h.status.toLowerCase() != 'inactive' &&
+                  h.status.toLowerCase() != 'suspended')
+              .toList();
           list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
           return list;
         });

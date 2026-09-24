@@ -6,6 +6,7 @@ import '../../../core/services/radio_schedule_service.dart';
 import '../../../core/constants/app_colors.dart';
 import 'program_card.dart';
 import 'program_detail_sheet.dart';
+import 'all_shows_screen.dart';
 import '../schedule/schedule_view.dart';
 import '../timetable/timetable_view.dart';
 
@@ -49,9 +50,12 @@ class ShowsSection extends StatelessWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ScheduleView(
-                              radioId: radio.id,
-                              radioName: radio.name,
+                            builder: (_) => ChangeNotifierProvider.value(
+                              value: vm,
+                              child: AllShowsScreen(
+                                radioId: radio.id,
+                                radioName: radio.name,
+                              ),
                             ),
                           ),
                         ),

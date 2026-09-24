@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/program_model.dart';
 import '../../../core/models/technician/host_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_avatar.dart';
+import '../../../core/utils/app_program_image.dart';
 import 'program_edit_modal.dart';
 
 class ProgramsScreen extends StatefulWidget {
@@ -232,14 +234,12 @@ class _ProgramCardState extends State<_ProgramCard> {
         ),
         child: Row(
           children: [
-            Container(
+            AppProgramImage(
+              imageUrl: p.imageUrl,
+              name: p.name,
               width: 52,
               height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.tv, color: AppColors.primary, size: 24),
+              borderRadius: 12,
             ),
             const SizedBox(width: 16),
             Expanded(

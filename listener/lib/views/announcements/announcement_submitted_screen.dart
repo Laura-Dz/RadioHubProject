@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
+import 'my_announcements_screen.dart';
 
 class AnnouncementSubmittedScreen extends StatelessWidget {
   final String announcementId;
@@ -80,6 +81,29 @@ class AnnouncementSubmittedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
+                // Confirmation notification banner
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.mark_email_read_outlined, size: 18, color: AppColors.success),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Payment confirmation message sent to your Notification Center.',
+                          style: TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
                 // What happens next
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -106,35 +130,56 @@ class AnnouncementSubmittedScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // Actions
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).popUntil((r) => r.isFirst);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Back to Home'),
+                      ),
                     ),
-                    child: const Text('Back to home',
-                        style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MyAnnouncementsScreen()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('My Requests',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                TextButton(
+                const SizedBox(height: 10),
+                TextButton.icon(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: reference));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Reference copied'),
+                          content: Text('Reference copied to clipboard'),
                           backgroundColor: AppColors.info),
                     );
                   },
-                  child: const Text('Copy reference',
+                  icon: const Icon(Icons.copy, size: 15),
+                  label: const Text('Copy Reference ID',
                       style: TextStyle(
                           fontSize: 13, color: AppColors.primary)),
                 ),

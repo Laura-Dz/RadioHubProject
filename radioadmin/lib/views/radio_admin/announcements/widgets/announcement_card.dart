@@ -104,12 +104,7 @@ class AnnouncementCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${a.baseAmount.toStringAsFixed(0)} ${a.currency} base + ${a.transferFee.toStringAsFixed(0)} fee',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${a.finalPrice.toStringAsFixed(0)} ${a.currency}',
+                  '${a.baseAmount.toStringAsFixed(0)} ${a.currency}',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary),
                 ),
               ],

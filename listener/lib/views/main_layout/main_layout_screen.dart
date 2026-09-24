@@ -4,6 +4,7 @@ import '../../view_models/main_layout_view_model.dart';
 import '../../view_models/auth_view_model.dart';
 import 'widgets/custom_app_bar.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
+import '../widgets/mini_player_bar.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/channels_tab.dart';
 import 'tabs/announcements_tab.dart';
@@ -71,13 +72,19 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
           SettingsTab(),
         ],
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentTab: _viewModel.currentTab,
-        onTabSelected: (tab) {
-          final index = NavigationTabs.values.indexOf(tab);
-          _tabController.animateTo(index);
-          _viewModel.setTab(tab);
-        },
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayerBar(),
+          CustomBottomNavBar(
+            currentTab: _viewModel.currentTab,
+            onTabSelected: (tab) {
+              final index = NavigationTabs.values.indexOf(tab);
+              _tabController.animateTo(index);
+              _viewModel.setTab(tab);
+            },
+          ),
+        ],
       ),
     );
   }

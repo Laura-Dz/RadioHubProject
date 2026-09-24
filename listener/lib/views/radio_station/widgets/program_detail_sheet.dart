@@ -134,27 +134,41 @@ class ProgramDetailSheet extends StatelessWidget {
                 const SizedBox(height: 20),
               ],
 
+              // Follow Show button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => vm.toggleFavouriteProgram(
+                      program.id, program.name),
+                  icon: Icon(
+                    isFav ? Icons.check_circle_rounded : Icons.add_circle_outline,
+                    size: 18,
+                  ),
+                  label: Text(
+                    isFav ? 'Following' : 'Follow Show',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isFav ? AppColors.surface : AppColors.primary,
+                    foregroundColor: isFav ? AppColors.primary : Colors.white,
+                    side: isFav
+                        ? const BorderSide(color: AppColors.primary, width: 1.5)
+                        : BorderSide.none,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // Action buttons
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => vm.toggleFavouriteProgram(
-                          program.id, program.name),
-                      icon: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? AppColors.error : AppColors.primary,
-                        size: 16,
-                      ),
-                      label: Text(isFav ? 'Favorited' : 'Favorite'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => vm.toggleListenLater(
@@ -167,7 +181,7 @@ class ProgramDetailSheet extends StatelessWidget {
                         size: 16,
                       ),
                       label: Text(
-                          isListenLater ? 'Saved' : 'Listen later'),
+                          isListenLater ? 'Saved for later' : 'Listen later'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(

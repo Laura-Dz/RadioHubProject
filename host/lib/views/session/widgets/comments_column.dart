@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../view_models/host_view_model.dart';
 import 'comment_card.dart';
-import 'reply_bar.dart';
 
 class CommentsColumn extends StatelessWidget {
   const CommentsColumn({Key? key}) : super(key: key);
@@ -11,7 +10,6 @@ class CommentsColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HostViewModel>();
-    final replying = vm.comments.any((c) => c.id == vm.replyingToId);
 
     return Container(
       color: AppColors.background,
@@ -45,7 +43,7 @@ class CommentsColumn extends StatelessWidget {
                 ),
                 const Spacer(),
                 const Text(
-                  'Tap a comment to reply',
+                  'Voice reply over the air',
                   style: TextStyle(
                       fontSize: 11.5, color: AppColors.textMuted),
                 ),
@@ -71,9 +69,6 @@ class CommentsColumn extends StatelessWidget {
                     },
                   ),
           ),
-
-          // Reply bar
-          if (replying) const ReplyBar(),
         ],
       ),
     );

@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
+import '../../../core/models/technician/host_model.dart';
+import '../../../core/utils/app_avatar.dart';
 import '../../../core/services/network_time_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../widgets/live_broadcast_timer.dart';
@@ -208,12 +210,39 @@ class _LiveCardState extends State<_LiveCard> {
               style: const TextStyle(
                   fontSize: 22, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text(
-            '${session.hostName}'
-            '${session.coHostNames.isNotEmpty ? " + ${session.coHostNames.join(", ")}" : ""}'
-            '${session.guestName != null ? " · Guest: ${session.guestName}" : ""}',
-            style: const TextStyle(
-                fontSize: 13, color: AppColors.textSecondary),
+          Builder(
+            builder: (context) {
+              final vm = context.watch<TechnicianViewModel>();
+              final host = vm.hosts.cast<Host?>().firstWhere(
+                    (h) =>
+                        h?.id == session.hostId ||
+                        (session.hostName.isNotEmpty &&
+                            h?.name.toLowerCase() ==
+                                session.hostName.toLowerCase()),
+                    orElse: () => null,
+                  );
+              return Row(
+                children: [
+                  if (session.hostName.isNotEmpty) ...[
+                    AppAvatar(
+                      photoUrl: host?.photoUrl,
+                      name: session.hostName,
+                      radius: 12,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      '${session.hostName}'
+                      '${session.coHostNames.isNotEmpty ? " + ${session.coHostNames.join(", ")}" : ""}'
+                      '${session.guestName != null ? " · Guest: ${session.guestName}" : ""}',
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           if (session.thematic != null) ...[
             const SizedBox(height: 6),
@@ -414,11 +443,39 @@ class _UpcomingCardState extends State<_UpcomingCard> {
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(
-                    '${s.hostName}'
-                    '${s.coHostNames.isNotEmpty ? " + ${s.coHostNames.join(", ")}" : ""}',
-                    style: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary),
+                  Builder(
+                    builder: (context) {
+                      final vm = context.watch<TechnicianViewModel>();
+                      final host = vm.hosts.cast<Host?>().firstWhere(
+                            (h) =>
+                                h?.id == s.hostId ||
+                                (s.hostName.isNotEmpty &&
+                                    h?.name.toLowerCase() ==
+                                        s.hostName.toLowerCase()),
+                            orElse: () => null,
+                          );
+                      return Row(
+                        children: [
+                          if (s.hostName.isNotEmpty) ...[
+                            AppAvatar(
+                              photoUrl: host?.photoUrl,
+                              name: s.hostName,
+                              radius: 9,
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Flexible(
+                            child: Text(
+                              '${s.hostName}'
+                              '${s.coHostNames.isNotEmpty ? " + ${s.coHostNames.join(", ")}" : ""}',
+                              style: const TextStyle(
+                                  fontSize: 12.5, color: AppColors.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 6),
                   Row(

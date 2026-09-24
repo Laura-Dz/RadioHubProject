@@ -1,4 +1,5 @@
 import '../../utils/firestore_parsers.dart';
+import '../../services/storage_service.dart';
 
 class Host {
   final String id;
@@ -33,7 +34,18 @@ class Host {
         email: (d['email'] ?? '').toString(),
         phone: (d['phone'] ?? '').toString(),
         bio: d['bio']?.toString(),
-        photoUrl: d['photoUrl']?.toString(),
+        photoUrl: () {
+          final raw = (d['photoUrl'] ??
+                  d['avatarUrl'] ??
+                  d['imageUrl'] ??
+                  d['avatar'] ??
+                  d['image'] ??
+                  d['profileImage'])
+              ?.toString()
+              .trim();
+          if (raw == null || raw.isEmpty) return null;
+          return StorageService.ensureValidUrl(raw);
+        }(),
         radioId: (d['radioId'] ?? '').toString(),
         status: (d['status'] ?? 'active').toString(),
         programIds: List<String>.from(d['programIds'] ?? []),

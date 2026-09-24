@@ -202,11 +202,41 @@ class _RediffusionModalState extends State<RediffusionModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      DateFormat('EEE d MMM yyyy, HH:mm')
-                          .format(s.scheduledStart),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700),
+                    Row(
+                      children: [
+                        Text(
+                          DateFormat('EEE d MMM yyyy, HH:mm')
+                              .format(s.scheduledStart),
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                        const Spacer(),
+                        if (s.recordingUrl != null && s.recordingUrl!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.audiotrack,
+                                    size: 11, color: AppColors.success),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Audio ready',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -214,7 +244,7 @@ class _RediffusionModalState extends State<RediffusionModal> {
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.textSecondary),
                     ),
-                    if (s.thematic != null)
+                    if (s.thematic != null && s.thematic!.isNotEmpty)
                       Text(
                         s.thematic!,
                         maxLines: 1,

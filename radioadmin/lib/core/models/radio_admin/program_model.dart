@@ -104,10 +104,16 @@ class Program {
   final String name;
   final String description;
   final ProgramCategory category;
+  final List<String> categories;
   final Duration duration;
+  final int defaultDurationMinutes;
   final bool isActive;
+  final String? imageUrl;
   final List<String> hostIds;
+  final List<String> hostNames;
   final List<String> coHostIds;
+  final bool allowsCalls;
+  final bool allowsComments;
   final Map<String, dynamic> metadata;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -117,33 +123,72 @@ class Program {
     required this.radioId,
     required this.name,
     required this.description,
-    required this.category,
-    required this.duration,
+    ProgramCategory? category,
+    List<String>? categories,
+    Duration? duration,
+    int? defaultDurationMinutes,
     this.isActive = true,
+    this.imageUrl,
     this.hostIds = const [],
+    this.hostNames = const [],
     this.coHostIds = const [],
+    this.allowsCalls = true,
+    this.allowsComments = true,
     this.metadata = const {},
     required this.createdAt,
     this.updatedAt,
-  });
+  })  : defaultDurationMinutes = defaultDurationMinutes ?? (duration != null ? duration.inMinutes : 60),
+        duration = duration ?? Duration(minutes: defaultDurationMinutes ?? 60),
+        categories = categories ?? (category != null ? [category.name] : const ['general']),
+        category = category ??
+            (categories != null && categories.isNotEmpty
+                ? ProgramCategory.values.firstWhere(
+                    (e) => e.name.toLowerCase() == categories.first.toLowerCase(),
+                    orElse: () => ProgramCategory.music,
+                  )
+                : ProgramCategory.music);
 
   factory Program.fromFirestore(Map<String, dynamic> data, String id) {
+    List<String> parsedCategories = [];
+    if (data['categories'] is List) {
+      parsedCategories = List<String>.from(data['categories']);
+    } else if (data['category'] != null && data['category'].toString().isNotEmpty) {
+      parsedCategories = [data['category'].toString()];
+    }
+
+    final durationMins = data['defaultDurationMinutes'] ??
+        (data['durationSeconds'] != null ? (data['durationSeconds'] as int) ~/ 60 : 60);
+
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is DateTime) return val;
+      return DateTime.now();
+    }
+
     return Program(
       id: id,
-      radioId: data['radioId'] ?? '',
-      name: data['name'] ?? 'Untitled Program',
-      description: data['description'] ?? '',
+      radioId: (data['radioId'] ?? '').toString(),
+      name: (data['name'] ?? 'Untitled Program').toString(),
+      description: (data['description'] ?? '').toString(),
+      categories: parsedCategories.isNotEmpty ? parsedCategories : ['general'],
       category: ProgramCategory.values.firstWhere(
-        (e) => e.toString() == data['category'],
+        (e) =>
+            e.name.toLowerCase() ==
+            (parsedCategories.isNotEmpty ? parsedCategories.first.toLowerCase() : (data['category'] ?? '').toString().toLowerCase()),
         orElse: () => ProgramCategory.music,
       ),
-      duration: Duration(seconds: data['durationSeconds'] ?? 7200),
+      defaultDurationMinutes: durationMins,
+      duration: Duration(minutes: durationMins),
       isActive: data['isActive'] ?? true,
+      imageUrl: data['imageUrl']?.toString(),
       hostIds: List<String>.from(data['hostIds'] ?? []),
+      hostNames: List<String>.from(data['hostNames'] ?? []),
       coHostIds: List<String>.from(data['coHostIds'] ?? []),
-      metadata: data['metadata'] ?? {},
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      allowsCalls: data['allowsCalls'] ?? true,
+      allowsComments: data['allowsComments'] ?? true,
+      metadata: data['metadata'] is Map ? Map<String, dynamic>.from(data['metadata']) : {},
+      createdAt: parseDate(data['createdAt']),
+      updatedAt: data['updatedAt'] != null ? parseDate(data['updatedAt']) : null,
     );
   }
 
@@ -151,13 +196,19 @@ class Program {
     'radioId': radioId,
     'name': name,
     'description': description,
-    'category': category.toString().split('.').last,
+    'category': category.name,
+    'categories': categories,
+    'defaultDurationMinutes': defaultDurationMinutes,
     'durationSeconds': duration.inSeconds,
     'isActive': isActive,
+    'imageUrl': imageUrl,
     'hostIds': hostIds,
+    'hostNames': hostNames,
     'coHostIds': coHostIds,
+    'allowsCalls': allowsCalls,
+    'allowsComments': allowsComments,
     'metadata': metadata,
-    'createdAt': FieldValue.serverTimestamp(),
+    'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': FieldValue.serverTimestamp(),
   };
 }

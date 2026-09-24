@@ -24,11 +24,8 @@ class CreateAnnouncementModal extends StatefulWidget {
 
 class _State extends State<CreateAnnouncementModal> {
   final _messageCtrl = TextEditingController();
-  final _customCatCtrl = TextEditingController();
   final _diffusionsCtrl = TextEditingController(text: '1');
   final _daysCtrl = TextEditingController(text: '1');
-
-  bool _showCustomCatInput = false;
 
   @override
   void initState() {
@@ -43,7 +40,6 @@ class _State extends State<CreateAnnouncementModal> {
   @override
   void dispose() {
     _messageCtrl.dispose();
-    _customCatCtrl.dispose();
     _diffusionsCtrl.dispose();
     _daysCtrl.dispose();
     super.dispose();
@@ -114,10 +110,7 @@ class _State extends State<CreateAnnouncementModal> {
                             // ============ CATEGORY ============
                             _label('Category'),
                             const SizedBox(height: 6),
-                            if (_showCustomCatInput)
-                              _customCategoryField(vm)
-                            else
-                              _categoryDropdown(vm),
+                            _categoryDropdown(vm),
                             const SizedBox(height: 18),
 
                             // ============ MESSAGE ============
@@ -243,7 +236,66 @@ class _State extends State<CreateAnnouncementModal> {
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
+              // ============ PRICING BREAKDOWN ============
+              if (vm.finalPrice > 0) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Base Tariff (${vm.selectedCategory != null && vm.selectedCategory!.isNotEmpty ? vm.selectedCategory![0].toUpperCase() + vm.selectedCategory!.substring(1) : ""} · ${vm.days}d · ${vm.diffusionsPerDay}x/d · ${vm.priority.label})',
+                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${vm.baseAmount.toStringAsFixed(0)} XAF',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Transfer Fee (4%)',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                          Text(
+                            '${vm.transferFee.toStringAsFixed(0)} XAF',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total Price',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${vm.finalPrice.toStringAsFixed(0)} XAF',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // ============ SUBMIT + PRICE ============
               Row(
@@ -317,83 +369,49 @@ class _State extends State<CreateAnnouncementModal> {
             const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       );
 
-  // ---------- Category dropdown with + add new ----------
+  // ---------- Category dropdown (Admin-defined only) ----------
 
   Widget _categoryDropdown(AnnouncementViewModel vm) {
+    if (vm.tariffs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.info_outline, size: 16, color: AppColors.textMuted),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'No announcement categories configured by this radio station yet.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return DropdownButtonFormField<String>(
       value: vm.selectedCategory,
       isExpanded: true,
       decoration: _dec('Select a category'),
-      items: [
-        ...vm.tariffs.map((t) => DropdownMenuItem(
-              value: t.category,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      t.category.isEmpty
-                          ? ''
-                          : t.category[0].toUpperCase() + t.category.substring(1),
-                    ),
-                  ),
-                  Text(
-                    '${t.ratePerUnit.toStringAsFixed(0)} XAF',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-            )),
-        const DropdownMenuItem(
-          value: '__custom__',
-          child: Row(
-            children: [
-              Icon(Icons.add, size: 14, color: AppColors.primary),
-              SizedBox(width: 6),
-              Text('Add a new category',
-                  style: TextStyle(color: AppColors.primary)),
-            ],
-          ),
+      items: vm.tariffs.map((t) => DropdownMenuItem(
+        value: t.category,
+        child: Text(
+          t.category.isEmpty
+              ? ''
+              : t.category[0].toUpperCase() + t.category.substring(1),
         ),
-      ],
+      )).toList(),
       onChanged: (v) {
-        if (v == '__custom__') {
-          setState(() => _showCustomCatInput = true);
-        } else {
+        if (v != null) {
           vm.setCategory(v);
         }
       },
-    );
-  }
-
-  Widget _customCategoryField(AnnouncementViewModel vm) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _customCatCtrl,
-            autofocus: true,
-            decoration: _dec('Enter a category name'),
-            onChanged: (v) {
-              if (v.trim().isNotEmpty) {
-                vm.setCategory(v.trim().toLowerCase(), custom: true);
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.close, size: 18),
-          tooltip: 'Back to list',
-          onPressed: () {
-            setState(() {
-              _showCustomCatInput = false;
-              _customCatCtrl.clear();
-            });
-            vm.setCategory(null);
-          },
-        ),
-      ],
     );
   }
 

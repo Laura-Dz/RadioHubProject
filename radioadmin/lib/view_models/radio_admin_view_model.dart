@@ -13,6 +13,7 @@ import '../core/models/radio_admin/metrics_model.dart';
 import '../core/models/radio_admin/recommendation_model.dart';
 import '../core/models/radio_admin/media_model.dart';
 import '../core/models/radio_admin/session_model.dart';
+import '../core/models/radio_admin/program_model.dart';
 import '../core/services/radio_admin_service.dart';
 import '../core/services/subscription_plan_service.dart';
 import '../core/services/storage_service.dart';
@@ -42,6 +43,8 @@ class RadioAdminViewModel extends ChangeNotifier {
   List<RadioTransaction> _transactions = [];
   List<MediaItem> _media = [];
   List<Session> _sessions = [];
+  List<Program> _programs = [];
+  List<String> _categories = [];
   List<SubscriptionPlan> _plans = [];
   RadioProfile? _radioProfile;
   RadioMetrics _metrics = RadioMetrics.empty();
@@ -56,6 +59,8 @@ class RadioAdminViewModel extends ChangeNotifier {
   StreamSubscription? _txStream;
   StreamSubscription? _mediaStream;
   StreamSubscription? _sessionStream;
+  StreamSubscription? _programStream;
+  StreamSubscription? _categoryStream;
 
   RadioAdminViewModel({
     required RadioAdminService service,
@@ -81,6 +86,8 @@ class RadioAdminViewModel extends ChangeNotifier {
   List<RadioTransaction> get transactions => _transactions;
   List<MediaItem> get media => _media;
   List<Session> get sessions => _sessions;
+  List<Program> get programs => _programs;
+  List<String> get categories => _categories;
   List<SubscriptionPlan> get plans => _plans;
   RadioProfile? get radioProfile => _radioProfile;
   RadioMetrics get metrics => _metrics;
@@ -134,6 +141,16 @@ class RadioAdminViewModel extends ChangeNotifier {
       _sessions = list;
       notifyListeners();
     }, onError: (e) => debugPrint('Error in sessions stream: $e'));
+
+    _programStream = _service.streamPrograms(_radioId).listen((list) {
+      _programs = list;
+      notifyListeners();
+    }, onError: (e) => debugPrint('Error in programs stream: $e'));
+
+    _categoryStream = _service.streamCategories(_radioId).listen((list) {
+      _categories = list;
+      notifyListeners();
+    }, onError: (e) => debugPrint('Error in categories stream: $e'));
   }
 
   Future<void> _loadInitialData() async {
@@ -479,6 +496,16 @@ class RadioAdminViewModel extends ChangeNotifier {
     );
   }
 
+  Future<void> createProgram(Program p) => _service.createProgram(p);
+  Future<void> updateProgram(dynamic idOrProgram, [Map<String, dynamic>? updates]) async {
+    if (idOrProgram is Program) {
+      await _service.updateProgram(idOrProgram.id, idOrProgram.toFirestore());
+    } else if (idOrProgram is String) {
+      await _service.updateProgram(idOrProgram, updates ?? {});
+    }
+  }
+  Future<void> archiveProgram(String id) => _service.archiveProgram(id);
+
   Future<void> refreshAll() => _loadInitialData();
 
   void _cancelStreams() {
@@ -490,6 +517,8 @@ class RadioAdminViewModel extends ChangeNotifier {
     _txStream?.cancel();
     _mediaStream?.cancel();
     _sessionStream?.cancel();
+    _programStream?.cancel();
+    _categoryStream?.cancel();
   }
 
   @override

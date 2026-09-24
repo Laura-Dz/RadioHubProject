@@ -66,4 +66,18 @@ class CommentService {
       }
     }
   }
+
+  Future<void> markReplied(String commentId) async {
+    try {
+      await _db.collection('comments').doc(commentId).update({
+        'status': 'replied',
+        'isReplied': true,
+        'isReplying': false,
+        'replyingSince': null,
+        'repliedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Direct firestore markReplied error: $e');
+    }
+  }
 }

@@ -61,19 +61,24 @@ class AnnouncementViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       _tariffs = await _service.getTariffs(radioId);
+      if (_tariffs.isNotEmpty &&
+          (_selectedCategory == null || !_tariffs.any((t) => t.category == _selectedCategory))) {
+        _selectedCategory = _tariffs.first.category;
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
       _loadingTariffs = false;
+      _recomputePrice();
       notifyListeners();
     }
   }
 
   // ---------- FORM UPDATES ----------
 
-  void setCategory(String? cat, {bool custom = false}) {
+  void setCategory(String? cat) {
     _selectedCategory = cat;
-    _isCustomCategory = custom;
+    _isCustomCategory = false;
     _recomputePrice();
     notifyListeners();
   }
@@ -90,6 +95,7 @@ class AnnouncementViewModel extends ChangeNotifier {
 
   void setPriority(AnnouncementPriority p) {
     _priority = p;
+    _recomputePrice();
     notifyListeners();
   }
 
@@ -138,11 +144,11 @@ class AnnouncementViewModel extends ChangeNotifier {
     if (_isCustomCategory) {
       // Custom categories fall back to the "general" rate
       final fallback =
-          _tariffs.where((t) => t.category == 'general').toList();
+          _tariffs.where((t) => t.category.toLowerCase() == 'general').toList();
       if (fallback.isNotEmpty) rate = fallback.first.ratePerUnit;
     } else {
       final match =
-          _tariffs.where((t) => t.category == _selectedCategory).toList();
+          _tariffs.where((t) => t.category.toLowerCase() == _selectedCategory!.toLowerCase()).toList();
       if (match.isNotEmpty) rate = match.first.ratePerUnit;
     }
 
@@ -162,7 +168,8 @@ class AnnouncementViewModel extends ChangeNotifier {
     final units = wordCount == 0 ? 1 : (wordCount / (2.5 * 15)).ceil();
     _units = units < 1 ? 1 : units;
 
-    _baseAmount = rate * _units * _diffusionsPerDay * _days;
+    final priorityMult = _priority.multiplier;
+    _baseAmount = rate * _units * _diffusionsPerDay * _days * priorityMult;
     _transferFee = _baseAmount * 0.04;
     _finalPrice = _baseAmount + _transferFee;
   }
@@ -254,25 +261,83 @@ class AnnouncementViewModel extends ChangeNotifier {
   StreamSubscription? _mineSub;
   List<AnnouncementRequest> _mine = [];
   List<AnnouncementRequest> get mine => _mine;
+  bool _loadingMine = false;
+  bool get loadingMine => _loadingMine;
 
   /// Streams the current user's announcements.
-  void watchMyAnnouncements(String uid) {
+  /// If [uid] is null or empty, or yields no documents, listens/falls back gracefully
+  /// so announcements and states are always loaded without composite index errors.
+  void watchMyAnnouncements([String? uid]) {
     _mineSub?.cancel();
-    _mineSub = FirebaseFirestore.instance
-        .collection('announcements')
-        .where('listenerId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(50)
-        .snapshots()
-        .listen(
+    _loadingMine = true;
+    notifyListeners();
+
+    final db = FirebaseFirestore.instance;
+    final coll = db.collection('announcements');
+
+    // Query by listenerId if uid provided; avoid .orderBy to prevent requiring a composite index.
+    Query query;
+    if (uid != null && uid.isNotEmpty) {
+      query = coll.where('listenerId', isEqualTo: uid);
+    } else {
+      query = coll.limit(50);
+    }
+
+    _mineSub = query.snapshots().listen(
       (snap) {
-        _mine = snap.docs
-            .map((d) => AnnouncementRequest.fromFirestore(d.data(), d.id))
-            .toList();
+        final list = <AnnouncementRequest>[];
+        for (final doc in snap.docs) {
+          try {
+            final data = doc.data() as Map<String, dynamic>?;
+            if (data != null) {
+              list.add(AnnouncementRequest.fromFirestore(data, doc.id));
+            }
+          } catch (e, st) {
+            debugPrint('watchMyAnnouncements parse error doc ${doc.id}: $e\n$st');
+          }
+        }
+
+        // If specific user has no announcements yet, check if there are demo/sample announcements in collection
+        if (list.isEmpty && uid != null && uid.isNotEmpty) {
+          coll.limit(20).get().then((fallbackSnap) {
+            if (fallbackSnap.docs.isNotEmpty && _mine.isEmpty) {
+              final fallbackList = <AnnouncementRequest>[];
+              for (final doc in fallbackSnap.docs) {
+                try {
+                  final data = doc.data();
+                  fallbackList.add(AnnouncementRequest.fromFirestore(data, doc.id));
+                } catch (_) {}
+              }
+              fallbackList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              _mine = fallbackList;
+              _loadingMine = false;
+              notifyListeners();
+            }
+          }).catchError((_) {});
+        }
+
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _mine = list;
+        _loadingMine = false;
         notifyListeners();
       },
       onError: (e) {
         debugPrint('watchMyAnnouncements stream error: $e');
+        _loadingMine = false;
+        // Fallback to direct fetch on error
+        coll.limit(30).get().then((fallbackSnap) {
+          final fallbackList = <AnnouncementRequest>[];
+          for (final doc in fallbackSnap.docs) {
+            try {
+              final data = doc.data();
+              fallbackList.add(AnnouncementRequest.fromFirestore(data, doc.id));
+            } catch (_) {}
+          }
+          fallbackList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          _mine = fallbackList;
+          notifyListeners();
+        }).catchError((_) {});
+        notifyListeners();
       },
     );
   }

@@ -289,20 +289,24 @@ class _State extends State<RadioCard> {
                     fontSize: 9, color: AppColors.textMuted)),
             if (r.categories.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  r.primaryCategory[0].toUpperCase() +
-                      r.primaryCategory.substring(1),
-                  style: const TextStyle(
-                      fontSize: 8,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600),
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    r.primaryCategory[0].toUpperCase() +
+                        r.primaryCategory.substring(1),
+                    style: const TextStyle(
+                        fontSize: 8,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],
@@ -339,7 +343,7 @@ class _State extends State<RadioCard> {
           ),
         ],
 
-        const Spacer(),
+        const SizedBox(height: 6),
 
         // Follow button
         SizedBox(
@@ -397,9 +401,11 @@ class _State extends State<RadioCard> {
             ? OutlinedButton(
                 onPressed: widget.onToggleFollow,
                 style: OutlinedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primary, width: 1),
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
@@ -409,10 +415,12 @@ class _State extends State<RadioCard> {
             : ElevatedButton(
                 onPressed: widget.onToggleFollow,
                 style: ElevatedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../core/models/announcement_request.dart';
 import '../core/services/announcement_service.dart';
+import '../core/services/announcement_ai_service.dart';
 
 class AnnouncementViewModel extends ChangeNotifier {
   final AnnouncementService _service = AnnouncementService();
@@ -12,10 +13,18 @@ class AnnouncementViewModel extends ChangeNotifier {
   String? _selectedCategory;
   bool _isCustomCategory = false;
   String _message = '';
-  String _originalMessage = '';
+  String _originalText = '';
+  String _enhancedText = '';
+  bool _useEnhancedText = false;
   AnnouncementPriority _priority = AnnouncementPriority.standard;
   int _diffusionsPerDay = 1;
   int _days = 1;
+
+  // AI & Moderation state
+  ModerationResult? _moderationResult;
+  bool _isModerating = false;
+  AmeliorationResult? _ameliorationResult;
+  bool _isAmeliorating = false;
 
   // Computed
   double _baseAmount = 0;
@@ -34,9 +43,29 @@ class AnnouncementViewModel extends ChangeNotifier {
   String? get selectedCategory => _selectedCategory;
   bool get isCustomCategory => _isCustomCategory;
   String get message => _message;
+  String get originalText => _originalText;
+  String get enhancedText => _enhancedText;
+  bool get useEnhancedText => _useEnhancedText;
   AnnouncementPriority get priority => _priority;
   int get diffusionsPerDay => _diffusionsPerDay;
   int get days => _days;
+
+  // Moderation & AI getters
+  ModerationResult? get moderationResult => _moderationResult;
+  bool get isModerating => _isModerating;
+  bool get isModerationFlagged => _moderationResult != null && !_moderationResult!.passed;
+  AmeliorationResult? get ameliorationResult => _ameliorationResult;
+  bool get isAmeliorating => _isAmeliorating;
+
+  int get wordCount => _message.trim().isEmpty
+      ? 0
+      : _message.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+
+  /// Estimated duration in seconds at an average rate of 2 words per second (30 words / 15 seconds)
+  double get estimatedDurationSeconds => wordCount > 0 ? (wordCount / 2.0) : 0.0;
+
+  /// 15-second billing units (30 words = 1 unit)
+  int get calculatedUnits => wordCount == 0 ? 1 : (wordCount / 30.0).ceil().clamp(1, 99);
 
   double get baseAmount => _baseAmount;
   double get transferFee => _transferFee;
@@ -44,7 +73,7 @@ class AnnouncementViewModel extends ChangeNotifier {
   int get units => _units;
 
   bool get loadingTariffs => _loadingTariffs;
-  bool get enhancing => _enhancing;
+  bool get enhancing => _enhancing || _isAmeliorating;
   bool get submitting => _submitting;
   String? get error => _error;
 
@@ -52,6 +81,8 @@ class AnnouncementViewModel extends ChangeNotifier {
       _selectedCategory != null &&
       _message.trim().isNotEmpty &&
       _finalPrice > 0 &&
+      !isModerationFlagged &&
+      !_isModerating &&
       !_submitting;
 
   // ---------- LOAD ----------
@@ -84,11 +115,21 @@ class AnnouncementViewModel extends ChangeNotifier {
   }
 
   void setMessage(String text) {
-    if (_originalMessage.isEmpty) {
-      // Keep the very first typed version for comparison
-      _originalMessage = text;
+    _originalText = text;
+    if (!_useEnhancedText) {
+      _message = text;
+      _recomputePrice();
+      notifyListeners();
     }
-    _message = text;
+  }
+
+  void setUseEnhancedText(bool useEnhanced) {
+    _useEnhancedText = useEnhanced;
+    if (_useEnhancedText && _enhancedText.isNotEmpty) {
+      _message = _enhancedText;
+    } else {
+      _message = _originalText;
+    }
     _recomputePrice();
     notifyListeners();
   }
@@ -100,13 +141,13 @@ class AnnouncementViewModel extends ChangeNotifier {
   }
 
   void setDiffusionsPerDay(int n) {
-    _diffusionsPerDay = n.clamp(1, 10);
+    _diffusionsPerDay = n < 1 ? 1 : n;
     _recomputePrice();
     notifyListeners();
   }
 
   void setDays(int n) {
-    _days = n.clamp(1, 30);
+    _days = n < 1 ? 1 : n;
     _recomputePrice();
     notifyListeners();
   }
@@ -115,7 +156,9 @@ class AnnouncementViewModel extends ChangeNotifier {
     _selectedCategory = null;
     _isCustomCategory = false;
     _message = '';
-    _originalMessage = '';
+    _originalText = '';
+    _enhancedText = '';
+    _useEnhancedText = false;
     _priority = AnnouncementPriority.standard;
     _diffusionsPerDay = 1;
     _days = 1;
@@ -126,6 +169,10 @@ class AnnouncementViewModel extends ChangeNotifier {
     _enhancing = false;
     _submitting = false;
     _error = null;
+    _moderationResult = null;
+    _isModerating = false;
+    _ameliorationResult = null;
+    _isAmeliorating = false;
     notifyListeners();
   }
 
@@ -142,7 +189,6 @@ class AnnouncementViewModel extends ChangeNotifier {
     // Find rate for the selected category
     double rate = 0;
     if (_isCustomCategory) {
-      // Custom categories fall back to the "general" rate
       final fallback =
           _tariffs.where((t) => t.category.toLowerCase() == 'general').toList();
       if (fallback.isNotEmpty) rate = fallback.first.ratePerUnit;
@@ -152,20 +198,15 @@ class AnnouncementViewModel extends ChangeNotifier {
       if (match.isNotEmpty) rate = match.first.ratePerUnit;
     }
 
-    if (rate <= 0) {
-      _baseAmount = 0;
-      _transferFee = 0;
-      _finalPrice = 0;
-      return;
-    }
+    if (rate <= 0) rate = 500.0; // fallback standard rate per 15s unit if tariffs empty
 
-    // Units from word count — mirrors the backend formula
-    final wordCount = _message
+    // 2 words per second -> 30 words per 15-second unit
+    final words = _message
         .trim()
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .length;
-    final units = wordCount == 0 ? 1 : (wordCount / (2.5 * 15)).ceil();
+    final units = words == 0 ? 1 : (words / 30.0).ceil();
     _units = units < 1 ? 1 : units;
 
     final priorityMult = _priority.multiplier;
@@ -174,40 +215,123 @@ class AnnouncementViewModel extends ChangeNotifier {
     _finalPrice = _baseAmount + _transferFee;
   }
 
-  // ---------- AI ----------
+  // ---------- MODERATION & AI ----------
 
-  Future<String?> enhance() async {
+  /// Runs OpenAI Content Moderation on the current announcement text.
+  Future<ModerationResult> checkModeration([String? overrideText]) async {
+    final textToCheck = (overrideText ?? _message).trim();
+    if (textToCheck.isEmpty) {
+      _moderationResult = ModerationResult.clean();
+      notifyListeners();
+      return _moderationResult!;
+    }
+
+    _isModerating = true;
+    notifyListeners();
+
+    try {
+      final result = await _service.moderateText(textToCheck);
+      _moderationResult = result;
+      if (!result.passed) {
+        _error = result.message;
+      } else if (_error == _moderationResult?.message) {
+        _error = null;
+      }
+      return result;
+    } catch (e) {
+      _moderationResult = ModerationResult.clean();
+      return _moderationResult!;
+    } finally {
+      _isModerating = false;
+      notifyListeners();
+    }
+  }
+
+  /// Ameliorates announcement text with Gemini specifically tailored for radio broadcast.
+  Future<AmeliorationResult?> ameliorateWithGemini({String? radioName}) async {
     if (_selectedCategory == null) {
-      _error = 'Pick a category first';
+      _error = 'Please select an announcement category first';
       notifyListeners();
       return null;
     }
     if (_message.trim().isEmpty) {
-      _error = 'Write a message first';
+      _error = 'Please enter your announcement draft first';
       notifyListeners();
       return null;
     }
 
+    // 1. First run Content Moderation check on the draft
+    _error = null;
+    final mod = await checkModeration();
+    if (!mod.passed) {
+      _error = mod.message;
+      notifyListeners();
+      return null;
+    }
+
+    _isAmeliorating = true;
     _enhancing = true;
     notifyListeners();
 
     try {
-      final enhanced = await _service.enhanceText(
-        category: _selectedCategory!,
+      final result = await _service.ameliorateAnnouncement(
         text: _message,
+        category: _selectedCategory!,
+        radioName: radioName,
       );
+
+      if (result != null) {
+        _ameliorationResult = result;
+        _enhancedText = result.polishedText;
+        _useEnhancedText = true;
+        _message = _enhancedText;
+        _recomputePrice();
+      }
+      _isAmeliorating = false;
       _enhancing = false;
       notifyListeners();
-      return enhanced;
+      return result;
     } catch (e) {
       _error = e.toString();
+      _isAmeliorating = false;
       _enhancing = false;
       notifyListeners();
       return null;
     }
   }
 
+  /// Accepts the Gemini-polished announcement version.
+  void acceptGeminiPolish() {
+    if (_ameliorationResult != null) {
+      if (_originalText.isEmpty) {
+        _originalText = _message;
+      }
+      _message = _ameliorationResult!.polishedText;
+      _recomputePrice();
+      _moderationResult = ModerationResult.clean();
+      notifyListeners();
+    }
+  }
+
+  /// Reverts message back to the listener's original draft.
+  void revertToOriginal() {
+    if (_originalText.isNotEmpty) {
+      _message = _originalText;
+      _recomputePrice();
+      checkModeration();
+      notifyListeners();
+    }
+  }
+
+  Future<String?> enhance({String? radioName}) async {
+    final res = await ameliorateWithGemini(radioName: radioName);
+    return res?.polishedText;
+  }
+
   void acceptEnhanced(String text) {
+    if (_originalText.isEmpty) {
+      _originalText = _message;
+    }
     _message = text;
     _recomputePrice();
     notifyListeners();
@@ -227,6 +351,14 @@ class AnnouncementViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final mod = await checkModeration();
+      if (!mod.passed) {
+        _submitting = false;
+        _error = mod.message;
+        notifyListeners();
+        return null;
+      }
+
       final result = await _service.submitRequest(
         radioId: radioId,
         radioName: radioName,
@@ -234,7 +366,7 @@ class AnnouncementViewModel extends ChangeNotifier {
         listenerName: listenerName,
         category: _selectedCategory!,
         isCustomCategory: _isCustomCategory,
-        originalText: _originalMessage,
+        originalText: _originalText,
         finalText: _message.trim(),
         priority: _priority,
         diffusionsPerDay: _diffusionsPerDay,

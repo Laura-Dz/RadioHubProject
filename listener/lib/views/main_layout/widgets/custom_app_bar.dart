@@ -19,51 +19,62 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.isDarkMode,
   }) : super(key: key);
 
+  IconData _getIconForTitle(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('home') || lower.contains('hub')) return Icons.radio;
+    if (lower.contains('channel')) return Icons.grid_view;
+    if (lower.contains('announcement')) return Icons.campaign;
+    if (lower.contains('profile')) return Icons.person;
+    if (lower.contains('notification')) return Icons.notifications;
+    if (lower.contains('setting')) return Icons.settings;
+    return Icons.radio;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppBar(
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isStationPage) ...[
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: AppColors.secondary,
-                shape: BoxShape.circle,
-              ),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Text(
-                title,
-                key: ValueKey<String>(title),
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-                overflow: TextOverflow.ellipsis,
-              ),
+            child: Icon(
+              isStationPage ? Icons.radio : _getIconForTitle(title),
+              size: 18,
+              color: AppColors.primary,
             ),
-            const SizedBox(width: 4),
-            if (isStationPage)
-              Icon(Icons.volume_up, size: 16, color: AppColors.primary),
-          ] else ...[
-            Text(
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
+          ),
+          if (isStationPage) ...[
+            const SizedBox(width: 6),
+            const Icon(Icons.volume_up, size: 16, color: AppColors.secondary),
           ],
         ],
       ),
-      centerTitle: true,
+      centerTitle: false,
+      titleSpacing: 16,
       elevation: 0,
       backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
       foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new),
-        onPressed: () => Navigator.pop(context),
-        tooltip: 'Back',
-      ),
+      leading: Navigator.canPop(context)
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new),
+              onPressed: () => Navigator.pop(context),
+              tooltip: 'Back',
+            )
+          : null,
       actions: [
         IconButton(
           icon: const Icon(Icons.search),

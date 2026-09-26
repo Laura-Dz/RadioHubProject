@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
+import '../services/s3_storage_helper.dart';
 
 /// A robust, web-safe image widget that prevents CanvasKit/WebGL texture crashes.
 ///
@@ -46,6 +47,25 @@ class _SafeImageState extends State<SafeImage> {
   bool _isLoading = false;
   bool _hasFailed = false;
 
+  static bool _isValidRasterBytes(Uint8List bytes) {
+    if (bytes.length < 4) return false;
+    // PNG: 89 50 4E 47
+    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;
+    // JPEG: FF D8 FF
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) return true;
+    // GIF: 47 49 46
+    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return true;
+    // WebP: RIFF (52 49 46 46) ... WEBP (57 45 42 50)
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+        bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
+      return true;
+    }
+    // BMP: 42 4D
+    if (bytes[0] == 0x42 && bytes[1] == 0x4D) return true;
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,11 +81,20 @@ class _SafeImageState extends State<SafeImage> {
   }
 
   void _checkAndLoad() {
-    final clean = widget.imageUrl?.trim() ?? '';
-    if (clean.isEmpty) {
+    final rawUrl = widget.imageUrl?.trim() ?? '';
+    if (rawUrl.isEmpty) {
       _loadedBytes = null;
       _isLoading = false;
       _hasFailed = false;
+      return;
+    }
+
+    final clean = S3StorageHelper.ensureValidUrl(rawUrl);
+
+    if (clean.toLowerCase().contains('.svg') || clean.toLowerCase().contains('image/svg')) {
+      _loadedBytes = null;
+      _isLoading = false;
+      _hasFailed = true;
       return;
     }
 
@@ -74,10 +103,16 @@ class _SafeImageState extends State<SafeImage> {
       try {
         final comma = clean.indexOf(',');
         final base64Data = comma != -1 ? clean.substring(comma + 1) : clean;
-        _loadedBytes = base64Decode(
+        final decoded = base64Decode(
           base64Data.replaceAll('\n', '').replaceAll('\r', '').replaceAll(' ', ''),
         );
-        _hasFailed = false;
+        if (_isValidRasterBytes(decoded)) {
+          _loadedBytes = decoded;
+          _hasFailed = false;
+        } else {
+          _loadedBytes = null;
+          _hasFailed = true;
+        }
         _isLoading = false;
       } catch (_) {
         _loadedBytes = null;
@@ -110,7 +145,7 @@ class _SafeImageState extends State<SafeImage> {
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
       if (!mounted) return;
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty && _isValidRasterBytes(response.bodyBytes)) {
         _webByteCache[url] = response.bodyBytes;
         setState(() {
           _loadedBytes = response.bodyBytes;
@@ -132,34 +167,76 @@ class _SafeImageState extends State<SafeImage> {
     }
   }
 
+  Widget _buildDefaultFallback({bool isLoading = false}) {
+    final w = widget.width;
+    final h = widget.height;
+    final iconSize = (w != null && h != null)
+        ? (w < h ? w : h) * 0.38
+        : 24.0;
+
+    return Container(
+      width: w,
+      height: h,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF6C63FF).withOpacity(isLoading ? 0.08 : 0.14),
+            const Color(0xFF00D4AA).withOpacity(isLoading ? 0.04 : 0.08),
+          ],
+        ),
+      ),
+      child: Center(
+        child: isLoading
+            ? SizedBox(
+                width: iconSize.clamp(14.0, 24.0),
+                height: iconSize.clamp(14.0, 24.0),
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF6C63FF),
+                ),
+              )
+            : Icon(
+                Icons.radio,
+                size: iconSize.clamp(16.0, 44.0),
+                color: const Color(0xFF6C63FF).withOpacity(0.45),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget imageWidget;
-    final clean = widget.imageUrl?.trim() ?? '';
+    final rawClean = widget.imageUrl?.trim() ?? '';
+    final clean = S3StorageHelper.ensureValidUrl(rawClean);
+    final defaultFallback = _buildDefaultFallback(isLoading: false);
+    final defaultLoading = _buildDefaultFallback(isLoading: true);
 
     if (clean.isEmpty || _hasFailed) {
-      imageWidget = widget.fallback ?? widget.placeholder ?? const SizedBox.shrink();
+      imageWidget = widget.fallback ?? widget.placeholder ?? defaultFallback;
     } else if (_loadedBytes != null) {
       imageWidget = Image.memory(
         _loadedBytes!,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        errorBuilder: (_, __, ___) => widget.fallback ?? widget.placeholder ?? const SizedBox.shrink(),
+        errorBuilder: (_, __, ___) => widget.fallback ?? widget.placeholder ?? defaultFallback,
       );
     } else if (_isLoading) {
-      imageWidget = widget.placeholder ?? widget.fallback ?? const SizedBox.shrink();
+      imageWidget = widget.placeholder ?? widget.fallback ?? defaultLoading;
     } else if (!kIsWeb && (clean.startsWith('http://') || clean.startsWith('https://'))) {
       imageWidget = CachedNetworkImage(
         imageUrl: clean,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        placeholder: (_, __) => widget.placeholder ?? widget.fallback ?? const SizedBox.shrink(),
-        errorWidget: (_, __, ___) => widget.fallback ?? widget.placeholder ?? const SizedBox.shrink(),
+        placeholder: (_, __) => widget.placeholder ?? widget.fallback ?? defaultLoading,
+        errorWidget: (_, __, ___) => widget.fallback ?? widget.placeholder ?? defaultFallback,
       );
     } else {
-      imageWidget = widget.fallback ?? widget.placeholder ?? const SizedBox.shrink();
+      imageWidget = widget.fallback ?? widget.placeholder ?? defaultFallback;
     }
 
     if (widget.borderRadius != null) {

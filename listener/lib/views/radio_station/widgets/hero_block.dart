@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../view_models/radio_station_view_model.dart';
 import '../../../core/models/session_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 import 'session_detail_sheet.dart';
 
 class HeroBlock extends StatelessWidget {
@@ -25,8 +26,8 @@ class HeroBlock extends StatelessWidget {
         : (next != null ? _nextSubtitle(next) : r.description);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      height: 280,
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      height: 195,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -46,29 +47,17 @@ class HeroBlock extends StatelessWidget {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 500),
               child: (imageUrl != null && imageUrl.isNotEmpty)
-                  ? Image.network(
-                      imageUrl,
+                  ? SafeImage(
                       key: ValueKey(imageUrl),
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
-                      errorBuilder: (_, __, ___) => Container(
-                        key: const ValueKey('hero_fallback_err'),
-                        color: AppColors.primary.withOpacity(0.2),
-                        child: Center(
-                          child: Icon(Icons.radio, size: 64, color: AppColors.primary.withOpacity(0.4)),
-                        ),
-                      ),
+                      fallback: _heroGradientFallback(),
                     )
-                  : Container(
-                      key: const ValueKey('hero_fallback_empty'),
-                      color: AppColors.primary.withOpacity(0.2),
-                      child: Center(
-                        child: Icon(Icons.radio, size: 64, color: AppColors.primary.withOpacity(0.4)),
-                      ),
-                    ),
+                  : _heroGradientFallback(),
             ),
-            // Gradient overlay
+            // Gradient overlay for contrast
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -76,17 +65,17 @@ class HeroBlock extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.75),
+                    Colors.black.withOpacity(0.6),
                   ],
                 ),
               ),
             ),
             // Content
             Positioned(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: 20,
+              left: 14,
+              right: 14,
+              top: 10,
+              bottom: 10,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -108,25 +97,25 @@ class HeroBlock extends StatelessWidget {
                     title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                       height: 1.15,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
-                      fontSize: 13,
-                      height: 1.35,
+                      fontSize: 11.5,
+                      height: 1.25,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 6),
                   // Know more button
                   GestureDetector(
                     onTap: () {
@@ -135,12 +124,12 @@ class HeroBlock extends StatelessWidget {
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: Colors.white.withOpacity(0.3)),
+                            color: Colors.white.withOpacity(0.35)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -164,6 +153,28 @@ class HeroBlock extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _heroGradientFallback() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF6C63FF),
+            Color(0xFF3F3D56),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.radio,
+          size: 64,
+          color: Colors.white.withOpacity(0.3),
         ),
       ),
     );

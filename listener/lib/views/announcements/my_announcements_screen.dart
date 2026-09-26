@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../view_models/announcement_view_model.dart';
 import '../../core/models/announcement_request.dart';
@@ -34,7 +35,7 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
     });
   }
 
-  void _requestAnother([AnnouncementRequest? previous]) {
+  Future<void> _requestAnother([AnnouncementRequest? previous]) async {
     if (widget.onRequestNew != null) {
       widget.onRequestNew!();
       return;
@@ -57,51 +58,43 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
       return;
     }
 
-    if (items.isNotEmpty) {
-      // Distinct radio stations from previous requests
-      final stationsMap = <String, String>{};
-      for (final it in items) {
-        if (it.radioId.isNotEmpty && it.radioName.isNotEmpty) {
-          stationsMap[it.radioId] = it.radioName;
+    // Always fetch all available radio stations directly from the Firestore database
+    final user = FirebaseAuth.instance.currentUser;
+    final listenerName = user?.displayName ?? user?.email ?? 'Listener';
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('radios').get();
+      if (!mounted) return;
+      if (snapshot.docs.isNotEmpty) {
+        final stationsMap = <String, String>{};
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final name = data['name'] as String? ?? 'Radio Station';
+          stationsMap[doc.id] = name;
         }
-      }
-
-      if (stationsMap.length == 1) {
-        final radioId = stationsMap.keys.first;
-        final radioName = stationsMap.values.first;
-        final listenerName = items.first.listenerName;
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => CreateAnnouncementModal(
-            radioId: radioId,
-            radioName: radioName,
-            listenerName: listenerName,
-          ),
-        );
-        return;
-      } else if (stationsMap.isNotEmpty) {
-        _showStationSelectSheet(stationsMap, items.first.listenerName);
+        _showStationSelectSheet(stationsMap, listenerName);
         return;
       }
-    }
+    } catch (_) {}
 
-    // Fallback: if user opened this screen from AnnouncementsTab, simply pop back
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a radio station from the Announcements tab.'),
-        ),
-      );
-    }
+    if (!mounted) return;
+
+    // Fallback if Firestore is offline
+    _showStationSelectSheet({
+      'radio_1': 'Radio Sunshine',
+      'radio_2': 'City Beat FM',
+      'radio_3': 'Capital Sound',
+    }, listenerName);
   }
 
   void _showStationSelectSheet(Map<String, String> stations, String listenerName) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = Theme.of(context).cardColor;
+    final textColor = isDark ? Colors.white : AppColors.textPrimary;
+    final textMuted = isDark ? Colors.white60 : AppColors.textSecondary;
+
     showModalBottomSheet(
       context: context,
+      backgroundColor: cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -116,39 +109,41 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Select Radio Station',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close, color: textColor),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Choose the station for your new announcement request:',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13, color: textMuted),
                 ),
                 const SizedBox(height: 16),
                 ...stations.entries.map((e) {
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.radio, color: AppColors.primary, size: 20),
                       ),
-                      child: const Icon(Icons.radio, color: AppColors.primary, size: 20),
-                    ),
-                    title: Text(e.value, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: const BorderSide(color: AppColors.border),
-                    ),
+                      title: Text(e.value, style: TextStyle(fontWeight: FontWeight.w600, color: textColor)),
+                      trailing: Icon(Icons.arrow_forward_ios, size: 14, color: textMuted),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: isDark ? Colors.white12 : AppColors.border),
+                      ),
                     onTap: () {
                       Navigator.pop(ctx);
                       showModalBottomSheet(
@@ -162,8 +157,9 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
                         ),
                       );
                     },
-                  );
-                }),
+                  ),
+                );
+              }),
               ],
             ),
           ),
@@ -176,6 +172,10 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
   Widget build(BuildContext context) {
     final vm = context.watch<AnnouncementViewModel>();
     final allItems = vm.mine;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : AppColors.textPrimary;
+    final textMuted = isDark ? Colors.white60 : AppColors.textSecondary;
+    final cardBg = Theme.of(context).cardColor;
 
     // Filter items
     final filtered = allItems.where((it) {
@@ -192,12 +192,12 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
     final rejectedCount = allItems.where((it) => it.isRejected).length;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: widget.showAppBar
           ? AppBar(
               title: const Text('My Announcements'),
-              backgroundColor: AppColors.surface,
-              foregroundColor: AppColors.textPrimary,
+              backgroundColor: cardBg,
+              foregroundColor: textColor,
               elevation: 0,
               actions: [
                 Padding(
@@ -226,69 +226,25 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
       body: Column(
         children: [
           if (!widget.showAppBar)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.campaign, color: Colors.white, size: 30),
+                  Text(
+                    'Track status & requests',
+                    style: TextStyle(fontSize: 13, color: textMuted, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Community Announcements',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Track your requests, validation status, and live airing schedule.',
-                          style: TextStyle(color: Colors.white70, fontSize: 11.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   ElevatedButton.icon(
                     onPressed: () => _requestAnother(),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text(
-                      'Request Announcement',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
+                    label: const Text('New Request'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -540,49 +496,57 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Category & Priority chips
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Text(
-                        item.category.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Text(
+                            item.category.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: item.priority == AnnouncementPriority.priority
-                            ? Colors.purple.withOpacity(0.1)
-                            : (item.priority == AnnouncementPriority.high
-                                ? Colors.orange.withOpacity(0.1)
-                                : Colors.grey.withOpacity(0.1)),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${item.priority.label} priority',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: item.priority == AnnouncementPriority.priority
-                              ? Colors.purple
-                              : (item.priority == AnnouncementPriority.high
-                                  ? Colors.orange.shade800
-                                  : AppColors.textSecondary),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: item.priority == AnnouncementPriority.priority
+                                ? Colors.purple.withOpacity(0.1)
+                                : (item.priority == AnnouncementPriority.high
+                                    ? Colors.orange.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.1)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${item.priority.label} priority',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: item.priority == AnnouncementPriority.priority
+                                  ? Colors.purple
+                                  : (item.priority == AnnouncementPriority.high
+                                      ? Colors.orange.shade800
+                                      : AppColors.textSecondary),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const Spacer(),
                     Text(
                       '${item.diffusionsPerDay}x/day · ${item.days}d',
                       style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
@@ -856,11 +820,15 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
           // Footer: Price + Action Buttons
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 12, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('Price', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
                     Text(
@@ -873,27 +841,33 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
                     ),
                   ],
                 ),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton.icon(
                       onPressed: () => _showDetailsSheet(item),
-                      icon: const Icon(Icons.info_outline, size: 16),
-                      label: const Text('Details', style: TextStyle(fontSize: 12.5)),
+                      icon: const Icon(Icons.info_outline, size: 15),
+                      label: const Text('Details', style: TextStyle(fontSize: 12)),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.textSecondary,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
-                    const SizedBox(width: 6),
                     ElevatedButton.icon(
                       onPressed: () => _requestAnother(item),
-                      icon: const Icon(Icons.add, size: 15),
-                      label: const Text('Request Another', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                      icon: const Icon(Icons.add, size: 14),
+                      label: const Text('Request Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),

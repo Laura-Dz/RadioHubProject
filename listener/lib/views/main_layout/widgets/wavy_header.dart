@@ -14,7 +14,7 @@ class WavyHeader extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      height: 180,
+      height: 140,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -23,7 +23,7 @@ class WavyHeader extends StatelessWidget {
               ? [const Color(0xFF1A1A2E), const Color(0xFF16213E), const Color(0xFF0F3460)]
               : [const Color(0xFF4A90D9), const Color(0xFF6C63FF), const Color(0xFF7B68EE)],
         ),
-        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
       ),
       child: Stack(
         children: [
@@ -33,7 +33,7 @@ class WavyHeader extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
@@ -41,8 +41,8 @@ class WavyHeader extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
                         shape: BoxShape.circle,
@@ -51,33 +51,33 @@ class WavyHeader extends StatelessWidget {
                       child: ClipOval(
                         child: SafeImage(
                           imageUrl: userImage,
-                          width: 48,
-                          height: 48,
+                          width: 40,
+                          height: 40,
                           fit: BoxFit.cover,
-                          fallback: const Icon(Icons.person, color: Colors.white, size: 24),
+                          fallback: const Icon(Icons.person, color: Colors.white, size: 20),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(welcomeMessage, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, shadows: [Shadow(blurRadius: 10, color: Colors.black26)])),
-                          const SizedBox(height: 4),
+                          Text(welcomeMessage, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, shadows: [Shadow(blurRadius: 10, color: Colors.black26)])),
+                          const SizedBox(height: 2),
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: AppColors.success.withOpacity(0.3), borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(color: AppColors.success.withOpacity(0.3), borderRadius: BorderRadius.circular(10)),
                                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
+                                  Container(width: 5, height: 5, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
                                   const SizedBox(width: 4),
-                                  const Text('Live', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                  const Text('Live', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
                                 ]),
                               ),
                               const SizedBox(width: 8),
-                              Text('${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                              Text('${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
                             ],
                           ),
                         ],
@@ -86,17 +86,17 @@ class WavyHeader extends StatelessWidget {
                     Stack(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 28),
+                          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
                           onPressed: () {},
                         ),
                         Positioned(
-                          right: 8,
-                          top: 8,
+                          right: 6,
+                          top: 6,
                           child: Container(
-                            width: 20,
-                            height: 20,
+                            width: 16,
+                            height: 16,
                             decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
-                            child: const Center(child: Text('3', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+                            child: const Center(child: Text('3', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))),
                           ),
                         ),
                       ],

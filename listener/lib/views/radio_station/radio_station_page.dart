@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../view_models/radio_station_view_model.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/safe_image.dart';
 import 'widgets/hero_block.dart';
 import 'widgets/player_controls.dart';
 import 'widgets/about_section.dart';
 import 'widgets/shows_section.dart';
+import 'widgets/station_media_section.dart';
 import 'widgets/hosts_section.dart';
 import 'widgets/request_announcement_card.dart';
 import 'widgets/related_radios.dart';
@@ -49,31 +51,28 @@ class _State extends State<RadioStationPage> {
         titleSpacing: 0,
         title: Row(
           children: [
-            // Logo
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                image: r.logoUrl != null && r.logoUrl!.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(r.logoUrl!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SafeImage(
+                imageUrl: r.logoUrl,
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+                fallback: Container(
+                  width: 32,
+                  height: 32,
+                  color: AppColors.primary.withOpacity(0.1),
+                  child: Center(
+                    child: Text(
+                      r.name.isNotEmpty ? r.name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary),
+                    ),
+                  ),
+                ),
               ),
-              child: (r.logoUrl == null || r.logoUrl!.isEmpty)
-                  ? Center(
-                      child: Text(
-                        r.name.isNotEmpty ? r.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary),
-                      ),
-                    )
-                  : null,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -122,6 +121,7 @@ class _State extends State<RadioStationPage> {
             AboutSection(),
             ShowsSection(),               // shows + schedule/timetable buttons
             HostsSection(),               // host carousel
+            StationMediaSection(),        // audios & videos / podcasts section
             RequestAnnouncementCard(),     // request announcement card
             RelatedRadios(),              // related radios
             SizedBox(height: 30),

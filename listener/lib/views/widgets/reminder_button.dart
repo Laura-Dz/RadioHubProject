@@ -7,6 +7,7 @@ class ReminderButton extends StatefulWidget {
   final bool hasReminder;
   final Function(DateTime, int) onSetReminder;
   final VoidCallback onRemoveReminder;
+  final bool compact;
 
   const ReminderButton({
     Key? key,
@@ -16,6 +17,7 @@ class ReminderButton extends StatefulWidget {
     required this.hasReminder,
     required this.onSetReminder,
     required this.onRemoveReminder,
+    this.compact = false,
   }) : super(key: key);
 
   @override
@@ -27,9 +29,30 @@ class _ReminderButtonState extends State<ReminderButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.compact) {
+      return IconButton(
+        icon: Icon(
+          widget.hasReminder ? Icons.alarm_on : Icons.alarm_add,
+          color: widget.hasReminder ? Colors.orange : Colors.grey.shade600,
+          size: 16,
+        ),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+        onPressed: () {
+          if (widget.hasReminder) {
+            _showRemoveConfirmation(context);
+          } else {
+            _showReminderOptions(context);
+          }
+        },
+        tooltip: widget.hasReminder ? 'Remove reminder' : 'Set reminder',
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: Icon(
@@ -37,6 +60,8 @@ class _ReminderButtonState extends State<ReminderButton> {
               color: widget.hasReminder ? Colors.orange : Colors.grey,
               size: 20,
             ),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
             onPressed: () {
               if (widget.hasReminder) {
                 _showRemoveConfirmation(context);
@@ -58,6 +83,7 @@ class _ReminderButtonState extends State<ReminderButton> {
       ),
     );
   }
+
 
   void _showReminderOptions(BuildContext context) {
     showModalBottomSheet(

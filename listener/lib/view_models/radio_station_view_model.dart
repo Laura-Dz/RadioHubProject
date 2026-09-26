@@ -31,6 +31,8 @@ class RadioStationViewModel extends ChangeNotifier {
 
   bool _loading = true;
   bool _isPlaying = false;
+  bool _isPlayerDismissed = false;
+  bool get isPlayerDismissed => _isPlayerDismissed;
   bool _hasRegisteredPresence = false;
   DatabaseReference? _myPresenceRef;
   String? _error;
@@ -116,6 +118,9 @@ class RadioStationViewModel extends ChangeNotifier {
   }
 
   void attach(String radioId) {
+    if (_radioId != radioId) {
+      _isPlayerDismissed = false;
+    }
     _radioId = radioId;
     _detach();
     _loading = true;
@@ -261,27 +266,31 @@ class RadioStationViewModel extends ChangeNotifier {
   AudioPlayer? _audioPlayer;
   bool _audioPlayerInitialized = false;
 
-  void _initAudioPlayer() {
-    if (_audioPlayerInitialized) return;
-    _audioPlayer = AudioPlayer();
-    _audioPlayerInitialized = true;
+  Future<void> _initAudioPlayer() async {
+    if (_audioPlayer != null) return;
+    try {
+      _audioPlayer = AudioPlayer();
+      _audioPlayerInitialized = true;
 
-    _audioPlayer!.playerStateStream.listen((state) {
-      final isActuallyPlaying = state.playing && state.processingState != ProcessingState.completed;
-      if (_isPlaying != isActuallyPlaying) {
-        _isPlaying = isActuallyPlaying;
-        notifyListeners();
-      }
-    });
+      _audioPlayer!.playerStateStream.listen((state) {
+        final isActuallyPlaying = state.playing && state.processingState != ProcessingState.completed;
+        if (_isPlaying != isActuallyPlaying) {
+          _isPlaying = isActuallyPlaying;
+          notifyListeners();
+        }
+      });
 
-    _audioPlayer!.playbackEventStream.listen(
-      (event) {},
-      onError: (Object e, StackTrace st) {
-        debugPrint('Audio playback error: $e');
-        _error = 'Audio stream error: $e';
-        notifyListeners();
-      },
-    );
+      _audioPlayer!.playbackEventStream.listen(
+        (event) {},
+        onError: (Object e, StackTrace st) {
+          debugPrint('Audio playback error: $e');
+          _error = 'Audio stream error: $e';
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      debugPrint('Error initializing AudioPlayer: $e');
+    }
   }
 
   void togglePlay() {
@@ -293,28 +302,24 @@ class RadioStationViewModel extends ChangeNotifier {
   }
 
   Future<void> startPlayback() async {
-    _initAudioPlayer();
-    _isPlaying = true;
-    _incrementListenerCount();
-    notifyListeners();
-
     try {
-      final primaryUrl = AppConfig.getStreamUrl(_radioId);
-      debugPrint('Connecting to live audio stream: $primaryUrl');
-
-      try {
-        await _audioPlayer!.stop();
-        await _audioPlayer!.setUrl(primaryUrl);
-        await _audioPlayer!.play();
-      } catch (e) {
-        debugPrint('Primary stream connection error ($primaryUrl): $e');
-        // Fall back to verified audio stream for phone hardware testing
-        debugPrint('Falling back to test audio stream: ${AppConfig.testAudioStreamUrl}');
-        await _audioPlayer!.setUrl(AppConfig.testAudioStreamUrl);
-        await _audioPlayer!.play();
+      await _initAudioPlayer();
+      if (_audioPlayer == null) {
+        throw Exception('AudioPlayer failed to initialize');
       }
+      _isPlaying = true;
+      _isPlayerDismissed = false;
+      _incrementListenerCount();
+      notifyListeners();
+
+      final primaryUrl = AppConfig.getStreamUrl(_radioId);
+      debugPrint('Connecting to live mixer stream: $primaryUrl');
+
+      await _audioPlayer!.stop();
+      await _audioPlayer!.setUrl(primaryUrl);
+      await _audioPlayer!.play();
     } catch (e) {
-      debugPrint('Failed to start radio playback: $e');
+      debugPrint('Failed to start mixer playback: $e');
       _isPlaying = false;
       _error = 'Unable to play stream: $e';
       notifyListeners();
@@ -332,6 +337,18 @@ class RadioStationViewModel extends ChangeNotifier {
         debugPrint('Error pausing audio player: $e');
       }
     }
+  }
+
+  void stopAndDismiss() {
+    _isPlaying = false;
+    try {
+      _audioPlayer?.stop();
+    } catch (e) {
+      debugPrint('Error stopping audio player: $e');
+    }
+    _decrementListenerCount();
+    _isPlayerDismissed = true;
+    notifyListeners();
   }
 
   Future<void> _incrementListenerCount() async {
@@ -909,7 +926,11 @@ class RadioStationViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _detach();
-    _audioPlayer?.dispose();
+    try {
+      _audioPlayer?.dispose();
+    } catch (_) {}
+    _audioPlayer = null;
+    _audioPlayerInitialized = false;
     super.dispose();
   }
 

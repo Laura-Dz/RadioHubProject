@@ -4,6 +4,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 
 import '../../../view_models/radio_station_view_model.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 
 class AboutSection extends StatefulWidget {
   const AboutSection({Key? key}) : super(key: key);
@@ -70,11 +71,18 @@ class _State extends State<AboutSection> {
                     builder: (_) => Container(
                       width: double.infinity,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        image: DecorationImage(
-                          image: NetworkImage(url),
+                        child: SafeImage(
+                          imageUrl: url,
                           fit: BoxFit.cover,
+                          width: double.infinity,
+                          fallback: Container(
+                            color: AppColors.primary.withOpacity(0.1),
+                            child: const Center(
+                              child: Icon(Icons.radio, size: 40, color: AppColors.primary),
+                            ),
+                          ),
                         ),
                       ),
                     ),

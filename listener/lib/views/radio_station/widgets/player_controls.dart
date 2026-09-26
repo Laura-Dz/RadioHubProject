@@ -7,6 +7,7 @@ import '../../../core/constants/app_colors.dart';
 import 'comments_sheet.dart';
 import 'queue_sheet.dart';
 import 'poll_vote_sheet.dart';
+import '../media/station_media_screen.dart';
 
 class PlayerControls extends StatelessWidget {
   const PlayerControls({Key? key}) : super(key: key);
@@ -86,6 +87,75 @@ class PlayerControls extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          // Quick access button to station media (audios & videos)
+          if (vm.radio != null)
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StationMediaScreen(
+                      radioId: vm.radio!.id,
+                      radioName: vm.radio!.name,
+                    ),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.video_library_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Station Audios & Videos',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          Text(
+                            'Podcasts, recorded shows & video broadcasts',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 13,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

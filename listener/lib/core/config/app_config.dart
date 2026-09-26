@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Application-wide configuration for backend networking and audio streaming.
 class AppConfig {
   /// The local WiFi IP of the development host computer.
@@ -8,28 +10,38 @@ class AppConfig {
   );
 
   /// Default port for the Django backend.
-  /// Overridable at compile time via: --dart-define=BACKEND_PORT=8000
+  /// Overridable at compile time via: --dart-define=BACKEND_PORT=8002
   static const int defaultBackendPort = int.fromEnvironment(
     'BACKEND_PORT',
-    defaultValue: 8000,
+    defaultValue: 8002,
   );
 
   /// Base URL for the central Django backend API.
   static String get backendUrl {
     const customUrl = String.fromEnvironment('BACKEND_URL');
     if (customUrl.isNotEmpty) return customUrl;
+    if (kIsWeb && Uri.base.host.isNotEmpty) {
+      return 'http://${Uri.base.host}:$defaultBackendPort';
+    }
     return 'http://$defaultBackendHost:$defaultBackendPort';
   }
 
-  /// Resolve live audio stream URL for a given radio station ID.
-  /// Format: http://<HOST>:8000/api/stream/<radio_id>/
+  /// Live audio stream URL decrypted in real-time by the central Django backend.
   static String getStreamUrl(String radioId) {
-    final cleanId = radioId.trim().isNotEmpty ? radioId.trim() : 'radio_1';
+    final cleanId = radioId.trim().isNotEmpty ? radioId.trim() : 'radio_love';
     return '$backendUrl/api/stream/$cleanId/';
   }
 
-  /// Verified public fallback radio stream URL for phone audio hardware test
-  /// in case the local Django/Shoutcast server is not actively transmitting audio.
-  static const String testAudioStreamUrl =
-      'https://stream.zeno.fm/f3wvbbqmdg8uv';
+  /// OpenAI API Key for content moderation.
+  static const String openaiApiKey = String.fromEnvironment(
+    'OPENAI_API_KEY',
+    defaultValue:
+        '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',
+  );
+
+  /// Gemini API Key for announcement amelioration.
+  static const String geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: 'AQ.Ab8RN6IhPptg5tRK0sTYWMfyiLTj3KSKEsHNFFwSGDtRzeS8Xw',
+  );
 }

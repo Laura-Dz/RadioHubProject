@@ -124,9 +124,10 @@ class RequestAnnouncementCard extends StatelessWidget {
     final listenerName = user?.displayName ?? 'Listener';
 
     // Open the announcement form with this radio pre-filled
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      barrierDismissible: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => CreateAnnouncementModal(
         radioId: radio.id,
         radioName: radio.name,

@@ -90,7 +90,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                       onSeeAll: () => _navigateToChannels(context, ChannelFilter.trending),
                     ),
                     SizedBox(
-                      height: 220,
+                      height: 215,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -122,7 +122,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     onSeeAll: () => _navigateToChannels(context, ChannelFilter.following),
                   ),
                   SizedBox(
-                    height: 160,
+                    height: 165,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -154,7 +154,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     onSeeAll: () => _navigateToChannels(context, ChannelFilter.all),
                   ),
                   SizedBox(
-                    height: 160,
+                    height: 165,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -218,7 +218,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.85),
+                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.74),
                     itemCount: min(4, homeViewModel.trendingShows.length),
                     itemBuilder: (context, index) {
                       final show = homeViewModel.trendingShows[index];
@@ -246,7 +246,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     onSeeAll: () => _navigateToChannels(context, ChannelFilter.all),
                   ),
                   SizedBox(
-                    height: 180,
+                    height: 215,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),

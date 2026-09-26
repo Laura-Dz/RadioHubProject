@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/program.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 import '../../../view_models/radio_station_view_model.dart';
 
 class ProgramDetailSheet extends StatelessWidget {
@@ -88,13 +89,22 @@ class ProgramDetailSheet extends StatelessWidget {
                     ),
                   ),
                   if (program.imageUrl != null && program.imageUrl!.isNotEmpty)
-                    ClipRRect(
+                    SafeImage(
+                      imageUrl: program.imageUrl,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        program.imageUrl!,
+                      fallback: Container(
                         width: 60,
                         height: 60,
-                        fit: BoxFit.cover,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.radio, size: 24, color: AppColors.primary),
+                        ),
                       ),
                     ),
                 ],

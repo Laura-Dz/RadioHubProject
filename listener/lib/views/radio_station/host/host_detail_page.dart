@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/models/host.dart';
 import '../../../core/models/program.dart';
 import '../../../core/services/radio_schedule_service.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 import '../widgets/program_card.dart';
 import '../widgets/program_detail_sheet.dart';
 
@@ -66,15 +66,11 @@ class HostDetailPage extends StatelessWidget {
                         ],
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: host.photoUrl != null &&
-                              host.photoUrl!.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: host.photoUrl!,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => _initials(),
-                              errorWidget: (_, __, ___) => _initials(),
-                            )
-                          : _initials(),
+                      child: SafeImage(
+                        imageUrl: host.photoUrl,
+                        fit: BoxFit.cover,
+                        fallback: _initials(),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Text(

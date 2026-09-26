@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/program.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 
 class ProgramCard extends StatefulWidget {
   final Program program;
@@ -60,27 +61,25 @@ class _ProgramCardState extends State<ProgramCard> {
               // Poster image
               Stack(
                 children: [
-                  Container(
-                    height: 70,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(9)),
-                      image: p.imageUrl != null && p.imageUrl!.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(p.imageUrl!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: (p.imageUrl == null || p.imageUrl!.isEmpty)
-                        ? Center(
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(9)),
+                    child: SizedBox(
+                      height: 70,
+                      width: double.infinity,
+                      child: SafeImage(
+                        imageUrl: p.imageUrl,
+                        fit: BoxFit.cover,
+                        fallback: Container(
+                          color: AppColors.primary.withOpacity(0.1),
+                          child: Center(
                             child: Icon(Icons.radio,
                                 size: 22,
                                 color: AppColors.primary.withOpacity(0.4)),
-                          )
-                        : null,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                   Positioned(
                     top: 4,

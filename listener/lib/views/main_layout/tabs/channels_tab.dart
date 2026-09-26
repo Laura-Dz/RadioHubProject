@@ -53,9 +53,14 @@ class _State extends State<ChannelsTab> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ChannelsViewModel>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = Theme.of(context).cardColor;
+    final textColor = isDark ? Colors.white : AppColors.textPrimary;
+    final textMuted = isDark ? Colors.white60 : AppColors.textSecondary;
+    final inputBg = isDark ? const Color(0xFF1E1E2E) : AppColors.background;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -63,25 +68,26 @@ class _State extends State<ChannelsTab> {
               children: [
                 // ====== Header ======
                 Container(
-                  color: AppColors.surface,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  color: cardBg,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Channels',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
-                      const Text('Discover radios and streams',
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.textSecondary)),
-                      const SizedBox(height: 14),
+                      Text(
+                        'Discover radios and streams',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
 
                       // Search
                       TextField(
                         controller: _searchCtrl,
                         focusNode: _searchFocus,
+                        style: TextStyle(color: textColor, fontSize: 14),
                         onChanged: (v) {
                           vm.setQuery(v);
                           setState(() {});
@@ -92,10 +98,11 @@ class _State extends State<ChannelsTab> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Search radios, categories, cities…',
-                          prefixIcon: const Icon(Icons.search, size: 18),
+                          hintStyle: TextStyle(fontSize: 13, color: textMuted),
+                          prefixIcon: Icon(Icons.search, size: 18, color: textMuted),
                           suffixIcon: _searchCtrl.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.close, size: 16),
+                                  icon: Icon(Icons.close, size: 16, color: textMuted),
                                   onPressed: () {
                                     _searchCtrl.clear();
                                     vm.setQuery('');
@@ -104,34 +111,30 @@ class _State extends State<ChannelsTab> {
                                 )
                               : null,
                           filled: true,
-                          fillColor: AppColors.background,
+                          fillColor: inputBg,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                const BorderSide(color: AppColors.border),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : AppColors.border),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                const BorderSide(color: AppColors.border),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : AppColors.border),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                                color: AppColors.primary, width: 1.5),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 12),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                         ),
                       ),
                       const SizedBox(height: 12),
 
                       // Filter chips
-                      if (!vm.isSearching) _filterRow(vm),
+                      if (!vm.isSearching) _filterRow(vm, isDark, cardBg, textColor, textMuted),
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: AppColors.divider),
+                Divider(height: 1, color: isDark ? Colors.white12 : AppColors.divider),
 
                 // ====== Body ======
                 Expanded(
@@ -171,25 +174,26 @@ class _State extends State<ChannelsTab> {
 
   // ---------- FILTER ROW ----------
 
-  Widget _filterRow(ChannelsViewModel vm) {
+  Widget _filterRow(
+      ChannelsViewModel vm, bool isDark, Color cardBg, Color textColor, Color textMuted) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _filterChip(vm, ChannelFilter.all, 'All', Icons.apps),
+          _filterChip(vm, ChannelFilter.all, 'All', Icons.apps, isDark, cardBg, textColor, textMuted),
           const SizedBox(width: 8),
-          _filterChip(vm, ChannelFilter.trending, 'Trending', Icons.trending_up),
+          _filterChip(vm, ChannelFilter.trending, 'Trending', Icons.trending_up, isDark, cardBg, textColor, textMuted),
           const SizedBox(width: 8),
-          _filterChip(vm, ChannelFilter.forYou, 'For you', Icons.auto_awesome),
+          _filterChip(vm, ChannelFilter.forYou, 'For you', Icons.auto_awesome, isDark, cardBg, textColor, textMuted),
           const SizedBox(width: 8),
-          _filterChip(vm, ChannelFilter.following, 'Following', Icons.favorite),
+          _filterChip(vm, ChannelFilter.following, 'Following', Icons.favorite, isDark, cardBg, textColor, textMuted),
         ],
       ),
     );
   }
 
   Widget _filterChip(
-      ChannelsViewModel vm, ChannelFilter f, String label, IconData icon) {
+      ChannelsViewModel vm, ChannelFilter f, String label, IconData icon, bool isDark, Color cardBg, Color textColor, Color textMuted) {
     final sel = vm.filter == f;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -198,7 +202,7 @@ class _State extends State<ChannelsTab> {
           children: [
             Icon(icon,
                 size: 14,
-                color: sel ? Colors.white : AppColors.textSecondary),
+                color: sel ? Colors.white : textMuted),
             const SizedBox(width: 6),
             Text(label),
           ],
@@ -206,10 +210,10 @@ class _State extends State<ChannelsTab> {
         selected: sel,
         onSelected: (_) => vm.setFilter(f),
         selectedColor: AppColors.primary,
-        backgroundColor: AppColors.surface,
-        side: BorderSide(color: sel ? AppColors.primary : AppColors.border),
+        backgroundColor: isDark ? const Color(0xFF1E1E2E) : cardBg,
+        side: BorderSide(color: sel ? AppColors.primary : (isDark ? Colors.white12 : AppColors.border)),
         labelStyle: TextStyle(
-          color: sel ? Colors.white : AppColors.textSecondary,
+          color: sel ? Colors.white : textMuted,
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
         ),
@@ -442,15 +446,15 @@ class _State extends State<ChannelsTab> {
             ? 5
             : (width > 600
                 ? 4
-                : (width > 340 ? 3 : 2));
+                : 2);
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 0.72,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: width > 600 ? 0.80 : 0.74,
           ),
           itemCount: radios.length,
           itemBuilder: (_, i) {

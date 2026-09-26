@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'cloud_function_caller.dart';
+import 'announcement_ai_service.dart';
 import '../models/announcement_request.dart';
 import '../config/app_config.dart';
 
@@ -19,6 +20,7 @@ class AnnouncementTariffEntry {
 
 class AnnouncementService {
   final _db = FirebaseFirestore.instance;
+  final _ai = AnnouncementAiService();
   final String baseUrl;
 
   AnnouncementService({String? baseUrl}) : baseUrl = baseUrl ?? AppConfig.backendUrl;
@@ -64,11 +66,38 @@ class AnnouncementService {
     ];
   }
 
-  /// Enhances the message using AI.
+  /// Moderates the text using OpenAI content moderation policies.
+  Future<ModerationResult> moderateText(String text) => _ai.moderateText(text);
+
+  /// Ameliorates announcement text with Gemini specifically tailored for radio broadcast.
+  Future<AmeliorationResult?> ameliorateAnnouncement({
+    required String text,
+    required String category,
+    String? radioName,
+  }) =>
+      _ai.ameliorateAnnouncement(
+        text: text,
+        category: category,
+        radioName: radioName,
+      );
+
+  /// Enhances the message using AI (Gemini first with Cloud Function fallback).
   Future<String> enhanceText({
     required String category,
     required String text,
+    String? radioName,
   }) async {
+    try {
+      final geminiResult = await _ai.ameliorateAnnouncement(
+        text: text,
+        category: category,
+        radioName: radioName,
+      );
+      if (geminiResult != null && geminiResult.polishedText.trim().isNotEmpty) {
+        return geminiResult.polishedText.trim();
+      }
+    } catch (_) {}
+
     try {
       final res = await CloudFunctionCaller.call('enhanceAnnouncementText', {
         'category': category,
@@ -99,6 +128,15 @@ class AnnouncementService {
     DateTime? endDate,
     String paymentMethod = 'MoMo',
   }) async {
+    // 1. Client-side OpenAI Content Moderation Gate
+    final mod = await _ai.moderateText(finalText);
+    if (!mod.passed) {
+      throw Exception(
+        mod.message ??
+            'Your announcement message violated broadcast content safety policies.',
+      );
+    }
+
     final effectiveStartDate = startDate ?? DateTime.now();
     final effectiveEndDate = endDate ?? effectiveStartDate.add(Duration(days: days));
 

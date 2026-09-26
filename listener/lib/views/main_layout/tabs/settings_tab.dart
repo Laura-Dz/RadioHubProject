@@ -21,9 +21,10 @@ class SettingsTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ============ APPEARANCE ============
-          _sectionHeader('Appearance'),
-          _card([
+          _sectionHeader(context, 'Appearance'),
+          _card(context, [
             _dropdownRow(
+              context,
               icon: Icons.dark_mode_outlined,
               label: 'Theme',
               value: themeVM.isDarkMode ? 'dark' : 'light',
@@ -38,6 +39,7 @@ class SettingsTab extends StatelessWidget {
               },
             ),
             _switchRow(
+              context,
               icon: Icons.animation_outlined,
               label: 'Reduce motion',
               subtitle: 'Minimize animations across the app',
@@ -48,17 +50,19 @@ class SettingsTab extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ============ NOTIFICATIONS ============
-          _sectionHeader('Notifications'),
-          _card([
+          _sectionHeader(context, 'Notifications'),
+          _card(context, [
             _switchRow(
+              context,
               icon: Icons.notifications_active_outlined,
               label: 'Push notifications',
               subtitle: 'Master switch for all notifications',
               value: prefs.pushNotifications,
               onChanged: (_) => vm.toggle('pushNotifications'),
             ),
-            _divider(),
+            _divider(context),
             _switchRow(
+              context,
               icon: Icons.star_border,
               label: 'Followed shows',
               subtitle: 'Alerts when shows you follow are about to air',
@@ -66,8 +70,9 @@ class SettingsTab extends StatelessWidget {
               enabled: prefs.pushNotifications,
               onChanged: (_) => vm.toggle('followedShowAlerts'),
             ),
-            _divider(),
+            _divider(context),
             _switchRow(
+              context,
               icon: Icons.reply_outlined,
               label: 'Host replies',
               subtitle: 'Notify me when a host replies to my comment',
@@ -75,8 +80,9 @@ class SettingsTab extends StatelessWidget {
               enabled: prefs.pushNotifications,
               onChanged: (_) => vm.toggle('hostReplyAlerts'),
             ),
-            _divider(),
+            _divider(context),
             _switchRow(
+              context,
               icon: Icons.call_outlined,
               label: 'Call status',
               subtitle: 'Updates on my call request',
@@ -84,8 +90,9 @@ class SettingsTab extends StatelessWidget {
               enabled: prefs.pushNotifications,
               onChanged: (_) => vm.toggle('callStatusAlerts'),
             ),
-            _divider(),
+            _divider(context),
             _switchRow(
+              context,
               icon: Icons.campaign_outlined,
               label: 'Announcement updates',
               subtitle: 'Alerts when my announcement is validated or rejected',
@@ -97,9 +104,10 @@ class SettingsTab extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ============ AUDIO ============
-          _sectionHeader('Audio'),
-          _card([
+          _sectionHeader(context, 'Audio'),
+          _card(context, [
             _dropdownRow(
+              context,
               icon: Icons.graphic_eq,
               label: 'Stream quality',
               value: prefs.audioQuality,
@@ -111,16 +119,18 @@ class SettingsTab extends StatelessWidget {
               ],
               onChanged: (v) => vm.setAudioQuality(v),
             ),
-            _divider(),
+            _divider(context),
             _switchRow(
+              context,
               icon: Icons.data_saver_on_outlined,
               label: 'Data saver',
               subtitle: 'Reduce data usage during playback',
               value: prefs.dataSaver,
               onChanged: (_) => vm.toggle('dataSaver'),
             ),
-            _divider(),
+            _divider(context),
             _switchRow(
+              context,
               icon: Icons.play_circle_outline,
               label: 'Autoplay on open',
               subtitle: 'Start playing when a show is opened',
@@ -131,8 +141,8 @@ class SettingsTab extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ============ LANGUAGE ============
-          _sectionHeader('Language'),
-          _card([
+          _sectionHeader(context, 'Language'),
+          _card(context, [
             InkWell(
               onTap: () => Navigator.push(
                 context,
@@ -150,23 +160,39 @@ class SettingsTab extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('App language',
-                              style: TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text(
+                            'App language',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
                           const SizedBox(height: 2),
                           Text(
                             LocalizationService()
                                     .currentLanguage
                                     ?.nativeName ??
                                 'English',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textSecondary),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white60
+                                  : AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right,
-                        size: 18, color: AppColors.textMuted),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white38
+                          : AppColors.textMuted,
+                    ),
                   ],
                 ),
               ),
@@ -175,27 +201,31 @@ class SettingsTab extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ============ ABOUT ============
-          _sectionHeader('About'),
-          _card([
+          _sectionHeader(context, 'About'),
+          _card(context, [
             _staticRow(
+              context,
               icon: Icons.info_outline,
               label: 'App version',
               value: '1.0.0',
             ),
-            _divider(),
+            _divider(context),
             _linkRow(
+              context,
               icon: Icons.policy_outlined,
               label: 'Privacy policy',
               onTap: () {},
             ),
-            _divider(),
+            _divider(context),
             _linkRow(
+              context,
               icon: Icons.description_outlined,
               label: 'Terms of service',
               onTap: () {},
             ),
-            _divider(),
+            _divider(context),
             _linkRow(
+              context,
               icon: Icons.help_outline,
               label: 'Help & support',
               onTap: () {},
@@ -209,30 +239,43 @@ class SettingsTab extends StatelessWidget {
 
   // ---------- helpers ----------
 
-  Widget _sectionHeader(String text) => Padding(
+  Widget _sectionHeader(BuildContext context, String text) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(
           text.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
-            color: AppColors.textMuted,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white60
+                : AppColors.textMuted,
             letterSpacing: 0.6,
           ),
         ),
       );
 
-  Widget _card(List<Widget> children) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+  Widget _card(BuildContext context, List<Widget> children) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white12 : AppColors.border,
         ),
-        child: Column(children: children),
-      );
+      ),
+      child: Column(children: children),
+    );
+  }
 
-  Widget _divider() =>
-      const Divider(height: 1, color: AppColors.divider, indent: 60);
+  Widget _divider(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Divider(
+      height: 1,
+      color: isDark ? Colors.white12 : AppColors.divider,
+      indent: 60,
+    );
+  }
 
   Widget _iconBox(IconData icon) => Container(
         padding: const EdgeInsets.all(8),
@@ -243,7 +286,8 @@ class SettingsTab extends StatelessWidget {
         child: Icon(icon, size: 16, color: AppColors.primary),
       );
 
-  Widget _switchRow({
+  Widget _switchRow(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String subtitle,
@@ -251,6 +295,7 @@ class SettingsTab extends StatelessWidget {
     required ValueChanged<bool> onChanged,
     bool enabled = true,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveValue = enabled ? value : false;
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,
@@ -264,13 +309,22 @@ class SettingsTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : AppColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : AppColors.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -285,13 +339,15 @@ class SettingsTab extends StatelessWidget {
     );
   }
 
-  Widget _dropdownRow({
+  Widget _dropdownRow(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
     required List<(String, String)> options,
     required Function(String) onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -299,25 +355,36 @@ class SettingsTab extends StatelessWidget {
           _iconBox(icon),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
           ),
           DropdownButton<String>(
             value: value,
             underline: const SizedBox.shrink(),
+            dropdownColor: isDark ? const Color(0xFF242438) : Colors.white,
             items: options
                 .map((o) => DropdownMenuItem(
                       value: o.$1,
-                      child: Text(o.$2,
-                          style: const TextStyle(fontSize: 13)),
+                      child: Text(
+                        o.$2,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
                     ))
                 .toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
             },
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: isDark ? Colors.white : AppColors.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -326,51 +393,74 @@ class SettingsTab extends StatelessWidget {
     );
   }
 
-  Widget _staticRow({
+  Widget _staticRow(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
-  }) =>
-      Padding(
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          _iconBox(icon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white60 : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _linkRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             _iconBox(icon),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(label,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
             ),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary)),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: isDark ? Colors.white38 : AppColors.textMuted,
+            ),
           ],
         ),
-      );
-
-  Widget _linkRow({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) =>
-      InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              _iconBox(icon),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(label,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
-              const Icon(Icons.chevron_right,
-                  size: 18, color: AppColors.textMuted),
-            ],
-          ),
-        ),
-      );
+      ),
+    );
+  }
 }

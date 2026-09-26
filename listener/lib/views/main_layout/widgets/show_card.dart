@@ -36,7 +36,7 @@ class ShowCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (isGrid) return _buildGridCard(context, isDark);
     if (isVertical) return _buildVerticalCard(context, isDark);
-    if (isCompact) return _buildCompactCard(context, isDark);
+    if (isCompact || isChannel) return _buildCompactCard(context, isDark);
     return _buildHorizontalCard(context, isDark);
   }
 
@@ -45,7 +45,7 @@ class ShowCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 200,
+        width: 165,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
@@ -61,6 +61,7 @@ class ShowCard extends StatelessWidget {
           ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
@@ -68,7 +69,7 @@ class ShowCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   child: Container(
-                    height: 120,
+                    height: 95,
                     width: double.infinity,
                     decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.3), AppColors.secondary.withOpacity(0.3)])),
                     child: _buildNetworkImage(show.imageUrl),
@@ -94,28 +95,34 @@ class ShowCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(show.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(show.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text(show.host, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color)),
-                  const SizedBox(height: 4),
+                  Text(show.host, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Theme.of(context).textTheme.bodySmall?.color)),
+                  const SizedBox(height: 6),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      FollowButton(
-                        isFollowed: vm.isShowFollowed(show.id),
-                        onToggle: () => vm.toggleFollowShow(show.id),
-                        followerCount: show.followerCount ?? 0,
+                      Flexible(
+                        child: FollowButton(
+                          isFollowed: vm.isShowFollowed(show.id),
+                          onToggle: () => vm.toggleFollowShow(show.id),
+                          followerCount: show.followerCount ?? 0,
+                          compact: true,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      if (show.startTime != null && show.status == ShowStatus.upcoming)
+                      if (show.startTime != null && show.status == ShowStatus.upcoming) ...[
+                        const SizedBox(width: 4),
                         ReminderButton(
                           showId: show.id,
                           programName: show.title,
                           showStartTime: show.startTime!,
                           hasReminder: vm.hasReminder(show.id),
+                          compact: true,
                           onSetReminder: (startTime, minutes) => vm.setReminder(
                             showId: show.id,
                             programName: show.title,
@@ -124,6 +131,7 @@ class ShowCard extends StatelessWidget {
                           ),
                           onRemoveReminder: () => vm.removeReminder(show.id),
                         ),
+                      ],
                     ],
                   ),
                 ],

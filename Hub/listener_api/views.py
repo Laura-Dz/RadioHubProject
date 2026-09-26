@@ -286,19 +286,60 @@ def get_or_rotate_stream_key(request, radio_id):
     return response
 
 
+def _get_mp3_frame_size(b: bytes, offset: int = 0) -> int | None:
+    if len(b) - offset < 4:
+        return None
+    if b[offset] != 0xFF or (b[offset + 1] & 0xE0) != 0xE0:
+        return None
+    version_bits = (b[offset + 1] >> 3) & 0x03
+    layer_bits = (b[offset + 1] >> 1) & 0x03
+    bitrate_idx = (b[offset + 2] >> 4) & 0x0F
+    sample_rate_idx = (b[offset + 2] >> 2) & 0x03
+    padding = (b[offset + 2] >> 1) & 0x01
+
+    if layer_bits != 1:
+        return None
+
+    if version_bits == 3:
+        bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+        sample_rates = [44100, 48000, 32000, 0]
+        if bitrate_idx >= len(bitrates) or sample_rate_idx >= len(sample_rates):
+            return None
+        br = bitrates[bitrate_idx] * 1000
+        sr = sample_rates[sample_rate_idx]
+        if sr == 0 or br == 0:
+            return None
+        return int((144 * br) // sr) + padding
+    elif version_bits in (0, 2):
+        bitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+        sample_rates = [22050, 24000, 16000, 0] if version_bits == 2 else [11025, 12000, 8000, 0]
+        if bitrate_idx >= len(bitrates) or sample_rate_idx >= len(sample_rates):
+            return None
+        br = bitrates[bitrate_idx] * 1000
+        sr = sample_rates[sample_rate_idx]
+        if sr == 0 or br == 0:
+            return None
+        return int((72 * br) // sr) + padding
+    return None
+
+
+def _xor_payload(payload: bytes, keystream: bytes) -> bytes:
+    L = len(payload)
+    if L == 0:
+        return b""
+    return (int.from_bytes(payload, "big") ^ int.from_bytes(keystream[:L], "big")).to_bytes(L, "big")
+
+
 @never_cache
 def stream_radio(request, radio_id):
     """
     Proxy live audio stream from internal Shoutcast instance (127.0.0.1:8000).
-    Decrypts AES-128-CBC encrypted stream from Shoutcast before sending plain MP3 to listener.
+    Streams pure live MP3 to the listener. If encryption is enabled in settings,
+    it decrypts; otherwise, it streams the raw audio chunks directly from the mixer.
     """
-    key = _get_station_aes_key(radio_id)
-    if not key:
-        return HttpResponse("Server key missing or misconfigured for station", status=500)
-
     shoutcast_host = os.environ.get("SHOUTCAST_HOST", "127.0.0.1")
     shoutcast_port = os.environ.get("SHOUTCAST_PORT", "8000")
-    shoutcast_mount = os.environ.get("SHOUTCAST_MOUNT", "stream")
+    shoutcast_mount = os.environ.get("SHOUTCAST_MOUNT", "stream/1/")
     shoutcast_url = f"http://{shoutcast_host}:{shoutcast_port}/{shoutcast_mount}"
 
     try:
@@ -308,36 +349,82 @@ def stream_radio(request, radio_id):
             timeout=10,
         )
         if upstream.status_code != 200:
-            return HttpResponse("Stream unavailable", status=503)
+            upstream = requests.get(
+                f"http://{shoutcast_host}:{shoutcast_port}/;",
+                stream=True,
+                timeout=10,
+            )
+            if upstream.status_code != 200:
+                return HttpResponse("Stream unavailable", status=503)
     except requests.RequestException:
         return HttpResponse("Stream unavailable", status=503)
 
-    def decrypt_chunks():
-        cipher = Cipher(
-            algorithms.AES(key),
-            modes.CBC(IV),
-            backend=default_backend(),
-        )
-        decryptor = cipher.decryptor()
-        buffer = b""
+    key = _get_station_aes_key(radio_id)
+    encryption_enabled = os.environ.get("ENABLE_STREAM_ENCRYPTION", "true").lower() in ("true", "1", "yes")
+
+    def audio_chunks():
         try:
-            for chunk in upstream.iter_content(chunk_size=16384):
-                if not chunk:
-                    continue
-                buffer += chunk
-                aligned = len(buffer) - (len(buffer) % 16)
-                if aligned > 0:
-                    plain = decryptor.update(buffer[:aligned])
-                    yield plain
-                    buffer = buffer[aligned:]
+            if encryption_enabled and key:
+                cipher = Cipher(
+                    algorithms.AES(key),
+                    modes.CTR(IV),
+                    backend=default_backend(),
+                )
+                keystream = cipher.encryptor().update(b"\x00" * 4096)
+                buffer = bytearray()
+                for chunk in upstream.iter_content(chunk_size=8192):
+                    if not chunk:
+                        continue
+                    buffer.extend(chunk)
+
+                    out = bytearray()
+                    while True:
+                        if len(buffer) < 4:
+                            break
+
+                        if buffer[0] != 0xFF or (buffer[1] & 0xE0) != 0xE0:
+                            idx = -1
+                            for i in range(1, len(buffer) - 1):
+                                if buffer[i] == 0xFF and (buffer[i + 1] & 0xE0) == 0xE0:
+                                    idx = i
+                                    break
+                            if idx != -1:
+                                out.extend(buffer[:idx])
+                                buffer = buffer[idx:]
+                            else:
+                                if buffer[-1] == 0xFF:
+                                    out.extend(buffer[:-1])
+                                    buffer = buffer[-1:]
+                                else:
+                                    out.extend(buffer)
+                                    buffer.clear()
+                                break
+
+                        frame_size = _get_mp3_frame_size(buffer, 0)
+                        if frame_size is None or len(buffer) < frame_size:
+                            break
+
+                        hdr = bytes(buffer[:4])
+                        payload = bytes(buffer[4:frame_size])
+                        del buffer[:frame_size]
+
+                        dec_payload = _xor_payload(payload, keystream)
+                        out.extend(hdr + dec_payload)
+
+                    if out:
+                        yield bytes(out)
+            else:
+                for chunk in upstream.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
         finally:
             upstream.close()
 
     response = StreamingHttpResponse(
-        decrypt_chunks(),
+        audio_chunks(),
         content_type="audio/mpeg",
     )
-    response["Cache-Control"] = "no-cache, no-store"
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response["X-Accel-Buffering"] = "no"
     response["Icy-Name"] = f"RadioHub - {radio_id}"
     response["Icy-Genre"] = "Live Radio"

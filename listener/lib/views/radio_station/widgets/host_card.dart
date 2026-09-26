@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/models/host.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/safe_image.dart';
 
 class HostCard extends StatefulWidget {
   final Host host;
@@ -67,14 +67,11 @@ class _State extends State<HostCard> {
                     ),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: h.photoUrl != null && h.photoUrl!.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: h.photoUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => _initials(h.name),
-                          errorWidget: (_, __, ___) => _initials(h.name),
-                        )
-                      : _initials(h.name),
+                  child: SafeImage(
+                    imageUrl: h.photoUrl,
+                    fit: BoxFit.cover,
+                    fallback: _initials(h.name),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 // Name

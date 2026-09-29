@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../../../view_models/radio_station_view_model.dart';
 import '../../../core/models/session_model.dart';
-import '../../../core/models/user_mark.dart';
 import '../../../core/constants/app_colors.dart';
 
 class SessionDetailSheet extends StatelessWidget {
@@ -72,8 +71,12 @@ class SessionDetailSheet extends StatelessWidget {
               const SizedBox(height: 16),
 
               if (session.hostName != null && session.hostName!.isNotEmpty)
-                _row(Icons.mic_none, 'Host', session.hostName!),
-              if (session.guestName != null)
+                _row(Icons.mic_none, 'Main Host', session.hostName!),
+              if (session.coHostNames.isNotEmpty)
+                _chipsRow(Icons.people_outline, 'Co-Hosts', session.coHostNames),
+              if (session.guests.isNotEmpty)
+                _guestsRow(session.guests)
+              else if (session.guestName != null && session.guestName!.isNotEmpty)
                 _row(Icons.person_outline, 'Guest',
                     '${session.guestName}${session.guestRole != null ? " · ${session.guestRole}" : ""}'),
               if (session.thematic != null && session.thematic!.isNotEmpty)
@@ -189,6 +192,80 @@ class SessionDetailSheet extends StatelessWidget {
             child: Text(value,
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chipsRow(IconData icon, String label, List<String> items) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: AppColors.textMuted),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 70,
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary)),
+          ),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: items.map((it) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                ),
+                child: Text(it, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+              )).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _guestsRow(List<Map<String, String>> guests) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
+          const SizedBox(width: 10),
+          const SizedBox(
+            width: 70,
+            child: Text('Guests',
+                style: TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary)),
+          ),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: guests.map((g) {
+                final hasRole = (g['role'] ?? '').isNotEmpty;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text(
+                    hasRole ? '${g['name']} · ${g['role']}' : (g['name'] ?? ''),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),

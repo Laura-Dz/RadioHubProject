@@ -7,6 +7,7 @@ class RadioModel {
   final String? contractCopy;
   final String? logoUrl;
   final String category;
+  final String legalStatus; // 'profit', 'nonProfit', 'stateOwned'
   final String radioAdminId;
   final String radioAdminEmail;
   final String radioAdminName;
@@ -26,6 +27,7 @@ class RadioModel {
     this.contractCopy,
     this.logoUrl,
     this.category = 'General',
+    this.legalStatus = 'profit',
     required this.radioAdminId,
     required this.radioAdminEmail,
     required this.radioAdminName,
@@ -40,6 +42,7 @@ class RadioModel {
   });
 
   bool get isLive => status == 'live';
+  bool get isNonProfit => legalStatus.toLowerCase() == 'nonprofit' || legalStatus.toLowerCase() == 'non-profit';
 
   List<String> get availablePaymentMethods {
     if (paymentSettings != null && paymentSettings!['availableMethods'] is List) {
@@ -62,6 +65,7 @@ class RadioModel {
       contractCopy: data['contractCopy'],
       logoUrl: data['logoUrl'],
       category: data['category'] ?? 'General',
+      legalStatus: (data['legalStatus'] ?? 'profit').toString(),
       radioAdminId: data['radioAdminId'] ?? '',
       radioAdminEmail: data['radioAdminEmail'] ?? '',
       radioAdminName: data['radioAdminName'] ?? 'Admin',
@@ -83,6 +87,7 @@ class RadioModel {
       'contractCopy': contractCopy,
       'logoUrl': logoUrl,
       'category': category,
+      'legalStatus': legalStatus,
       'radioAdminId': radioAdminId,
       'radioAdminEmail': radioAdminEmail,
       'radioAdminName': radioAdminName,
@@ -104,6 +109,7 @@ class RadioModel {
     String? contractCopy,
     String? logoUrl,
     String? category,
+    String? legalStatus,
     String? radioAdminId,
     String? radioAdminEmail,
     String? radioAdminName,
@@ -123,6 +129,7 @@ class RadioModel {
       contractCopy: contractCopy ?? this.contractCopy,
       logoUrl: logoUrl ?? this.logoUrl,
       category: category ?? this.category,
+      legalStatus: legalStatus ?? this.legalStatus,
       radioAdminId: radioAdminId ?? this.radioAdminId,
       radioAdminEmail: radioAdminEmail ?? this.radioAdminEmail,
       radioAdminName: radioAdminName ?? this.radioAdminName,

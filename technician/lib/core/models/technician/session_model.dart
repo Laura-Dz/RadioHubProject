@@ -15,6 +15,7 @@ class Session {
   final String hostName;
   final List<String> coHostIds;          // optional co-hosts for this session
   final List<String> coHostNames;
+  final List<Map<String, String>> guests; // multiple guests: [{'name': '...', 'role': '...'}]
   final String? guestName;
   final String? guestRole;
   final String? thematic;
@@ -34,6 +35,7 @@ class Session {
   final double completionRate;
   final int engagementCount;
   final bool allowCalls;          // false on rediffusion
+  final bool isSpecialEvent;      // true when sessionType == special or Firestore flag set
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -47,6 +49,7 @@ class Session {
     this.hostName = '',
     this.coHostIds = const [],
     this.coHostNames = const [],
+    this.guests = const [],
     String? coHostId,
     String? coHostName,
     this.guestName,
@@ -68,10 +71,12 @@ class Session {
     this.completionRate = 0.0,
     this.engagementCount = 0,
     this.allowCalls = true,
+    bool? isSpecialEvent,
     required this.createdAt,
     this.updatedAt,
   }) : coHostId = coHostId ?? (coHostIds.isNotEmpty ? coHostIds.first : null),
-       coHostName = coHostName ?? (coHostNames.isNotEmpty ? coHostNames.first : null);
+       coHostName = coHostName ?? (coHostNames.isNotEmpty ? coHostNames.first : null),
+       isSpecialEvent = isSpecialEvent ?? (sessionType == SessionType.special);
 
   final String? coHostId;
   final String? coHostName;
@@ -114,6 +119,23 @@ class Session {
       parsedCoHostNames = [d['coHostName'].toString()];
     }
 
+    List<Map<String, String>> parsedGuests = [];
+    if (d['guests'] is List) {
+      for (final item in (d['guests'] as List)) {
+        if (item is Map) {
+          parsedGuests.add({
+            'name': (item['name'] ?? '').toString(),
+            'role': (item['role'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (d['guestName'] != null && d['guestName'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': d['guestName'].toString(),
+        'role': (d['guestRole'] ?? '').toString(),
+      });
+    }
+
     return Session(
       id: id,
       radioId: (d['radioId'] ?? '').toString(),
@@ -124,8 +146,9 @@ class Session {
       hostName: (d['hostName'] ?? '').toString(),
       coHostIds: parsedCoHostIds,
       coHostNames: parsedCoHostNames,
-      guestName: d['guestName']?.toString(),
-      guestRole: d['guestRole']?.toString(),
+      guests: parsedGuests,
+      guestName: d['guestName']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
+      guestRole: d['guestRole']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['role'] : null),
       thematic: d['thematic']?.toString(),
       description: d['description']?.toString(),
       format: d['format']?.toString(),
@@ -158,6 +181,7 @@ class Session {
       completionRate: FSParsers.toDouble(d['completionRate']),
       engagementCount: FSParsers.toInt(d['engagementCount']),
       allowCalls: d['allowCalls'] != false,
+      isSpecialEvent: d['isSpecialEvent'] == true || (d['sessionType']?.toString() == 'special'),
       createdAt: FSParsers.toDate(d['createdAt']) ?? DateTime.now(),
       updatedAt: FSParsers.toDate(d['updatedAt']),
     );
@@ -174,8 +198,9 @@ class Session {
         'coHostNames': coHostNames,
         'coHostId': coHostId,
         'coHostName': coHostName,
-        'guestName': guestName,
-        'guestRole': guestRole,
+        'guests': guests,
+        'guestName': guestName ?? (guests.isNotEmpty ? guests.first['name'] : null),
+        'guestRole': guestRole ?? (guests.isNotEmpty ? guests.first['role'] : null),
         'thematic': thematic,
         'description': description,
         'format': format,
@@ -193,6 +218,7 @@ class Session {
         'completionRate': completionRate,
         'engagementCount': engagementCount,
         'allowCalls': allowCalls,
+        'isSpecialEvent': isSpecialEvent,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };

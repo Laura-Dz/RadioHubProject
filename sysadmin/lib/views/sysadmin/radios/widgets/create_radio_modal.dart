@@ -23,6 +23,7 @@ class _CreateRadioModalState extends State<CreateRadioModal> {
   final _otpController = TextEditingController(text: '123456');
 
   String _category = AppConstants.radioCategories.first;
+  String _legalStatus = 'profit';
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -91,30 +92,43 @@ class _CreateRadioModalState extends State<CreateRadioModal> {
                   style: TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 const SizedBox(height: 12),
+                TextFormField(
+                  controller: _nameController,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                  decoration: _buildInputDecoration('Station Name', 'e.g. Skyline Beats FM'),
+                  validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _nameController,
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                        decoration: _buildInputDecoration('Station Name', 'e.g. Skyline Beats FM'),
-                        validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 1,
                       child: DropdownButtonFormField<String>(
                         dropdownColor: AppColors.surface,
                         value: _category,
                         style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                        decoration: _buildInputDecoration('Category', ''),
+                        decoration: _buildInputDecoration('Category', 'Select category'),
                         items: AppConstants.radioCategories.map((c) {
                           return DropdownMenuItem(value: c, child: Text(c));
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) setState(() => _category = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        dropdownColor: AppColors.surface,
+                        value: _legalStatus,
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                        decoration: _buildInputDecoration('Legal Status', 'Select legal status'),
+                        items: const [
+                          DropdownMenuItem(value: 'profit', child: Text('For-Profit (Commercial)')),
+                          DropdownMenuItem(value: 'nonProfit', child: Text('Non-Profit (Donations Enabled)')),
+                          DropdownMenuItem(value: 'stateOwned', child: Text('State-Owned (Public)')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _legalStatus = val);
                         },
                       ),
                     ),
@@ -298,6 +312,7 @@ class _CreateRadioModalState extends State<CreateRadioModal> {
         'broadcastLink': _broadcastLinkController.text.trim(),
         'contractCopy': _contractCopyController.text.trim(),
         'category': _category,
+        'legalStatus': _legalStatus,
         'adminName': _adminNameController.text.trim(),
         'adminEmail': _adminEmailController.text.trim(),
         'adminPassword': _adminPasswordController.text,

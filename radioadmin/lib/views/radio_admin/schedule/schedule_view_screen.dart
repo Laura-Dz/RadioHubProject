@@ -147,6 +147,8 @@ class _ScheduleViewScreenState extends State<ScheduleViewScreen> {
                 _legendItem(const Color(0xFFD4A017), 'Rediffusion'),
                 const SizedBox(width: 12),
                 _legendItem(const Color(0xFF9CA3AF), 'Ended / Passed'),
+                const SizedBox(width: 12),
+                _legendItem(const Color(0xFFEF4444), 'Special Event'),
                 const Spacer(),
                 Row(
                   children: [
@@ -351,6 +353,10 @@ class _SessionCardState extends State<_SessionCard> {
     } else {
       color = const Color(0xFF3B82F6);
     }
+    // Special events take red highlight (non-live only — live stays green)
+    if (s.isSpecialEvent && !isLive) {
+      color = const Color(0xFFEF4444);
+    }
 
     final timeFormat = DateFormat('HH:mm');
     final timeStr = '${timeFormat.format(s.startTime)} - ${timeFormat.format(s.endTime)}';
@@ -510,6 +516,32 @@ class _SessionCardState extends State<_SessionCard> {
                   Icons.headphones,
                   'Listeners',
                   '${s.listenerCount} listeners',
+                ),
+              if (s.isSpecialEvent)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.star, size: 16, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                        ),
+                        child: const Text(
+                          'SPECIAL EVENT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFEF4444),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),

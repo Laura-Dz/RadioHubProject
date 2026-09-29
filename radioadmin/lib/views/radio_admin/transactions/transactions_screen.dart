@@ -46,6 +46,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: IconButton(
+              tooltip: 'Configure Payment Accounts',
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              onPressed: () => _openPaymentAccounts(context, vm),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -190,9 +200,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _typeDropdown() {
     return SizedBox(
-      width: 170,
+      width: 175,
       child: DropdownButtonFormField<TransactionType?>(
         value: _typeFilter,
+        isExpanded: true,
         decoration: InputDecoration(
           labelText: 'Type',
           filled: true,
@@ -201,12 +212,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: AppColors.border),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         ),
         items: const [
-          DropdownMenuItem(value: null, child: Text('All types')),
-          DropdownMenuItem(value: TransactionType.subscription, child: Text('Subscription')),
-          DropdownMenuItem(value: TransactionType.announcement, child: Text('Announcement')),
+          DropdownMenuItem(value: null, child: Text('All types', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: TransactionType.subscription, child: Text('Subscription', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: TransactionType.announcement, child: Text('Announcement', overflow: TextOverflow.ellipsis)),
         ],
         onChanged: (v) => setState(() => _typeFilter = v),
       ),
@@ -215,9 +226,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _statusDropdown() {
     return SizedBox(
-      width: 170,
+      width: 175,
       child: DropdownButtonFormField<TransactionStatus?>(
         value: _statusFilter,
+        isExpanded: true,
         decoration: InputDecoration(
           labelText: 'Status',
           filled: true,
@@ -226,13 +238,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: AppColors.border),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         ),
         items: const [
-          DropdownMenuItem(value: null, child: Text('All statuses')),
-          DropdownMenuItem(value: TransactionStatus.released, child: Text('Released')),
-          DropdownMenuItem(value: TransactionStatus.pending, child: Text('Pending')),
-          DropdownMenuItem(value: TransactionStatus.failed, child: Text('Failed')),
+          DropdownMenuItem(value: null, child: Text('All statuses', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: TransactionStatus.released, child: Text('Released', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: TransactionStatus.pending, child: Text('Pending', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: TransactionStatus.failed, child: Text('Failed', overflow: TextOverflow.ellipsis)),
         ],
         onChanged: (v) => setState(() => _statusFilter = v),
       ),
@@ -241,9 +253,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _sortDropdown() {
     return SizedBox(
-      width: 160,
+      width: 175,
       child: DropdownButtonFormField<String>(
         value: _sort,
+        isExpanded: true,
         decoration: InputDecoration(
           labelText: 'Sort',
           filled: true,
@@ -252,13 +265,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: AppColors.border),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         ),
         items: const [
-          DropdownMenuItem(value: 'date_desc', child: Text('Newest first')),
-          DropdownMenuItem(value: 'date_asc', child: Text('Oldest first')),
-          DropdownMenuItem(value: 'amount_desc', child: Text('Highest amount')),
-          DropdownMenuItem(value: 'amount_asc', child: Text('Lowest amount')),
+          DropdownMenuItem(value: 'date_desc', child: Text('Newest first', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: 'date_asc', child: Text('Oldest first', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: 'amount_desc', child: Text('Highest amount', overflow: TextOverflow.ellipsis)),
+          DropdownMenuItem(value: 'amount_asc', child: Text('Lowest amount', overflow: TextOverflow.ellipsis)),
         ],
         onChanged: (v) => setState(() => _sort = v ?? 'date_desc'),
       ),
@@ -312,6 +325,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ],
         ),
       );
+
+  void _openPaymentAccounts(BuildContext context, RadioAdminViewModel vm) {
+    vm.loadPaymentAccounts();
+    showDialog(
+      context: context,
+      builder: (_) => _PaymentAccountsModal(vm: vm),
+    );
+  }
 }
 
 // ============================================================
@@ -490,4 +511,247 @@ class _RowState extends State<_Row> {
           ],
         ),
       );
+}
+
+// ============================================================
+// PAYMENT ACCOUNTS MODAL
+// ============================================================
+
+class _PaymentAccountsModal extends StatefulWidget {
+  final RadioAdminViewModel vm;
+  const _PaymentAccountsModal({required this.vm});
+
+  @override
+  State<_PaymentAccountsModal> createState() => _PaymentAccountsModalState();
+}
+
+class _PaymentAccountsModalState extends State<_PaymentAccountsModal> {
+  late TextEditingController _omCtrl;
+  late TextEditingController _momoCtrl;
+  late TextEditingController _bankCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final accounts = widget.vm.paymentAccounts;
+    _omCtrl = TextEditingController(text: accounts['om'] ?? '');
+    _momoCtrl = TextEditingController(text: accounts['momo'] ?? '');
+    _bankCtrl = TextEditingController(text: accounts['bank'] ?? '');
+  }
+
+  @override
+  void dispose() {
+    _omCtrl.dispose();
+    _momoCtrl.dispose();
+    _bankCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: SizedBox(
+        width: 480,
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.account_balance_wallet_outlined,
+                        color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Payment Account Numbers',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          'Default accounts for each payment method',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _accountField(
+                controller: _omCtrl,
+                label: 'Orange Money (OM)',
+                hint: '2376XXXXXXXX',
+                icon: Icons.sim_card_outlined,
+                iconColor: const Color(0xFFFF6600),
+              ),
+              const SizedBox(height: 14),
+              _accountField(
+                controller: _momoCtrl,
+                label: 'MTN Mobile Money (MoMo)',
+                hint: '2376XXXXXXXX',
+                icon: Icons.sim_card_outlined,
+                iconColor: const Color(0xFFFFCC00),
+              ),
+              const SizedBox(height: 14),
+              _accountField(
+                controller: _bankCtrl,
+                label: 'Card / Bank Account Number',
+                hint: 'IBAN or account number',
+                icon: Icons.credit_card_outlined,
+                iconColor: AppColors.primary,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.info.withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 14, color: AppColors.info),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'These are the default numbers used for outgoing payments. You can still change the number at the time of each payment.',
+                        style: TextStyle(fontSize: 11.5, color: AppColors.info),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.save_outlined, size: 16),
+                    label: Text(_saving ? 'Saving...' : 'Save Accounts'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _accountField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.phone,
+          style: const TextStyle(fontSize: 13.5),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: AppColors.textMuted),
+            filled: true,
+            fillColor: AppColors.surfaceAlt,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: iconColor, width: 1.5),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.vm.savePaymentAccounts({
+        'om': _omCtrl.text.trim(),
+        'momo': _momoCtrl.text.trim(),
+        'bank': _bankCtrl.text.trim(),
+      });
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment accounts saved successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: \$e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 }

@@ -14,11 +14,14 @@ import '../core/services/cloud_function_caller.dart';
 import '../core/services/voip_audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../core/config/app_config.dart';
+import '../core/services/listener_activity_service.dart';
 
 class RadioStationViewModel extends ChangeNotifier {
   final _db = FirebaseFirestore.instance;
   final _marks = UserMarksService();
   final _auth = FirebaseAuth.instance;
+  final _activityService = ListenerActivityService();
+  DateTime? _playStartedAt;
 
   String _radioId = '';
   RadioModel? _radio;
@@ -309,7 +312,21 @@ class RadioStationViewModel extends ChangeNotifier {
       }
       _isPlaying = true;
       _isPlayerDismissed = false;
+      _playStartedAt = DateTime.now();
       _incrementListenerCount();
+
+      // Log PLAY activity for Audimat determination
+      final curUid = uid ?? 'listener_${DateTime.now().millisecondsSinceEpoch}';
+      _activityService.logPlay(
+        radioId: _radioId,
+        radioName: _radio?.name ?? 'Radio Station',
+        userId: curUid,
+        sessionId: _liveSession?.id,
+        sessionTitle: _liveSession?.programName,
+        programId: _liveSession?.programId,
+        programCategory: _liveSession?.thematic,
+      );
+
       notifyListeners();
 
       final primaryUrl = AppConfig.getStreamUrl(_radioId);
@@ -321,6 +338,7 @@ class RadioStationViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to start mixer playback: $e');
       _isPlaying = false;
+      _playStartedAt = null;
       _error = 'Unable to play stream: $e';
       notifyListeners();
     }
@@ -329,6 +347,21 @@ class RadioStationViewModel extends ChangeNotifier {
   void pausePlayback() {
     if (_isPlaying) {
       _isPlaying = false;
+      final curUid = uid ?? 'listener_${DateTime.now().millisecondsSinceEpoch}';
+      if (_playStartedAt != null) {
+        final duration = DateTime.now().difference(_playStartedAt!).inSeconds;
+        _activityService.logPause(
+          radioId: _radioId,
+          radioName: _radio?.name ?? 'Radio Station',
+          userId: curUid,
+          durationSeconds: duration,
+          sessionId: _liveSession?.id,
+          sessionTitle: _liveSession?.programName,
+          programId: _liveSession?.programId,
+          programCategory: _liveSession?.thematic,
+        );
+        _playStartedAt = null;
+      }
       _decrementListenerCount();
       notifyListeners();
       try {
@@ -340,6 +373,21 @@ class RadioStationViewModel extends ChangeNotifier {
   }
 
   void stopAndDismiss() {
+    final curUid = uid ?? 'listener_${DateTime.now().millisecondsSinceEpoch}';
+    if (_playStartedAt != null) {
+      final duration = DateTime.now().difference(_playStartedAt!).inSeconds;
+      _activityService.logStop(
+        radioId: _radioId,
+        radioName: _radio?.name ?? 'Radio Station',
+        userId: curUid,
+        durationSeconds: duration,
+        sessionId: _liveSession?.id,
+        sessionTitle: _liveSession?.programName,
+        programId: _liveSession?.programId,
+        programCategory: _liveSession?.thematic,
+      );
+      _playStartedAt = null;
+    }
     _isPlaying = false;
     try {
       _audioPlayer?.stop();
@@ -903,6 +951,21 @@ class RadioStationViewModel extends ChangeNotifier {
 
   void _detach() {
     if (_isPlaying) {
+      if (_playStartedAt != null) {
+        final duration = DateTime.now().difference(_playStartedAt!).inSeconds;
+        final curUid = uid ?? 'listener_${DateTime.now().millisecondsSinceEpoch}';
+        _activityService.logStop(
+          radioId: _radioId,
+          radioName: _radio?.name ?? 'Radio Station',
+          userId: curUid,
+          durationSeconds: duration,
+          sessionId: _liveSession?.id,
+          sessionTitle: _liveSession?.programName,
+          programId: _liveSession?.programId,
+          programCategory: _liveSession?.thematic,
+        );
+        _playStartedAt = null;
+      }
       _decrementListenerCount();
       _isPlaying = false;
     }

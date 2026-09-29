@@ -123,6 +123,12 @@ class _State extends State<AboutSection> {
             spacing: 6,
             runSpacing: 6,
             children: [
+              _chip(
+                icon: r.isNonProfit ? Icons.volunteer_activism_rounded : Icons.account_balance_outlined,
+                label: r.legalStatus == 'nonProfit'
+                    ? 'Non-Profit'
+                    : (r.legalStatus == 'stateOwned' ? 'State-Owned' : 'For-Profit'),
+              ),
               if (r.categories.isNotEmpty)
                 ...r.categories.map((c) => _chip(
                       icon: Icons.local_offer_outlined,

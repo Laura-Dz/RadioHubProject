@@ -10,6 +10,7 @@ class SessionModel {
   final String programName;
   final String? hostName;
   final List<String> coHostNames;
+  final List<Map<String, String>> guests;
   final String? guestName;
   final String? guestRole;
   final String? thematic;
@@ -31,6 +32,7 @@ class SessionModel {
     required this.programName,
     this.hostName,
     this.coHostNames = const [],
+    this.guests = const [],
     this.guestName,
     this.guestRole,
     this.thematic,
@@ -47,6 +49,23 @@ class SessionModel {
   });
 
   factory SessionModel.fromFirestore(Map<String, dynamic> d, String id) {
+    List<Map<String, String>> parsedGuests = [];
+    if (d['guests'] is List) {
+      for (final item in (d['guests'] as List)) {
+        if (item is Map) {
+          parsedGuests.add({
+            'name': (item['name'] ?? '').toString(),
+            'role': (item['role'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (d['guestName'] != null && d['guestName'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': d['guestName'].toString(),
+        'role': (d['guestRole'] ?? '').toString(),
+      });
+    }
+
     return SessionModel(
       id: id,
       radioId: (d['radioId'] ?? '').toString(),
@@ -54,8 +73,9 @@ class SessionModel {
       programName: (d['programName'] ?? '').toString(),
       hostName: d['hostName']?.toString(),
       coHostNames: List<String>.from(d['coHostNames'] ?? []),
-      guestName: d['guestName']?.toString(),
-      guestRole: d['guestRole']?.toString(),
+      guests: parsedGuests,
+      guestName: d['guestName']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
+      guestRole: d['guestRole']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['role'] : null),
       thematic: d['thematic']?.toString(),
       description: d['description']?.toString(),
       imageUrl: (d['imageUrl'] ?? d['posterUrl'] ?? d['coverUrl'] ?? d['bannerUrl'] ?? d['programImageUrl'] ?? d['photoUrl'] ?? d['image'])?.toString(),

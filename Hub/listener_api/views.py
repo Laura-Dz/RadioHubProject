@@ -119,30 +119,8 @@ class RadioInsightsView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        radio_id = request.data.get("radioId", "radio_123")
-        time_range = request.data.get("timeRange", "last_30_days")
-        categories = request.data.get("includeCategories", ["audimat", "shows", "revenue", "scheduling", "comparisons", "diagnostics"])
-
-        try:
-            from firebase_admin_config import get_firestore_db
-            db = get_firestore_db()
-        except Exception:
-            db = None
-
-        from insights.engine import RadioInsightsEngine
-        import os
-        llm = None
-        if os.environ.get('OPENAI_API_KEY'):
-            try:
-                from insights.llm import LLMClient
-                llm = LLMClient()
-            except Exception:
-                llm = None
-        engine = RadioInsightsEngine(db=db, llm=llm)
-        insights = engine.generate(radio_id, time_range)
-
-        filtered_insights = {k: v for k, v in insights.items() if k in categories or k == "meta"}
-        return Response(filtered_insights, status=status.HTTP_200_OK)
+        from insights.views import RadioInsightsView as InsightsBaseView
+        return InsightsBaseView().post(request)
 
 
 class SuggestAnnouncementTextView(APIView):

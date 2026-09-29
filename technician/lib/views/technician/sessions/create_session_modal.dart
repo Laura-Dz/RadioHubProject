@@ -34,9 +34,12 @@ class _State extends State<CreateSessionModal> {
 
   Program? _program;
   Host? _host;
+  final List<Host> _selectedCoHosts = [];
+  final List<Map<String, String>> _guests = [];
   DateTime _start = DateTime.now().add(const Duration(hours: 1));
   DateTime _end = DateTime.now().add(const Duration(hours: 2));
   String _format = 'solo';
+  bool _isSpecialEvent = false;
   bool _submitting = false;
 
   static const _formats = ['solo', 'interview', 'call_in', 'panel', 'music_mix'];
@@ -131,19 +134,66 @@ class _State extends State<CreateSessionModal> {
                           validator: (v) => v == null ? 'Required' : null,
                         ),
                         const SizedBox(height: 14),
-                        const Text('Host *',
+                        const Text('Main Host *',
                             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<Host>(
                           value: _host,
                           isExpanded: true,
-                          decoration: _dec('Select host'),
+                          decoration: _dec('Select main host'),
                           items: vm.hosts
                               .map((h) => DropdownMenuItem(value: h, child: Text(h.name)))
                               .toList(),
-                          onChanged: (v) => setState(() => _host = v),
+                          onChanged: (v) {
+                            setState(() {
+                              _host = v;
+                              if (v != null) _selectedCoHosts.removeWhere((ch) => ch.id == v.id);
+                            });
+                          },
                           validator: (v) => v == null ? 'Required' : null,
                         ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Co-Hosts (optional)',
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            if (_selectedCoHosts.isNotEmpty)
+                              Text('${_selectedCoHosts.length} added',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        if (vm.hosts.where((h) => h.id != _host?.id && !_selectedCoHosts.any((ch) => ch.id == h.id)).isNotEmpty)
+                          DropdownButtonFormField<Host>(
+                            value: null,
+                            isExpanded: true,
+                            decoration: _dec('+ Add a co-host from roster'),
+                            items: vm.hosts
+                                .where((h) => h.id != _host?.id && !_selectedCoHosts.any((ch) => ch.id == h.id))
+                                .map((h) => DropdownMenuItem(value: h, child: Text(h.name)))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() {
+                                  _selectedCoHosts.add(v);
+                                });
+                              }
+                            },
+                          ),
+                        if (_selectedCoHosts.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: _selectedCoHosts.map((h) => Chip(
+                              avatar: const Icon(Icons.people_outline, size: 14, color: AppColors.primary),
+                              label: Text(h.name),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                              onDeleted: () => setState(() => _selectedCoHosts.remove(h)),
+                            )).toList(),
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         Row(
                           children: [
@@ -169,13 +219,123 @@ class _State extends State<CreateSessionModal> {
                         const SizedBox(height: 14),
                         _field(_thematic, 'Thematic',
                             hint: 'e.g., Finding love after 40'),
-                        const SizedBox(height: 12),
-                        _field(_guestName, 'Guest name (optional)'),
-                        const SizedBox(height: 12),
-                        _field(_guestRole, 'Guest role (optional)',
-                            hint: 'e.g., Psychologist'),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Guests & Roles (optional)',
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            if (_guests.isNotEmpty)
+                              Text('${_guests.length} guest${_guests.length > 1 ? "s" : ""}',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextFormField(
+                                controller: _guestName,
+                                decoration: _dec('Guest full name'),
+                                onFieldSubmitted: (_) => _addGuest(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _guestRole,
+                                decoration: _dec('Role (e.g. Expert)'),
+                                onFieldSubmitted: (_) => _addGuest(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary.withOpacity(0.12),
+                                foregroundColor: AppColors.primary,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: _addGuest,
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.add, size: 16),
+                                  SizedBox(width: 4),
+                                  Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_guests.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: _guests.map((g) {
+                              final hasRole = (g['role'] ?? '').isNotEmpty;
+                              final display = hasRole ? '${g['name']} (${g['role']})' : g['name']!;
+                              return Chip(
+                                avatar: const Icon(Icons.person, size: 14, color: AppColors.primary),
+                                label: Text(display),
+                                deleteIcon: const Icon(Icons.close, size: 14),
+                                onDeleted: () => setState(() => _guests.remove(g)),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         _field(_description, 'Description', maxLines: 3),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _isSpecialEvent
+                                ? const Color(0xFFEF4444).withOpacity(0.08)
+                                : AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _isSpecialEvent
+                                  ? const Color(0xFFEF4444).withOpacity(0.4)
+                                  : AppColors.border,
+                            ),
+                          ),
+                          child: SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: Row(
+                              children: [
+                                Icon(
+                                  Icons.star,
+                                  size: 18,
+                                  color: _isSpecialEvent
+                                      ? const Color(0xFFEF4444)
+                                      : AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Mark as Special Event',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: const Text(
+                              'Highlights this session in red on the schedule and informs listeners',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                            activeColor: const Color(0xFFEF4444),
+                            value: _isSpecialEvent,
+                            onChanged: (val) => setState(() => _isSpecialEvent = val),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -211,6 +371,17 @@ class _State extends State<CreateSessionModal> {
         ),
       ),
     );
+  }
+
+  void _addGuest() {
+    final name = _guestName.text.trim();
+    if (name.isEmpty) return;
+    final role = _guestRole.text.trim();
+    setState(() {
+      _guests.add({'name': name, 'role': role});
+      _guestName.clear();
+      _guestRole.clear();
+    });
   }
 
   InputDecoration _dec(String hint) => InputDecoration(
@@ -281,6 +452,14 @@ class _State extends State<CreateSessionModal> {
 
     try {
       final vm = context.read<TechnicianViewModel>();
+      final allGuests = List<Map<String, String>>.from(_guests);
+      if (_guestName.text.trim().isNotEmpty) {
+        allGuests.add({
+          'name': _guestName.text.trim(),
+          'role': _guestRole.text.trim(),
+        });
+      }
+
       String id;
       if (widget.rediffusionSource != null) {
         id = await vm.scheduleRediffusion(
@@ -296,13 +475,18 @@ class _State extends State<CreateSessionModal> {
           programName: _program!.name,
           hostId: _host!.id,
           hostName: _host!.name,
-          guestName: _guestName.text.trim().isEmpty ? null : _guestName.text.trim(),
-          guestRole: _guestRole.text.trim().isEmpty ? null : _guestRole.text.trim(),
+          coHostIds: _selectedCoHosts.map((h) => h.id).toList(),
+          coHostNames: _selectedCoHosts.map((h) => h.name).toList(),
+          guests: allGuests,
+          guestName: allGuests.isNotEmpty ? allGuests.first['name'] : null,
+          guestRole: allGuests.isNotEmpty ? allGuests.first['role'] : null,
           thematic: _thematic.text.trim().isEmpty ? null : _thematic.text.trim(),
           description: _description.text.trim().isEmpty ? null : _description.text.trim(),
           format: _format,
           scheduledStart: _start,
           scheduledEnd: _end,
+          sessionType: _isSpecialEvent ? SessionType.special : SessionType.live,
+          isSpecialEvent: _isSpecialEvent,
           createdAt: DateTime.now(),
         ));
       }

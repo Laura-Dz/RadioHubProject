@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'dart:io';
 import 'storage_service.dart';
 import '../models/radio_admin/announcement_request_model.dart';
@@ -30,7 +31,7 @@ class RadioAdminService {
 
   // ==================== RADIO PROFILE ====================
 
-  Future<RadioProfile?> getRadioProfile(String radioId) async {
+  Future<RadioProfile?> getRadioProfile(String radioId, {String? fallbackName}) async {
     try {
       final doc = await _firestore.collection('radios').doc(radioId).get();
       if (doc.exists) return RadioProfile.fromFirestore(doc.data()!, doc.id);
@@ -39,16 +40,25 @@ class RadioAdminService {
     }
     return RadioProfile(
       id: radioId,
-      name: 'Morning Drive Radio',
-      description: 'Your go-to station for music and news.',
-      function: 'Entertain and inform our community.',
-      vision: 'To be the most trusted radio in the region.',
-      mission: 'Deliver quality content every hour.',
-      contactEmail: 'contact@morningdrive.com',
-      contactPhone: '+237 6 00 00 00 00',
+      name: fallbackName ?? 'Radio Station',
+      description: 'Radio station broadcasting live.',
+      function: 'Broadcast quality programming.',
+      vision: '',
+      mission: '',
+      contactEmail: '',
+      contactPhone: '',
       language: 'French',
-      tags: ['Music', 'News', 'Talk'],
+      tags: const [],
     );
+  }
+
+  Stream<RadioProfile?> streamRadioProfile(String radioId, {String? fallbackName}) {
+    return _firestore.collection('radios').doc(radioId).snapshots().map((doc) {
+      if (doc.exists && doc.data() != null) {
+        return RadioProfile.fromFirestore(doc.data()!, doc.id);
+      }
+      return null;
+    });
   }
 
   /// Defensively strips system fields before writing.
@@ -669,6 +679,22 @@ class RadioAdminService {
         });
   }
 
+  Future<String> createSession(Session s) async {
+    final ref = await _firestore.collection('sessions').add(s.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> updateSession(String id, Map<String, dynamic> updates) async {
+    await _firestore.collection('sessions').doc(id).update({
+      ...updates,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteSession(String id) async {
+    await _firestore.collection('sessions').doc(id).delete();
+  }
+
   // ==================== PROGRAMS ====================
 
   Stream<List<Program>> streamPrograms(String radioId) {
@@ -723,16 +749,275 @@ class RadioAdminService {
 
   // ==================== METRICS ====================
 
-  Future<RadioMetrics> getMetrics(String radioId, {String period = '7d'}) async {
-    return RadioMetrics.mock();
+  Future<RadioMetrics> getMetrics(
+    String radioId, {
+    String period = '7d',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    if (radioId.isEmpty) {
+      return RadioMetrics.empty();
+    }
+    try {
+      final DateTime from;
+      final DateTime to;
+      final int days;
+      if (startDate != null && endDate != null) {
+        from = startDate;
+        to = endDate;
+        days = to.difference(from).inDays.clamp(1, 1826);
+      } else {
+        days = period == '90d' ? 90 : period == '30d' ? 30 : 7;
+        from = DateTime.now().subtract(Duration(days: days));
+        to = DateTime.now();
+      }
+      final prevFrom = from.subtract(Duration(days: days));
+
+      // 1. Fetch listener activity logs (Play, Pause, Stop events)
+      QuerySnapshot<Map<String, dynamic>> activitySnap = await _firestore
+          .collection('listener_activity')
+          .where('radioId', isEqualTo: radioId)
+          .get();
+
+      if (activitySnap.docs.isEmpty) {
+        activitySnap = await _firestore
+            .collection('radios')
+            .doc(radioId)
+            .collection('activity_logs')
+            .get();
+      }
+
+      // 2. Fetch sessions strictly for this radio
+      QuerySnapshot<Map<String, dynamic>> sessionSnap = await _firestore
+          .collection('sessions')
+          .where('radioId', isEqualTo: radioId)
+          .get();
+
+      if (sessionSnap.docs.isEmpty) {
+        sessionSnap = await _firestore
+            .collection('radios')
+            .doc(radioId)
+            .collection('sessions')
+            .get();
+      }
+
+      final hasActivities = activitySnap.docs.isNotEmpty;
+      final hasSessions = sessionSnap.docs.isNotEmpty;
+
+      if (!hasActivities && !hasSessions) {
+        debugPrint('getMetrics: No activity logs or sessions for $radioId — returning empty metrics');
+        return RadioMetrics.empty();
+      }
+
+      // Helpers
+      DateTime? getActivityDate(Map<String, dynamic> d) {
+        return FSParsers.toDate(d['timestamp']) ??
+            FSParsers.toDate(d['clientTime']) ??
+            FSParsers.toDate(d['createdAt']);
+      }
+
+      DateTime? getSessionDate(Map<String, dynamic> d) {
+        return FSParsers.toDate(d['actualStart']) ??
+            FSParsers.toDate(d['scheduledStart']) ??
+            FSParsers.toDate(d['startTime']) ??
+            FSParsers.toDate(d['date']) ??
+            FSParsers.toDate(d['createdAt']);
+      }
+
+      // --- Process Activity Logs for Audimat ---
+      final currentActivities = <Map<String, dynamic>>[];
+      final prevActivities = <Map<String, dynamic>>[];
+
+      for (final doc in activitySnap.docs) {
+        final d = doc.data();
+        final dt = getActivityDate(d);
+        if (dt == null) continue;
+        if (dt.isAfter(from)) {
+          currentActivities.add({...d, '_dt': dt});
+        } else if (dt.isAfter(prevFrom) && dt.isBefore(from)) {
+          prevActivities.add({...d, '_dt': dt});
+        }
+      }
+
+      // --- Process Sessions ---
+      final allSessions = sessionSnap.docs.map((e) => e.data()).toList();
+      final currentSessions = <Map<String, dynamic>>[];
+      final prevSessions = <Map<String, dynamic>>[];
+
+      for (final s in allSessions) {
+        final dt = getSessionDate(s);
+        if (dt == null) {
+          currentSessions.add(s);
+          continue;
+        }
+        if (dt.isAfter(from)) {
+          currentSessions.add(s);
+        } else if (dt.isAfter(prevFrom) && dt.isBefore(from)) {
+          prevSessions.add(s);
+        }
+      }
+
+      final effectiveSessions = currentSessions.isNotEmpty ? currentSessions : allSessions;
+
+      // Calculate Total & Peak Listeners
+      int totalListeners = 0;
+      int peakListeners = 0;
+      double engagementRate = 0.0;
+      double growthPercent = 0.0;
+
+      // Audimat Trend Points
+      final Map<DateTime, int> byDay = {};
+      final now = DateTime.now();
+      final numDays = days;
+      for (int i = 0; i < numDays; i++) {
+        final d = now.subtract(Duration(days: numDays - 1 - i));
+        byDay[DateTime(d.year, d.month, d.day)] = 0;
+      }
+
+      final Map<int, int> byHour = {};
+
+      if (hasActivities && currentActivities.isNotEmpty) {
+        // Derive audimat from real listener play/pause activity logs
+        final plays = currentActivities.where((a) => (a['action'] ?? 'play') == 'play').toList();
+        final uniqueUsers = plays.map((a) => (a['userId'] ?? '').toString()).where((u) => u.isNotEmpty).toSet();
+        totalListeners = uniqueUsers.isNotEmpty ? uniqueUsers.length : plays.length;
+
+        final prevPlays = prevActivities.where((a) => (a['action'] ?? 'play') == 'play').toList();
+        final prevUnique = prevPlays.map((a) => (a['userId'] ?? '').toString()).where((u) => u.isNotEmpty).toSet();
+        final prevCount = prevUnique.isNotEmpty ? prevUnique.length : prevPlays.length;
+
+        if (prevCount > 0) {
+          growthPercent = ((totalListeners - prevCount) / prevCount) * 100;
+        }
+
+        // Plot play events on trend
+        for (final a in plays) {
+          final dt = a['_dt'] as DateTime;
+          final day = DateTime(dt.year, dt.month, dt.day);
+          byDay[day] = (byDay[day] ?? 0) + 1;
+          final h = dt.hour;
+          byHour[h] = (byHour[h] ?? 0) + 1;
+        }
+
+        // Peak listeners across daily buckets
+        peakListeners = byDay.values.isEmpty ? 0 : byDay.values.reduce((a, b) => a > b ? a : b);
+
+        // Average duration from pause/stop events
+        final pauseEvents = currentActivities.where((a) => a['action'] == 'pause' || a['action'] == 'stop').toList();
+        if (pauseEvents.isNotEmpty) {
+          final totalSec = pauseEvents.fold<int>(0, (s, a) => s + FSParsers.toInt(a['durationSeconds']));
+          final avgSec = totalSec / pauseEvents.length;
+          // Approximate completion relative to a 30m average show
+          engagementRate = (avgSec / 1800.0).clamp(0.05, 1.0);
+        } else {
+          engagementRate = 0.5;
+        }
+      } else {
+        // Fallback to sessions listener counts
+        for (final d in currentSessions.isNotEmpty ? currentSessions : effectiveSessions) {
+          final count = FSParsers.toInt(d['listenerCount'] ?? d['listeners']);
+          totalListeners += count;
+          if (count > peakListeners) peakListeners = count;
+        }
+
+        final prevTotal = prevSessions.fold<int>(0, (s, d) =>
+            s + FSParsers.toInt(d['listenerCount'] ?? d['listeners']));
+        if (prevTotal > 0) {
+          growthPercent = ((totalListeners - prevTotal) / prevTotal) * 100;
+        }
+
+        for (final d in currentSessions.isNotEmpty ? currentSessions : effectiveSessions) {
+          final dt = getSessionDate(d);
+          if (dt == null) continue;
+          final day = DateTime(dt.year, dt.month, dt.day);
+          final count = FSParsers.toInt(d['listenerCount'] ?? d['listeners']);
+          byDay[day] = (byDay[day] ?? 0) + count;
+          final h = dt.hour;
+          byHour[h] = (byHour[h] ?? 0) + count;
+        }
+
+        final sessionCount = currentSessions.isNotEmpty ? currentSessions.length : effectiveSessions.length;
+        final totalCompletion = (currentSessions.isNotEmpty ? currentSessions : effectiveSessions)
+            .fold<double>(0.0, (s, d) => s + FSParsers.toDouble(d['completionRate'] ?? d['retention'] ?? 0.0));
+        engagementRate = sessionCount == 0 ? 0.0 : totalCompletion / sessionCount;
+      }
+
+      // Audimat Trend Series
+      final trend = byDay.entries
+          .map((e) => ListenerPoint(e.key, e.value))
+          .toList()
+        ..sort((a, b) => a.time.compareTo(b.time));
+
+      // Category share
+      final Map<String, int> catMap = {};
+      for (final d in effectiveSessions) {
+        String cat = (d['programCategory'] ?? (d['theme'] is Map ? d['theme']['category'] : null) ?? '').toString().toLowerCase();
+        if (cat.isEmpty) cat = 'general';
+        catMap[cat] = (catMap[cat] ?? 0) + 1;
+      }
+      final catColors = [
+        const Color(0xFF4A90D9), const Color(0xFFD4A017),
+        const Color(0xFF22C55E), const Color(0xFFEF4444),
+        const Color(0xFF9C27B0), const Color(0xFFFF5722),
+      ];
+      int ci = 0;
+      final byCategory = catMap.entries.map((e) {
+        final name = e.key.isNotEmpty
+            ? e.key[0].toUpperCase() + e.key.substring(1)
+            : 'General';
+        return CategoryPoint(name, e.value, catColors[ci++ % catColors.length]);
+      }).toList();
+
+      // Show performance: group strictly by this radio's programs
+      final Map<String, List<int>> showMap = {};
+      final Map<String, List<double>> showRetention = {};
+      for (final d in effectiveSessions) {
+        final name = (d['programName'] ?? '').toString().trim();
+        if (name.isEmpty) continue;
+        final count = FSParsers.toInt(d['listenerCount'] ?? d['listeners']);
+        final ret = FSParsers.toDouble(d['completionRate'] ?? d['retention'] ?? 0.0);
+        showMap[name] = (showMap[name] ?? [])..add(count);
+        showRetention[name] = (showRetention[name] ?? [])..add(ret);
+      }
+      final showPerformance = showMap.entries.map((e) {
+        final avg = e.value.isEmpty
+            ? 0
+            : e.value.reduce((a, b) => a + b) ~/ e.value.length;
+        final retList = showRetention[e.key] ?? [];
+        final avgRet = retList.isEmpty ? 0.0 : retList.reduce((a, b) => a + b) / retList.length;
+        return ShowPerformance(showName: e.key, avgListeners: avg, retention: avgRet);
+      }).toList()
+        ..sort((a, b) => b.avgListeners.compareTo(a.avgListeners));
+
+      return RadioMetrics(
+        totalListeners: totalListeners,
+        peakListeners: peakListeners,
+        engagementRate: engagementRate,
+        growthPercent: growthPercent,
+        trend: trend,
+        byCategory: byCategory,
+        showPerformance: showPerformance.take(8).toList(),
+        audienceByHour: byHour,
+      );
+    } catch (e) {
+      debugPrint('getMetrics error for $radioId: $e');
+      return RadioMetrics.empty();
+    }
   }
 
   // ==================== AI INSIGHTS ====================
 
   Future<RadioInsights> getRadioInsights({
     required String radioId,
-    String timeRange = 'last_30_days',
+    String? timeRange = 'last_30_days',
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
-    return _aiService.getRadioInsights(radioId: radioId, timeRange: timeRange);
+    return _aiService.getRadioInsights(
+      radioId: radioId,
+      timeRange: timeRange,
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 }

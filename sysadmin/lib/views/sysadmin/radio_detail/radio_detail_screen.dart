@@ -116,26 +116,26 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
                   children: [
                     Expanded(
                       child: _buildMetricTile(
-                        icon: Icons.mic_rounded,
-                        title: 'Hosts',
-                        value: '${_radio.hostsCount}',
-                        color: AppColors.chartMusic,
+                        icon: _radio.isActive ? Icons.check_circle_rounded : Icons.pause_circle_rounded,
+                        title: 'Status',
+                        value: _radio.isActive ? 'Active' : 'Suspended',
+                        color: _radio.isActive ? AppColors.success : AppColors.error,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildMetricTile(
-                        icon: Icons.tune_rounded,
-                        title: 'Techs',
-                        value: '${_radio.techniciansCount}',
-                        color: AppColors.chartSports,
+                        icon: Icons.category_rounded,
+                        title: 'Category',
+                        value: _radio.category,
+                        color: AppColors.chartTalk,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildMetricTile(
                         icon: Icons.admin_panel_settings_rounded,
-                        title: 'Admin',
+                        title: 'Radio Admin',
                         value: _radio.radioAdminName,
                         color: AppColors.primaryLight,
                       ),
@@ -146,7 +146,7 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
                         icon: Icons.bar_chart_rounded,
                         title: 'Listeners',
                         value: NumberFormat('#,###').format(_radio.listenerCount),
-                        color: AppColors.chartTalk,
+                        color: AppColors.chartMusic,
                       ),
                     ),
                   ],
@@ -161,6 +161,13 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
                   child: Column(
                     children: [
                       _buildInfoRow('Name:', _radio.name),
+                      _buildInfoRow('Category:', _radio.category),
+                      _buildInfoRow(
+                        'Legal Status:',
+                        _radio.legalStatus == 'nonProfit'
+                            ? 'Non-Profit (Donations Enabled)'
+                            : (_radio.legalStatus == 'stateOwned' ? 'State-Owned (Public)' : 'For-Profit (Commercial)'),
+                      ),
                       _buildInfoRow('Broadcast Link:', _radio.broadcastLink, isLink: true),
                       _buildInfoRow(
                         'Contract Copy:',
@@ -238,73 +245,66 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
 
                 const SizedBox(height: 24),
 
-                // 4. HOSTS TABLE
+                // 4. TENANT PRIVACY & STAFF BOUNDARY
                 _buildCard(
-                  title: 'HOSTS (${_radio.hostsCount})',
-                  icon: Icons.mic_rounded,
-                  child: Column(
-                    children: [
-                      _buildPersonRow(
-                        name: 'Sarah Johnson',
-                        subtitle: 'Morning Shows Host',
-                        status: 'Active',
-                        stat: '📅 5 shows this week',
-                        isOnline: true,
-                      ),
-                      const Divider(color: AppColors.cardBorder, height: 16),
-                      _buildPersonRow(
-                        name: 'Mike Williams',
-                        subtitle: 'Co-host & Producer',
-                        status: 'Active',
-                        stat: '📅 3 shows this week',
-                        isOnline: true,
-                      ),
-                      const Divider(color: AppColors.cardBorder, height: 16),
-                      _buildPersonRow(
-                        name: 'Emma Chen',
-                        subtitle: 'Guest Host',
-                        status: 'Inactive',
-                        stat: '📅 0 shows this week',
-                        isOnline: false,
-                      ),
-                    ],
+                  title: 'TENANT PRIVACY & STAFF BOUNDARY',
+                  icon: Icons.shield_outlined,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.lock_person_rounded, color: AppColors.primaryLight, size: 22),
+                        SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Station Staff Isolated from SysAdmin Scope',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'By security and privacy architecture, individual station staff (Hosts and Technicians) are managed exclusively by the designated Radio Station Administrator inside their private RadioAdmin console. Platform SysAdmin oversight is strictly limited to the RadioAdmin account and broadcast infrastructure availability.',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12.5,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // 5. TECHNICIANS TABLE
+                // 6. BROADCAST INFRASTRUCTURE HEALTH & LOAD (SYSTEM HEALTH & STREAM METRICS ONLY)
                 _buildCard(
-                  title: 'TECHNICIANS (${_radio.techniciansCount})',
-                  icon: Icons.tune_rounded,
-                  child: Column(
-                    children: [
-                      _buildPersonRow(
-                        name: 'David Brown',
-                        subtitle: 'Lead Audio Engineer (Full-time)',
-                        status: 'Active',
-                        stat: '📅 5 sessions this week',
-                        isOnline: true,
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // 6. PERFORMANCE METRICS (GROWTH & SHOW DISTRIBUTION)
-                _buildCard(
-                  title: 'PERFORMANCE METRICS',
-                  icon: Icons.insights_rounded,
+                  title: 'BROADCAST INFRASTRUCTURE HEALTH & LOAD',
+                  icon: Icons.network_check_rounded,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Listener Growth & Weekly Show Distribution',
+                        'Peak Concurrent Stream Connections & Throughput Volume',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                       ),
                       const SizedBox(height: 20),
-                      // Listener growth simulated chart bars
+                      // Stream traffic load simulated chart bars
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -320,7 +320,7 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
                       const SizedBox(height: 12),
                       const Center(
                         child: Text(
-                          '📈 Consistent listener retention over the last 7 broadcast days',
+                          '🟢 99.98% Stream Uptime · Buffer Health: Optimal · Peak Stream Load: 2,456 concurrent listeners',
                           style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                         ),
                       ),
@@ -668,60 +668,85 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
 
   void _showEditStationDialog(BuildContext context, SysAdminViewModel viewModel) {
     final streamController = TextEditingController(text: _radio.broadcastLink);
+    String selectedLegalStatus = _radio.legalStatus;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text('Edit Station: ${_radio.name}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 16)),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: streamController,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                decoration: const InputDecoration(labelText: 'Broadcast Stream Link', labelStyle: TextStyle(color: AppColors.textSecondary)),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () {
-              Navigator.pop(ctx);
-              showDialog(
-                context: context,
-                builder: (_) => SecurityVerificationModal(
-                  title: 'CONFIRMATION REQUIRED',
-                  actionDescription: 'Update Broadcast Stream for "${_radio.name}"',
-                  changes: {
-                    'Broadcast Stream': '${_radio.broadcastLink} → ${streamController.text.trim()}',
-                  },
-                  requireFaceVerification: false,
-                  onConfirm: (password, otp) async {
-                    await viewModel.updateRadioWithSecurity(
-                      radioId: _radio.id,
-                      updates: {'broadcastLink': streamController.text.trim()},
-                      password: password,
-                      otp: otp,
-                    );
-                    setState(() {
-                      _radio = _radio.copyWith(broadcastLink: streamController.text.trim());
-                    });
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text('Edit Station: ${_radio.name}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: streamController,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                  decoration: const InputDecoration(labelText: 'Broadcast Stream Link', labelStyle: TextStyle(color: AppColors.textSecondary)),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  dropdownColor: AppColors.surface,
+                  value: selectedLegalStatus,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                  decoration: const InputDecoration(labelText: 'Legal Status', labelStyle: TextStyle(color: AppColors.textSecondary)),
+                  items: const [
+                    DropdownMenuItem(value: 'profit', child: Text('For-Profit (Commercial)')),
+                    DropdownMenuItem(value: 'nonProfit', child: Text('Non-Profit (Donations Enabled)')),
+                    DropdownMenuItem(value: 'stateOwned', child: Text('State-Owned (Public)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedLegalStatus = val);
                   },
                 ),
-              );
-            },
-            child: const Text('Save Changes'),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: () {
+                Navigator.pop(ctx);
+                showDialog(
+                  context: context,
+                  builder: (_) => SecurityVerificationModal(
+                    title: 'CONFIRMATION REQUIRED',
+                    actionDescription: 'Update Station Details for "${_radio.name}"',
+                    changes: {
+                      'Broadcast Stream': '${_radio.broadcastLink} → ${streamController.text.trim()}',
+                      'Legal Status': '${_radio.legalStatus} → $selectedLegalStatus',
+                    },
+                    requireFaceVerification: true,
+                    onConfirm: (password, otp) async {
+                      await viewModel.updateRadioWithSecurity(
+                        radioId: _radio.id,
+                        updates: {
+                          'broadcastLink': streamController.text.trim(),
+                          'legalStatus': selectedLegalStatus,
+                        },
+                        password: password,
+                        otp: otp,
+                      );
+                      setState(() {
+                        _radio = _radio.copyWith(
+                          broadcastLink: streamController.text.trim(),
+                          legalStatus: selectedLegalStatus,
+                        );
+                      });
+                    },
+                  ),
+                );
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
       ),
     );
   }

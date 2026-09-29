@@ -609,6 +609,72 @@ class _RadioPageEditorScreenState extends State<RadioPageEditorScreen> {
                       const Text('Station Identity',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 14),
+
+                      // Legal Status Indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: (profile?.isNonProfit ?? false)
+                              ? AppColors.success.withOpacity(0.08)
+                              : AppColors.primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: (profile?.isNonProfit ?? false)
+                                ? AppColors.success.withOpacity(0.3)
+                                : AppColors.primary.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              (profile?.isNonProfit ?? false)
+                                  ? Icons.volunteer_activism_rounded
+                                  : Icons.account_balance_outlined,
+                              color: (profile?.isNonProfit ?? false)
+                                  ? AppColors.success
+                                  : AppColors.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'Legal Status: ',
+                                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                      ),
+                                      Text(
+                                        (profile?.legalStatus == 'nonProfit')
+                                            ? 'Non-Profit'
+                                            : ((profile?.legalStatus == 'stateOwned') ? 'State-Owned' : 'For-Profit'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: (profile?.isNonProfit ?? false)
+                                              ? AppColors.success
+                                              : AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    (profile?.isNonProfit ?? false)
+                                        ? 'Eligible for listener donations via DigiPay on your station stream page.'
+                                        : 'Standard commercial broadcasting status. Managed by platform SysAdmin.',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
                       TextFormField(
                         controller: _name,
                         onChanged: (_) => setState(() {}),
@@ -1389,6 +1455,7 @@ class _RadioPageEditorScreenState extends State<RadioPageEditorScreen> {
       location: _location.text.trim(),
       language: _language,
       tags: _tags,
+      legalStatus: vm.radioProfile?.legalStatus ?? 'profit',
       updatedAt: DateTime.now(),
     );
 

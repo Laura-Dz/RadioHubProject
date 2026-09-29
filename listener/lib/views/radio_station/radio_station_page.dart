@@ -12,6 +12,7 @@ import 'widgets/station_media_section.dart';
 import 'widgets/hosts_section.dart';
 import 'widgets/request_announcement_card.dart';
 import 'widgets/related_radios.dart';
+import 'widgets/station_donation_bar.dart';
 
 class RadioStationPage extends StatefulWidget {
   final String radioId;
@@ -115,16 +116,17 @@ class _State extends State<RadioStationPage> {
       ),
       body: SingleChildScrollView(
         child: Column(
-          children: const [
-            HeroBlock(),
-            PlayerControls(),
-            AboutSection(),
-            ShowsSection(),               // shows + schedule/timetable buttons
-            HostsSection(),               // host carousel
-            StationMediaSection(),        // audios & videos / podcasts section
-            RequestAnnouncementCard(),     // request announcement card
-            RelatedRadios(),              // related radios
-            SizedBox(height: 30),
+          children: [
+            const HeroBlock(),
+            const PlayerControls(),
+            if (r.isNonProfit) StationDonationBar(radio: r),
+            const AboutSection(),
+            const ShowsSection(),               // shows + schedule/timetable buttons
+            const HostsSection(),               // host carousel
+            const StationMediaSection(),        // audios & videos / podcasts section
+            const RequestAnnouncementCard(),     // request announcement card
+            const RelatedRadios(),              // related radios
+            const SizedBox(height: 30),
           ],
         ),
       ),

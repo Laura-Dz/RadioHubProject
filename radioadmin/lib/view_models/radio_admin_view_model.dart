@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../core/models/radio_admin/announcement_request_model.dart';
 import '../core/models/radio_admin/announcement_tariff_model.dart';
@@ -32,6 +31,9 @@ class RadioAdminViewModel extends ChangeNotifier {
   // State
   bool _loading = false;
   bool _loadingInsights = false;
+  bool _aiReportRequested = false;
+  bool _isAiEligible = true;
+  String? _aiIneligibleReason;
   String? _error;
 
   // Data
@@ -48,7 +50,11 @@ class RadioAdminViewModel extends ChangeNotifier {
   List<SubscriptionPlan> _plans = [];
   RadioProfile? _radioProfile;
   RadioMetrics _metrics = RadioMetrics.empty();
+  String _currentMetricsPeriod = '7d';
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
   RadioInsights? _insights;
+  Map<String, String> _paymentAccounts = {};
 
   // Streams
   StreamSubscription? _subStream;
@@ -61,6 +67,7 @@ class RadioAdminViewModel extends ChangeNotifier {
   StreamSubscription? _sessionStream;
   StreamSubscription? _programStream;
   StreamSubscription? _categoryStream;
+  StreamSubscription? _profileStream;
 
   RadioAdminViewModel({
     required RadioAdminService service,
@@ -75,6 +82,9 @@ class RadioAdminViewModel extends ChangeNotifier {
   String get radioName => _radioName;
   bool get isLoading => _loading;
   bool get loadingInsights => _loadingInsights;
+  bool get aiReportRequested => _aiReportRequested;
+  bool get isAiEligible => _isAiEligible;
+  String? get aiIneligibleReason => _aiIneligibleReason;
   String? get error => _error;
   Subscription? get subscription => _subscription;
   List<StaffMember> get staff => _staff;
@@ -90,8 +100,34 @@ class RadioAdminViewModel extends ChangeNotifier {
   List<String> get categories => _categories;
   List<SubscriptionPlan> get plans => _plans;
   RadioProfile? get radioProfile => _radioProfile;
+  String get broadcastLink => _radioProfile?.broadcastLink ?? '';
+  bool get isLive => _radioProfile?.isLive ?? false;
   RadioMetrics get metrics => _metrics;
+  String get currentMetricsPeriod => _currentMetricsPeriod;
+  DateTime? get customStartDate => _customStartDate;
+  DateTime? get customEndDate => _customEndDate;
   RadioInsights? get insights => _insights;
+  Map<String, String> get paymentAccounts => _paymentAccounts;
+
+  void setCustomDateRange(DateTime start, DateTime end) {
+    if (end.isBefore(start)) {
+      throw ArgumentError('Start date must be before or equal to end date.');
+    }
+    final intervalDays = end.difference(start).inDays;
+    if (intervalDays > 1826) {
+      throw ArgumentError('Date range interval cannot exceed 5 years (maximum 1,826 days).');
+    }
+    _customStartDate = start;
+    _customEndDate = end;
+    _currentMetricsPeriod = 'custom';
+    notifyListeners();
+  }
+
+  void clearCustomDateRange() {
+    _customStartDate = null;
+    _customEndDate = null;
+    notifyListeners();
+  }
 
   void initialize({required String radioId, required String radioName}) {
     _radioId = radioId;
@@ -139,6 +175,7 @@ class RadioAdminViewModel extends ChangeNotifier {
 
     _sessionStream = _service.streamSessions(_radioId).listen((list) {
       _sessions = list;
+      loadMetrics(period: _currentMetricsPeriod);
       notifyListeners();
     }, onError: (e) => debugPrint('Error in sessions stream: $e'));
 
@@ -151,6 +188,13 @@ class RadioAdminViewModel extends ChangeNotifier {
       _categories = list;
       notifyListeners();
     }, onError: (e) => debugPrint('Error in categories stream: $e'));
+
+    _profileStream = _service.streamRadioProfile(_radioId, fallbackName: _radioName).listen((p) {
+      if (p != null) {
+        _radioProfile = p;
+        notifyListeners();
+      }
+    }, onError: (e) => debugPrint('Error in profile stream: $e'));
   }
 
   Future<void> _loadInitialData() async {
@@ -171,12 +215,24 @@ class RadioAdminViewModel extends ChangeNotifier {
   }
 
   Future<void> loadProfile() async {
-    _radioProfile = await _service.getRadioProfile(_radioId);
+    _radioProfile = await _service.getRadioProfile(_radioId, fallbackName: _radioName);
     notifyListeners();
   }
 
-  Future<void> loadMetrics({String period = '7d'}) async {
-    _metrics = await _service.getMetrics(_radioId, period: period);
+  Future<void> loadMetrics({
+    String period = '7d',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final start = startDate ?? _customStartDate;
+    final end = endDate ?? _customEndDate;
+    _currentMetricsPeriod = (start != null && end != null) ? 'custom' : period;
+    _metrics = await _service.getMetrics(
+      _radioId,
+      period: period,
+      startDate: start,
+      endDate: end,
+    );
     notifyListeners();
   }
 
@@ -189,21 +245,56 @@ class RadioAdminViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadInsights({String timeRange = 'last_30_days'}) async {
+  Future<void> requestAiReport({
+    String? timeRange,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final start = startDate ?? _customStartDate;
+    final end = endDate ?? _customEndDate;
+    if (start != null && end != null) {
+      final intervalDays = end.difference(start).inDays;
+      if (intervalDays > 1826) {
+        _error = 'Date range interval cannot exceed 5 years (maximum 1,826 days).';
+        notifyListeners();
+        return;
+      }
+    }
+
+    _aiReportRequested = true;
     _loadingInsights = true;
+    _isAiEligible = true;
+    _aiIneligibleReason = null;
+    _error = null;
     notifyListeners();
     try {
-      _insights = await _service.getRadioInsights(
+      final res = await _service.getRadioInsights(
         radioId: _radioId,
-        timeRange: timeRange,
+        timeRange: timeRange ?? (start != null && end != null ? null : 'last_30_days'),
+        startDate: start,
+        endDate: end,
       );
+      _insights = res;
+      _isAiEligible = res.isEligible;
+      _aiIneligibleReason = res.ineligibleReason;
     } catch (e) {
-      _error = e.toString();
+      _error = e.toString().replaceFirst('Exception: ', '');
     } finally {
       _loadingInsights = false;
       notifyListeners();
     }
   }
+
+  Future<void> loadInsights({
+    String? timeRange,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) =>
+      requestAiReport(
+        timeRange: timeRange,
+        startDate: startDate,
+        endDate: endDate,
+      );
 
   Future<List<AnnouncementSlot>> getAvailableSlots({
     required DateTime fromDate,
@@ -506,6 +597,42 @@ class RadioAdminViewModel extends ChangeNotifier {
   }
   Future<void> archiveProgram(String id) => _service.archiveProgram(id);
 
+  Future<void> createSession(Session s) => _service.createSession(s);
+  Future<void> updateSession(Session s) => _service.updateSession(s.id, s.toFirestore());
+  Future<void> deleteSession(String id) => _service.deleteSession(id);
+
+  Future<void> loadPaymentAccounts() async {
+    try {
+      final doc = await _firestore
+          .collection('radios')
+          .doc(_radioId)
+          .collection('settings')
+          .doc('paymentAccounts')
+          .get();
+      if (doc.exists && doc.data() != null) {
+        _paymentAccounts = Map<String, String>.from(
+          doc.data()!.map((k, v) => MapEntry(k, v.toString())),
+        );
+      } else {
+        _paymentAccounts = {};
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading payment accounts: $e');
+    }
+  }
+
+  Future<void> savePaymentAccounts(Map<String, String> accounts) async {
+    await _firestore
+        .collection('radios')
+        .doc(_radioId)
+        .collection('settings')
+        .doc('paymentAccounts')
+        .set(accounts);
+    _paymentAccounts = accounts;
+    notifyListeners();
+  }
+
   Future<void> refreshAll() => _loadInitialData();
 
   void _cancelStreams() {
@@ -519,6 +646,7 @@ class RadioAdminViewModel extends ChangeNotifier {
     _sessionStream?.cancel();
     _programStream?.cancel();
     _categoryStream?.cancel();
+    _profileStream?.cancel();
   }
 
   @override

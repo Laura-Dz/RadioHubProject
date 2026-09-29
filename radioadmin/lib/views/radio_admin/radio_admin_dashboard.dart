@@ -51,7 +51,10 @@ class _RadioAdminDashboardState extends State<RadioAdminDashboard> {
       case 3: return const AnnouncementsScreen();
       case 4: return const RadioPageEditorScreen();
       case 5: return const MetricsScreen();
-      case 6: return const InsightsScreen();
+      case 6:
+        return InsightsScreen(
+          onNavigateToSubscription: () => setState(() => _selectedIndex = 1),
+        );
       case 7: return const ProgramsScreen();
       case 8: return const ScheduleViewScreen();
       case 9: return const MediaLibraryScreen();

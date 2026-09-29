@@ -6,6 +6,7 @@ enum AnnouncementStatus {
   validated,
   rejected,
   printed,
+  broadcasted,
 }
 
 class Announcement {
@@ -26,6 +27,9 @@ class Announcement {
   final int? wordCount;
   final int? durationSeconds;
   final String? finalText;
+  final DateTime? airedAt;
+  final String? airedBy;
+  final String? airedProgram;
 
   Announcement({
     required this.id,
@@ -45,6 +49,9 @@ class Announcement {
     this.wordCount,
     this.durationSeconds,
     this.finalText,
+    this.airedAt,
+    this.airedBy,
+    this.airedProgram,
   });
 
   factory Announcement.fromFirestore(Map<String, dynamic> data, String id) {
@@ -63,7 +70,9 @@ class Announcement {
 
     final statusStr = (data['status'] ?? 'pending').toString().toLowerCase();
     AnnouncementStatus statusEnum;
-    if (statusStr.contains('printed')) {
+    if (statusStr.contains('broadcast') || statusStr.contains('aired')) {
+      statusEnum = AnnouncementStatus.broadcasted;
+    } else if (statusStr.contains('printed')) {
       statusEnum = AnnouncementStatus.printed;
     } else if (statusStr.contains('validated')) {
       statusEnum = AnnouncementStatus.validated;
@@ -91,6 +100,9 @@ class Announcement {
       wordCount: data['wordCount'] != null ? FSParsers.toInt(data['wordCount']) : null,
       durationSeconds: data['durationSeconds'] != null ? FSParsers.toInt(data['durationSeconds']) : null,
       finalText: data['finalText']?.toString(),
+      airedAt: FSParsers.toDate(data['airedAt']),
+      airedBy: data['airedBy']?.toString(),
+      airedProgram: data['airedProgram']?.toString(),
     );
   }
 
@@ -112,6 +124,9 @@ class Announcement {
       'wordCount': wordCount,
       'durationSeconds': durationSeconds,
       'finalText': finalText,
+      'airedAt': airedAt != null ? Timestamp.fromDate(airedAt!) : null,
+      'airedBy': airedBy,
+      'airedProgram': airedProgram,
     };
   }
 
@@ -125,6 +140,8 @@ class Announcement {
         return 'Rejected';
       case AnnouncementStatus.printed:
         return 'Printed';
+      case AnnouncementStatus.broadcasted:
+        return 'Broadcasted Live';
     }
   }
 }

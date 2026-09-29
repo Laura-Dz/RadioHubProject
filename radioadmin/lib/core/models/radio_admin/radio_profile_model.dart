@@ -4,6 +4,8 @@ class RadioProfile {
   final String id;
   final String name;
   final String description;
+  final String? broadcastLink;
+  final bool isLive;
   final String? function;
   final String? vision;
   final String? mission;
@@ -16,17 +18,22 @@ class RadioProfile {
   final List<String> socialLinks;
   final List<String> tags;
   final String? language;
+  final String legalStatus; // 'profit', 'nonProfit', 'stateOwned'
   final DateTime? updatedAt;
+
+  bool get isNonProfit => legalStatus == 'nonProfit';
 
   RadioProfile({
     required this.id,
     required this.name,
     required this.description,
+    this.broadcastLink,
+    this.isLive = false,
     this.function,
     this.vision,
     this.mission,
     this.logoUrl,
-    this.bannerUrl,
+    bannerUrl,
     this.contactEmail,
     this.contactPhone,
     this.website,
@@ -34,13 +41,16 @@ class RadioProfile {
     this.socialLinks = const [],
     this.tags = const [],
     this.language,
+    this.legalStatus = 'profit',
     this.updatedAt,
-  });
+  }) : bannerUrl = bannerUrl;
 
   factory RadioProfile.fromFirestore(Map<String, dynamic> d, String id) => RadioProfile(
     id: id,
     name: d['name'] ?? '',
     description: d['description'] ?? '',
+    broadcastLink: (d['broadcastLink'] ?? d['livestreamUrl'] ?? d['streamUrl'])?.toString(),
+    isLive: (d['status'] ?? '').toString().toLowerCase() == 'live' || d['isLive'] == true,
     function: d['function'],
     vision: d['vision'],
     mission: d['mission'],
@@ -53,6 +63,7 @@ class RadioProfile {
     socialLinks: List<String>.from(d['socialLinks'] ?? []),
     tags: List<String>.from(d['tags'] ?? []),
     language: d['language'],
+    legalStatus: d['legalStatus'] ?? 'profit',
     updatedAt: d['updatedAt'] is Timestamp ? (d['updatedAt'] as Timestamp).toDate() : null,
   );
 
@@ -78,6 +89,8 @@ class RadioProfile {
   RadioProfile copyWith({
     String? name,
     String? description,
+    String? broadcastLink,
+    bool? isLive,
     String? function,
     String? vision,
     String? mission,
@@ -90,10 +103,13 @@ class RadioProfile {
     List<String>? socialLinks,
     List<String>? tags,
     String? language,
+    String? legalStatus,
   }) => RadioProfile(
     id: id,
     name: name ?? this.name,
     description: description ?? this.description,
+    broadcastLink: broadcastLink ?? this.broadcastLink,
+    isLive: isLive ?? this.isLive,
     function: function ?? this.function,
     vision: vision ?? this.vision,
     mission: mission ?? this.mission,
@@ -106,5 +122,6 @@ class RadioProfile {
     socialLinks: socialLinks ?? this.socialLinks,
     tags: tags ?? this.tags,
     language: language ?? this.language,
+    legalStatus: legalStatus ?? this.legalStatus,
   );
 }

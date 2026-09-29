@@ -20,9 +20,12 @@ class Session {
   final DateTime endTime;
   final String? hostId;
   final String? hostName;
+  final List<String> coHostIds;
+  final List<String> coHostNames;
   final String? coHostId;
   final String? coHostName;
   final String? guestId;
+  final List<Map<String, String>> guests;
   final String? guestName;
   final String? thematic;
   final String? description;
@@ -40,6 +43,7 @@ class Session {
   final DateTime createdAt;
   final DateTime? startedAt;
   final DateTime? endedAt;
+  final bool isSpecialEvent;
 
   Session({
     required this.id,
@@ -52,10 +56,13 @@ class Session {
     required this.endTime,
     this.hostId,
     this.hostName,
-    this.coHostId,
-    this.coHostName,
+    this.coHostIds = const [],
+    this.coHostNames = const [],
+    String? coHostId,
+    String? coHostName,
     this.guestId,
-    this.guestName,
+    this.guests = const [],
+    String? guestName,
     this.thematic,
     this.description,
     this.status = SessionStatus.scheduled,
@@ -72,16 +79,71 @@ class Session {
     DateTime? createdAt,
     this.startedAt,
     this.endedAt,
+    this.isSpecialEvent = false,
   })  : date = date ?? startTime,
+        coHostId = coHostId ?? (coHostIds.isNotEmpty ? coHostIds.first : null),
+        coHostName = coHostName ?? (coHostNames.isNotEmpty ? coHostNames.first : null),
+        guestName = guestName ?? (guests.isNotEmpty ? guests.first['name'] : null),
         createdAt = createdAt ?? startTime;
 
   factory Session.fromFirestore(Map<String, dynamic> data, String id) {
-    final start = FSParsers.toDate(data['startTime']) ?? DateTime.now();
-    final end = FSParsers.toDate(data['endTime']) ?? start.add(const Duration(hours: 2));
+    final start = FSParsers.toDate(data['actualStart']) ??
+        FSParsers.toDate(data['scheduledStart']) ??
+        FSParsers.toDate(data['startTime']) ??
+        FSParsers.toDate(data['date']) ??
+        FSParsers.toDate(data['createdAt']) ??
+        DateTime.now();
+    final end = FSParsers.toDate(data['actualEnd']) ??
+        FSParsers.toDate(data['scheduledEnd']) ??
+        FSParsers.toDate(data['endTime']) ??
+        start.add(const Duration(hours: 2));
+
+    List<String> parsedCoHostIds = [];
+    if (data['coHostIds'] is List) {
+      parsedCoHostIds = List<String>.from(data['coHostIds']);
+    } else if (data['coHostId'] != null && data['coHostId'].toString().isNotEmpty) {
+      parsedCoHostIds = [data['coHostId'].toString()];
+    }
+
+    List<String> parsedCoHostNames = [];
+    if (data['coHostNames'] is List) {
+      parsedCoHostNames = List<String>.from(data['coHostNames']);
+    } else if (data['coHostName'] != null && data['coHostName'].toString().isNotEmpty) {
+      parsedCoHostNames = [data['coHostName'].toString()];
+    }
+
+    List<Map<String, String>> parsedGuests = [];
+    if (data['guests'] is List) {
+      for (final item in (data['guests'] as List)) {
+        if (item is Map) {
+          parsedGuests.add({
+            'name': (item['name'] ?? '').toString(),
+            'role': (item['role'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (data['guestName'] != null && data['guestName'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': data['guestName'].toString(),
+        'role': (data['guestRole'] ?? '').toString(),
+      });
+    }
+
+    final rawStatus = (data['status'] ?? '').toString().toLowerCase();
+    SessionStatus parsedStatus;
+    if (rawStatus == 'on_air' || rawStatus == 'live') {
+      parsedStatus = SessionStatus.live;
+    } else if (rawStatus == 'ended') {
+      parsedStatus = SessionStatus.ended;
+    } else if (rawStatus == 'rediffusion') {
+      parsedStatus = SessionStatus.rediffusion;
+    } else {
+      parsedStatus = SessionStatus.scheduled;
+    }
 
     return Session(
       id: id,
-      radioId: (data['radioId'] ?? data['programId'] ?? '').toString(),
+      radioId: (data['radioId'] ?? '').toString(),
       programId: (data['programId'] ?? '').toString(),
       programName: (data['programName'] ?? 'Untitled Program').toString(),
       programCategory: ProgramCategory.values.firstWhere(
@@ -93,16 +155,16 @@ class Session {
       endTime: end,
       hostId: data['hostId']?.toString(),
       hostName: data['hostName']?.toString(),
+      coHostIds: parsedCoHostIds,
+      coHostNames: parsedCoHostNames,
       coHostId: data['coHostId']?.toString(),
       coHostName: data['coHostName']?.toString(),
       guestId: data['guestId']?.toString(),
-      guestName: data['guestName']?.toString(),
+      guests: parsedGuests,
+      guestName: data['guestName']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
       thematic: data['thematic']?.toString(),
       description: data['description']?.toString(),
-      status: SessionStatus.values.firstWhere(
-        (e) => e.toString() == data['status'] || e.name == data['status'],
-        orElse: () => SessionStatus.scheduled,
-      ),
+      status: parsedStatus,
       listenerCount: FSParsers.toInt(data['listenerCount']),
       completionRate: FSParsers.toDouble(data['completionRate']),
       engagementCount: FSParsers.toInt(data['engagementCount']),
@@ -116,6 +178,7 @@ class Session {
       createdAt: FSParsers.toDate(data['createdAt']) ?? start,
       startedAt: FSParsers.toDate(data['startedAt']),
       endedAt: FSParsers.toDate(data['endedAt']),
+      isSpecialEvent: FSParsers.toBool(data['isSpecialEvent']),
     );
   }
 
@@ -129,10 +192,13 @@ class Session {
     'endTime': endTime,
     'hostId': hostId,
     'hostName': hostName,
+    'coHostIds': coHostIds,
+    'coHostNames': coHostNames,
     'coHostId': coHostId,
     'coHostName': coHostName,
     'guestId': guestId,
-    'guestName': guestName,
+    'guests': guests,
+    'guestName': guestName ?? (guests.isNotEmpty ? guests.first['name'] : null),
     'thematic': thematic,
     'description': description,
     'status': status.toString().split('.').last,
@@ -149,6 +215,7 @@ class Session {
     'createdAt': FieldValue.serverTimestamp(),
     'startedAt': startedAt,
     'endedAt': endedAt,
+    'isSpecialEvent': isSpecialEvent,
   };
 
   Program get program => Program(

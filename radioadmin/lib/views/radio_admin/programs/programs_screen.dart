@@ -5,7 +5,6 @@ import '../../../core/models/radio_admin/program_model.dart';
 import '../../../core/models/radio_admin/staff_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_avatar.dart';
-import '../tabs/widgets/program_form_dialog.dart';
 
 class ProgramsScreen extends StatefulWidget {
   const ProgramsScreen({Key? key}) : super(key: key);
@@ -55,23 +54,27 @@ class _ProgramsScreenState extends State<ProgramsScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ElevatedButton.icon(
-              onPressed: () => showDialog(
-                context: context,
-                builder: (_) => ProgramFormDialog(viewModel: vm),
-              ),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('New Program'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.textSecondary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.lock_outline, size: 13, color: AppColors.textSecondary),
+                SizedBox(width: 4),
+                Text(
+                  'Read-only (Technician Managed)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
+              ],
             ),
           ),
         ],
@@ -199,24 +202,9 @@ class _ProgramsScreenState extends State<ProgramsScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Create your first program or adjust the search filter.',
+            'Programs are managed by the Technician. Adjust the search filter to find existing programs.',
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () => showDialog(
-              context: context,
-              builder: (_) => ProgramFormDialog(viewModel: vm),
-            ),
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('New Program'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
           ),
         ],
       ),
@@ -430,59 +418,8 @@ class _ProgramCardState extends State<_ProgramCard> {
                 ],
               ),
             ),
-
-            // Action Buttons
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Edit program',
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  color: AppColors.textSecondary,
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => ProgramFormDialog(
-                      viewModel: widget.viewModel,
-                      program: p,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Archive program',
-                  icon: const Icon(Icons.archive_outlined, size: 18),
-                  color: AppColors.textSecondary,
-                  onPressed: () => _confirmArchive(context, p),
-                ),
-              ],
-            ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _confirmArchive(BuildContext context, Program p) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Archive ${p.name}?'),
-        content: const Text(
-          'This program will be deactivated and hidden from active scheduling.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () {
-              widget.viewModel.archiveProgram(p.id);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Archive', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }

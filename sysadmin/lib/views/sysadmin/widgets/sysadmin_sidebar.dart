@@ -81,11 +81,12 @@ class SysAdminSidebar extends StatelessWidget {
                 _buildNavItem(2, 'Radios', Icons.radio_rounded, badge: '${viewModel.radios.length}'),
                 _buildNavItem(3, 'Shows', Icons.tv_rounded),
                 _buildNavItem(4, 'Transactions', Icons.payments_rounded),
+                _buildNavItem(5, 'Plans', Icons.loyalty_rounded, badge: '${viewModel.plans.length}'),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Divider(color: AppColors.cardBorder, height: 1),
                 ),
-                _buildNavItem(5, 'Settings', Icons.settings_rounded),
+                _buildNavItem(6, 'Settings', Icons.settings_rounded),
               ],
             ),
           ),

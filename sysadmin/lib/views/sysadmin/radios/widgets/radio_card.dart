@@ -100,18 +100,47 @@ class RadioCard extends StatelessWidget {
             // Middle: Admin
             Row(
               children: [
-                const Icon(Icons.person_outline_rounded, color: AppColors.primaryLight, size: 16),
-                const SizedBox(width: 6),
                 Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_outline_rounded, color: AppColors.primaryLight, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Admin: ${radio.radioAdminName}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: radio.isNonProfit
+                        ? AppColors.success.withOpacity(0.12)
+                        : (radio.legalStatus == 'stateOwned'
+                            ? AppColors.info.withOpacity(0.12)
+                            : AppColors.primary.withOpacity(0.1)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Text(
-                    'Admin: ${radio.radioAdminName}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    radio.legalStatus == 'nonProfit'
+                        ? 'Non-Profit'
+                        : (radio.legalStatus == 'stateOwned' ? 'State-Owned' : 'For-Profit'),
+                    style: TextStyle(
+                      color: radio.isNonProfit
+                          ? AppColors.success
+                          : (radio.legalStatus == 'stateOwned' ? AppColors.info : AppColors.primaryLight),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -121,38 +150,50 @@ class RadioCard extends StatelessWidget {
             const Divider(color: AppColors.cardBorder, height: 1),
             const SizedBox(height: 12),
 
-            // Bottom stats row: Hosts & Techs
+            // Bottom info row: RadioAdmin Account and Stream Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.admin_panel_settings_rounded, color: AppColors.primaryLight, size: 15),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Admin: ${radio.radioAdminName}',
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.mic_none_rounded, color: AppColors.textMuted, size: 16),
-                    const SizedBox(width: 6),
+                    Icon(
+                      radio.isActive ? Icons.wifi_tethering_rounded : Icons.wifi_tethering_off_rounded,
+                      color: radio.isActive ? AppColors.success : AppColors.textMuted,
+                      size: 15,
+                    ),
+                    const SizedBox(width: 4),
                     Text(
-                      'Hosts: ${radio.hostsCount}',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 12,
+                      radio.isActive ? 'Live' : 'Off',
+                      style: TextStyle(
+                        color: radio.isActive ? AppColors.success : AppColors.textMuted,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    const Icon(Icons.tune_rounded, color: AppColors.textMuted, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Techs: ${radio.techniciansCount}',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(width: 8),
                 const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 12),
               ],
             ),

@@ -24,6 +24,50 @@ class _MetricsScreenState extends State<MetricsScreen> {
     });
   }
 
+  Future<void> _pickCustomDateRange() async {
+    final vm = context.read<RadioAdminViewModel>();
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: now.subtract(const Duration(days: 365 * 10)),
+      lastDate: now,
+      initialDateRange: (vm.customStartDate != null && vm.customEndDate != null)
+          ? DateTimeRange(start: vm.customStartDate!, end: vm.customEndDate!)
+          : DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now),
+      helpText: 'SELECT METRICS PERIOD (MAX 5 YEARS)',
+      confirmText: 'APPLY',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final days = picked.end.difference(picked.start).inDays;
+      if (days > 1826) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('The selected interval ($days days) exceeds the 5-year maximum limit (1,826 days).'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      vm.setCustomDateRange(picked.start, picked.end);
+      setState(() => _period = 'custom');
+      vm.loadMetrics(startDate: picked.start, endDate: picked.end);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<RadioAdminViewModel>();
@@ -43,11 +87,13 @@ class _MetricsScreenState extends State<MetricsScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
-          _periodChip('7d'),
+          _periodChip('7d', vm),
           const SizedBox(width: 8),
-          _periodChip('30d'),
+          _periodChip('30d', vm),
           const SizedBox(width: 8),
-          _periodChip('90d'),
+          _periodChip('90d', vm),
+          const SizedBox(width: 8),
+          _customRangeChip(vm),
           const SizedBox(width: 16),
         ],
       ),
@@ -211,14 +257,15 @@ class _MetricsScreenState extends State<MetricsScreen> {
     );
   }
 
-  Widget _periodChip(String period) {
+  Widget _periodChip(String period, RadioAdminViewModel vm) {
     final selected = _period == period;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () {
+          vm.clearCustomDateRange();
           setState(() => _period = period);
-          context.read<RadioAdminViewModel>().loadMetrics(period: period);
+          vm.loadMetrics(period: period);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
@@ -235,6 +282,49 @@ class _MetricsScreenState extends State<MetricsScreen> {
               fontWeight: FontWeight.w600,
               color: selected ? AppColors.primary : AppColors.textSecondary,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _customRangeChip(RadioAdminViewModel vm) {
+    final selected = _period == 'custom';
+    final hasRange = vm.customStartDate != null && vm.customEndDate != null;
+    final label = (selected && hasRange)
+        ? '${vm.customStartDate!.day}/${vm.customStartDate!.month}/${vm.customStartDate!.year} - ${vm.customEndDate!.day}/${vm.customEndDate!.month}/${vm.customEndDate!.year}'
+        : 'Custom (≤5 yrs)';
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _pickCustomDateRange,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : AppColors.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? AppColors.primary : AppColors.primary.withOpacity(0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.date_range,
+                size: 14,
+                color: selected ? Colors.white : AppColors.primary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : AppColors.primary,
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -20,18 +20,38 @@ class RadioAdminAuthService {
     );
     final uid = cred.user!.uid;
     final userDoc = await _db.collection('users').doc(uid).get();
-    String radioId = 'radio_1';
+    String radioId = '';
     String radioName = 'My Radio';
     if (userDoc.exists) {
       final data = userDoc.data()!;
-      radioId = data['radioId'] ?? radioId;
+      radioId = data['radioId'] ?? '';
       radioName = data['radioName'] ?? data['displayName'] ?? radioName;
       final role = (data['role'] ?? '').toString().toLowerCase();
-      if (role != 'radioadmin' && role != 'radio_admin' && role != 'director') {
+      if (role.isNotEmpty && role != 'radioadmin' && role != 'radio_admin' && role != 'director' && role != 'admin') {
         await _auth.signOut();
         throw Exception('Access denied. This account is not a Radio Admin.');
       }
     }
+
+    // If radioId is missing from userDoc, resolve from radios collection where adminId == uid
+    if (radioId.isEmpty) {
+      final radioQuery = await _db.collection('radios').where('adminId', isEqualTo: uid).limit(1).get();
+      if (radioQuery.docs.isNotEmpty) {
+        radioId = radioQuery.docs.first.id;
+        radioName = radioQuery.docs.first.data()['name'] ?? radioName;
+      }
+    }
+
+    // Resolve radio name from the radio document itself if available
+    if (radioId.isNotEmpty) {
+      try {
+        final rDoc = await _db.collection('radios').doc(radioId).get();
+        if (rDoc.exists) {
+          radioName = rDoc.data()?['name'] ?? radioName;
+        }
+      } catch (_) {}
+    }
+
     return RadioAdminCredentials(uid: uid, email: email, radioId: radioId, radioName: radioName);
   }
 

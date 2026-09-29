@@ -6,6 +6,7 @@ import '../models/sysadmin/transaction_model.dart' as sys_tx;
 import '../models/sysadmin/user_overview_model.dart' as sys_user;
 import '../models/sysadmin/session_model.dart';
 import '../models/sysadmin/system_activity_model.dart';
+import '../models/sysadmin/subscription_plan_model.dart';
 
 class SysAdminService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -85,6 +86,8 @@ class SysAdminService {
       if (snapshot.docs.isNotEmpty) {
         var users = snapshot.docs
             .map((doc) => sys_user.User.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+            // Strictly exclude internal station staff (hosts and technicians) to enforce tenant boundary
+            .where((u) => u.role == 'radio_admin' || u.role == 'listener' || u.role == 'sysadmin')
             .toList();
         if (query != null && query.isNotEmpty) {
           final lq = query.toLowerCase();
@@ -96,16 +99,13 @@ class SysAdminService {
       debugPrint('Firestore getAllUsers fallback: $e');
     }
 
-    // Fallback users matching prompt layout
+    // Fallback users strictly scoped to platform accounts (RadioAdmins & Listeners)
     final fallbackUsers = [
-      sys_user.User(id: 'u1', name: 'John Davis', email: 'john@radio.com', role: 'host', radioId: 'radio_morning_drive', radioName: 'Morning Drive FM', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 120))),
-      sys_user.User(id: 'u2', name: 'Sarah Chen', email: 'sarah@radio.com', role: 'technician', radioId: 'radio_tech_talk', radioName: 'Tech Talk Radio', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 100))),
       sys_user.User(id: 'u3', name: 'Mike Brown', email: 'mike@radio.com', role: 'listener', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 80))),
       sys_user.User(id: 'u4', name: 'Emma Wilson', email: 'emma@radio.com', role: 'radio_admin', radioId: 'radio_music_mix', radioName: 'Music Mix Radio', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 90))),
-      sys_user.User(id: 'u5', name: 'Alex Rivera', email: 'alex@techtalk.com', role: 'host', radioId: 'radio_tech_talk', radioName: 'Tech Talk Radio', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 70))),
-      sys_user.User(id: 'u6', name: 'David Brown', email: 'david@morningdrive.com', role: 'technician', radioId: 'radio_morning_drive', radioName: 'Morning Drive FM', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 60))),
       sys_user.User(id: 'u7', name: 'James Brown', email: 'james@newshour.com', role: 'radio_admin', radioId: 'radio_news_hour', radioName: 'News Hour Radio', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 50))),
-      sys_user.User(id: 'u8', name: 'Sarah Johnson', email: 'sarah@morningdrive.com', role: 'host', radioId: 'radio_morning_drive', radioName: 'Morning Drive FM', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 110))),
+      sys_user.User(id: 'u9', name: 'Alain Foe', email: 'alain@listener.com', role: 'listener', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 35))),
+      sys_user.User(id: 'u10', name: 'Béatrice Ngo', email: 'beatrice@listener.com', role: 'listener', isActive: true, createdAt: DateTime.now().subtract(const Duration(days: 20))),
     ];
 
     var filtered = fallbackUsers;
@@ -533,6 +533,7 @@ class SysAdminService {
     required String broadcastLink,
     String? contractCopy,
     String category = 'General',
+    String legalStatus = 'profit',
     required String adminEmail,
     required String adminName,
     required String adminPassword,
@@ -578,6 +579,7 @@ class SysAdminService {
       broadcastLink: broadcastLink,
       contractCopy: contractCopy ?? 'Standard Station License Agreement - Valid until 2026',
       category: category,
+      legalStatus: legalStatus,
       radioAdminId: adminUid,
       radioAdminEmail: adminEmail,
       radioAdminName: adminName,
@@ -608,7 +610,7 @@ class SysAdminService {
     required String sysAdminId,
     required String sysAdminPassword,
     required String otpCode,
-    bool requireFaceVerification = false,
+    bool requireFaceVerification = true,
   }) async {
     // 1. Verify SysAdmin
     await verifySysAdmin(sysAdminId, sysAdminPassword, otpCode);
@@ -718,4 +720,140 @@ class SysAdminService {
       SystemActivity(id: 'a5', type: 'radio_updated', message: 'Broadcast stream link renewed for Music Mix Radio', timestamp: now.subtract(const Duration(hours: 4))),
     ];
   }
+
+  // ===== SUBSCRIPTION PLANS MANAGEMENT =====
+
+  Stream<List<SubscriptionPlan>> streamSubscriptionPlans() {
+    return _firestore
+        .collection('subscription_plans')
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isEmpty) {
+            return fallbackSubscriptionPlans;
+          }
+          final plans = snapshot.docs
+              .map((doc) => SubscriptionPlan.fromFirestore(doc.data(), doc.id))
+              .toList();
+          plans.sort((a, b) => a.days.compareTo(b.days));
+          return plans;
+        })
+        .handleError((e) {
+          debugPrint('streamSubscriptionPlans error: $e');
+          return fallbackSubscriptionPlans;
+        });
+  }
+
+  Future<List<SubscriptionPlan>> getSubscriptionPlans() async {
+    try {
+      final snapshot = await _firestore.collection('subscription_plans').get();
+      if (snapshot.docs.isNotEmpty) {
+        final plans = snapshot.docs
+            .map((doc) => SubscriptionPlan.fromFirestore(doc.data(), doc.id))
+            .toList();
+        plans.sort((a, b) => a.days.compareTo(b.days));
+        return plans;
+      }
+    } catch (e) {
+      debugPrint('getSubscriptionPlans error: $e');
+    }
+    return fallbackSubscriptionPlans;
+  }
+
+  Future<void> createSubscriptionPlan(SubscriptionPlan plan) async {
+    try {
+      final data = plan.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      if (plan.id.isNotEmpty && !plan.id.startsWith('plan_')) {
+        await _firestore.collection('subscription_plans').doc(plan.id).set(data);
+      } else {
+        await _firestore.collection('subscription_plans').add(data);
+      }
+      await logActivity(
+        type: 'plan_created',
+        message: 'Subscription plan "${plan.label}" (${plan.amount} ${plan.currency}) created',
+      );
+    } catch (e) {
+      debugPrint('createSubscriptionPlan error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateSubscriptionPlan(SubscriptionPlan plan) async {
+    try {
+      final data = plan.toFirestore();
+      await _firestore.collection('subscription_plans').doc(plan.id).set(data, SetOptions(merge: true));
+      await logActivity(
+        type: 'plan_updated',
+        message: 'Subscription plan "${plan.label}" updated',
+      );
+    } catch (e) {
+      debugPrint('updateSubscriptionPlan error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> togglePlanStatus(String planId, bool isActive) async {
+    try {
+      await _firestore.collection('subscription_plans').doc(planId).update({
+        'isActive': isActive,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      await logActivity(
+        type: 'plan_status_toggled',
+        message: 'Subscription plan $planId ${isActive ? "activated" : "deactivated"}',
+      );
+    } catch (e) {
+      debugPrint('togglePlanStatus error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteSubscriptionPlan(String planId) async {
+    try {
+      await _firestore.collection('subscription_plans').doc(planId).delete();
+      await logActivity(
+        type: 'plan_deleted',
+        message: 'Subscription plan $planId deleted',
+      );
+    } catch (e) {
+      debugPrint('deleteSubscriptionPlan error: $e');
+      rethrow;
+    }
+  }
+
+  List<SubscriptionPlan> get fallbackSubscriptionPlans => [
+    SubscriptionPlan(
+      id: 'monthly',
+      label: 'Monthly Starter',
+      days: 30,
+      amount: 15000,
+      currency: 'XAF',
+      isActive: true,
+      features: ['Unlimited Announcements', 'HD Audio Streaming', 'Audimat Basic Analytics'],
+      description: 'Standard monthly broadcasting subscription for community radios.',
+      isPopular: false,
+    ),
+    SubscriptionPlan(
+      id: 'quarterly',
+      label: 'Quarterly Pro',
+      days: 90,
+      amount: 40000,
+      currency: 'XAF',
+      isActive: true,
+      features: ['Unlimited Announcements', 'HD Audio Streaming', 'Audimat Analytics', 'AI Insights', 'Escrow Tariffs'],
+      description: 'Quarterly subscription with Gemini Station Intelligence and escrow features.',
+      isPopular: true,
+    ),
+    SubscriptionPlan(
+      id: 'yearly',
+      label: 'Yearly Enterprise',
+      days: 365,
+      amount: 140000,
+      currency: 'XAF',
+      isActive: true,
+      features: ['Unlimited Announcements', 'HD Audio Streaming', 'Audimat Analytics', 'AI Insights', 'Priority Support', 'Custom Branding'],
+      description: 'Full year enterprise broadcast license with complete AI features and VIP support.',
+      isPopular: false,
+    ),
+  ];
 }

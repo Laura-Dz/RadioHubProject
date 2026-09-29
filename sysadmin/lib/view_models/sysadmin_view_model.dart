@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/enums/view_state.dart';
 import '../core/models/sysadmin/radio_model.dart';
@@ -5,6 +6,7 @@ import '../core/models/sysadmin/transaction_model.dart' as sys_tx;
 import '../core/models/sysadmin/user_overview_model.dart' as sys_user;
 import '../core/models/sysadmin/session_model.dart';
 import '../core/models/sysadmin/system_activity_model.dart';
+import '../core/models/sysadmin/subscription_plan_model.dart';
 import '../core/services/sysadmin_service.dart';
 import 'base_view_model.dart';
 
@@ -25,6 +27,8 @@ class SysAdminViewModel extends BaseViewModel {
   List<sys_user.User> _users = [];
   List<SessionModel> _shows = [];
   List<SystemActivity> _activities = [];
+  List<SubscriptionPlan> _plans = [];
+  StreamSubscription? _plansSub;
 
   RadioModel? _selectedRadioForDetail;
   int _selectedTab = 0;
@@ -52,6 +56,7 @@ class SysAdminViewModel extends BaseViewModel {
   List<sys_user.User> get users => _users;
   List<SessionModel> get shows => _shows;
   List<SystemActivity> get activities => _activities;
+  List<SubscriptionPlan> get plans => _plans;
   int get selectedTab => _selectedTab;
   RadioModel? get selectedRadioForDetail => _selectedRadioForDetail;
   bool get isSeeding => _isSeeding;
@@ -127,6 +132,12 @@ class SysAdminViewModel extends BaseViewModel {
       _userOverview = overview;
       notifyListeners();
     });
+
+    _plansSub?.cancel();
+    _plansSub = _sysAdminService.streamSubscriptionPlans().listen((p) {
+      _plans = p;
+      notifyListeners();
+    });
   }
 
   Future<void> loadData() async {
@@ -141,6 +152,7 @@ class SysAdminViewModel extends BaseViewModel {
         _loadTransactions(),
         _loadShows(),
         _loadActivities(),
+        _loadSubscriptionPlans(),
       ]);
       setState(ViewState.idle);
       notifyListeners();
@@ -190,6 +202,7 @@ class SysAdminViewModel extends BaseViewModel {
       broadcastLink: data['broadcastLink'] ?? '',
       contractCopy: data['contractCopy'],
       category: data['category'] ?? 'Music',
+      legalStatus: data['legalStatus'] ?? 'profit',
       adminEmail: data['adminEmail'] ?? '',
       adminName: data['adminName'] ?? '',
       adminPassword: data['adminPassword'] ?? '',
@@ -208,7 +221,7 @@ class SysAdminViewModel extends BaseViewModel {
     required Map<String, dynamic> updates,
     required String password,
     required String otp,
-    bool requireFace = false,
+    bool requireFace = true,
   }) async {
     await _sysAdminService.updateRadioWithSecurity(
       radioId: radioId,
@@ -244,6 +257,35 @@ class SysAdminViewModel extends BaseViewModel {
     notifyListeners();
   }
 
+  Future<void> _loadSubscriptionPlans() async {
+    _plans = await _sysAdminService.getSubscriptionPlans();
+  }
+
+  // Subscription Plan Operations
+  Future<void> createPlan(SubscriptionPlan plan) async {
+    await _sysAdminService.createSubscriptionPlan(plan);
+    await _loadSubscriptionPlans();
+    notifyListeners();
+  }
+
+  Future<void> updatePlan(SubscriptionPlan plan) async {
+    await _sysAdminService.updateSubscriptionPlan(plan);
+    await _loadSubscriptionPlans();
+    notifyListeners();
+  }
+
+  Future<void> togglePlanStatus(String planId, bool isActive) async {
+    await _sysAdminService.togglePlanStatus(planId, isActive);
+    await _loadSubscriptionPlans();
+    notifyListeners();
+  }
+
+  Future<void> deletePlan(String planId) async {
+    await _sysAdminService.deleteSubscriptionPlan(planId);
+    await _loadSubscriptionPlans();
+    notifyListeners();
+  }
+
   // Seeding trigger
   Future<void> seedMockData() async {
     _isSeeding = true;
@@ -256,5 +298,11 @@ class SysAdminViewModel extends BaseViewModel {
 
   Future<void> refreshData() async {
     await loadData();
+  }
+
+  @override
+  void dispose() {
+    _plansSub?.cancel();
+    super.dispose();
   }
 }

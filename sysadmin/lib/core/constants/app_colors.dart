@@ -24,6 +24,11 @@ class AppColors {
   static const Color textSecondary = Color(0xFF94A3B8); // Slate 400
   static const Color textMuted = Color(0xFF64748B); // Slate 500
 
+  // Additional accents & UI tokens
+  static const Color accent = Color(0xFF8B5CF6); // Violet
+  static const Color secondary = Color(0xFF06B6D4); // Cyan
+  static const Color divider = Color(0xFF334155); // Slate 700
+
   // Accents for charts & categories
   static const Color chartMusic = Color(0xFF8B5CF6); // Violet
   static const Color chartTalk = Color(0xFF06B6D4); // Cyan

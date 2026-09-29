@@ -28,6 +28,7 @@ class RadioModel {
   final String? phoneNumber;
   final Map<String, dynamic> settings;
   final List<String> socialLinks;
+  final String legalStatus; // 'profit', 'nonProfit', 'stateOwned'
 
   RadioModel({
     required this.id,
@@ -55,7 +56,10 @@ class RadioModel {
     this.phoneNumber,
     this.settings = const {},
     this.socialLinks = const [],
+    this.legalStatus = 'profit',
   });
+
+  bool get isNonProfit => legalStatus == 'nonProfit';
 
   // Backward compatibility getters
   String? get bannerImageUrl => bannerUrl;
@@ -92,6 +96,7 @@ class RadioModel {
       phoneNumber: d['phoneNumber']?.toString(),
       settings: d['settings'] is Map<String, dynamic> ? d['settings'] : const {},
       socialLinks: List<String>.from(d['socialLinks'] ?? []),
+      legalStatus: (d['legalStatus'] ?? 'profit').toString(),
     );
   }
 
@@ -120,6 +125,7 @@ class RadioModel {
       'phoneNumber': phoneNumber,
       'settings': settings,
       'socialLinks': socialLinks,
+      'legalStatus': legalStatus,
     };
   }
 
@@ -148,6 +154,7 @@ class RadioModel {
     String? phoneNumber,
     Map<String, dynamic>? settings,
     List<String>? socialLinks,
+    String? legalStatus,
   }) {
     return RadioModel(
       id: id ?? this.id,
@@ -174,6 +181,7 @@ class RadioModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       settings: settings ?? this.settings,
       socialLinks: socialLinks ?? this.socialLinks,
+      legalStatus: legalStatus ?? this.legalStatus,
     );
   }
 }

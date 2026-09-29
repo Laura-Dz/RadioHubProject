@@ -5,6 +5,8 @@ import '../../../view_models/radio_admin_view_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/kpi_card.dart';
 import '../../../core/models/radio_admin/metrics_model.dart';
+import 'widgets/stream_monitor_card.dart';
+import 'widgets/audimat_export_modal.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -21,7 +23,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vm = context.read<RadioAdminViewModel>();
       vm.loadMetrics(period: _period);
-      vm.loadInsights();
     });
   }
 
@@ -44,7 +45,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _periodChip('30d'),
           const SizedBox(width: 8),
           _periodChip('90d'),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.download_rounded, size: 16),
+            label: const Text('Export Audimat', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: BorderSide(color: AppColors.primary.withOpacity(0.4)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              AudimatExportModal.show(
+                context,
+                radioName: vm.radioName.isNotEmpty ? vm.radioName : 'Radio Station',
+                period: _period,
+                metrics: metrics,
+              );
+            },
+          ),
+          const SizedBox(width: 10),
           Tooltip(
             message: 'Refresh',
             child: IconButton(
@@ -75,6 +95,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icons.schedule_outlined,
                 AppColors.warning,
               ),
+            const SizedBox(height: 16),
+            // Live Stream Monitor Player
+            StreamMonitorCard(
+              broadcastLink: vm.broadcastLink,
+              isLive: vm.isLive,
+              listenerCount: metrics.totalListeners,
+              radioName: vm.radioName.isNotEmpty ? vm.radioName : 'Station',
+            ),
             const SizedBox(height: 20),
             // KPI row
             Row(
@@ -153,28 +181,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: _chartCard(
                     'Category split',
                     'Show distribution',
-                    SfCircularChart(
-                      margin: EdgeInsets.zero,
-                      legend: const Legend(
-                        isVisible: true,
-                        position: LegendPosition.bottom,
-                        textStyle: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
-                      ),
-                      series: <CircularSeries>[
-                        DoughnutSeries<CategoryPoint, String>(
-                          dataSource: metrics.byCategory,
-                          xValueMapper: (p, _) => p.category,
-                          yValueMapper: (p, _) => p.count,
-                          pointColorMapper: (p, _) => p.color,
-                          innerRadius: '55%',
-                          dataLabelSettings: const DataLabelSettings(
-                            isVisible: true,
-                            labelPosition: ChartDataLabelPosition.outside,
-                            textStyle: TextStyle(fontSize: 9.5),
+                    metrics.byCategory.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40.0),
+                              child: Text(
+                                'No category data recorded',
+                                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              ),
+                            ),
+                          )
+                        : SfCircularChart(
+                            margin: EdgeInsets.zero,
+                            legend: const Legend(
+                              isVisible: true,
+                              position: LegendPosition.bottom,
+                              textStyle: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                            ),
+                            series: <CircularSeries>[
+                              DoughnutSeries<CategoryPoint, String>(
+                                dataSource: metrics.byCategory,
+                                xValueMapper: (p, _) => p.category,
+                                yValueMapper: (p, _) => p.count,
+                                pointColorMapper: (p, _) => p.color,
+                                innerRadius: '55%',
+                                dataLabelSettings: const DataLabelSettings(
+                                  isVisible: true,
+                                  labelPosition: ChartDataLabelPosition.outside,
+                                  textStyle: TextStyle(fontSize: 9.5),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],

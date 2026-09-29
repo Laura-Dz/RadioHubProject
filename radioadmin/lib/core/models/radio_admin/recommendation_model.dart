@@ -327,6 +327,15 @@ class ContentProfile {
 }
 
 class RadioInsights {
+  final bool isEligible;
+  final String? ineligibleReason;
+  final String? aiSummary;
+  final String? fullReportMarkdown;
+  final List<String> strategicActionPlan;
+  final String? audimatAnalysis;
+  final String? showsAnalysis;
+  final String? revenueStrategy;
+  final String? schedulingRecommendations;
   final AudimatInsights? audimat;
   final ShowInsights? shows;
   final List<ShowComparison> comparisons;
@@ -337,6 +346,15 @@ class RadioInsights {
   final DateTime generatedAt;
 
   RadioInsights({
+    this.isEligible = true,
+    this.ineligibleReason,
+    this.aiSummary,
+    this.fullReportMarkdown,
+    this.strategicActionPlan = const [],
+    this.audimatAnalysis,
+    this.showsAnalysis,
+    this.revenueStrategy,
+    this.schedulingRecommendations,
     this.audimat,
     this.shows,
     this.comparisons = const [],
@@ -347,17 +365,39 @@ class RadioInsights {
     DateTime? generatedAt,
   }) : generatedAt = generatedAt ?? DateTime.now();
 
+  factory RadioInsights.ineligible(String reason) => RadioInsights(
+    isEligible: false,
+    ineligibleReason: reason,
+  );
+
+  factory RadioInsights.empty() => RadioInsights(
+    isEligible: true,
+    aiSummary: '',
+    fullReportMarkdown: '',
+  );
+
   factory RadioInsights.fromJson(Map<String, dynamic> j) => RadioInsights(
-    audimat: j['audimat'] != null ? AudimatInsights.fromJson(j['audimat'] as Map<String, dynamic>) : null,
-    shows: j['shows'] != null ? ShowInsights.fromJson(j['shows'] as Map<String, dynamic>) : null,
+    isEligible: j['eligible'] != false,
+    ineligibleReason: (j['message'] ?? j['error'])?.toString(),
+    aiSummary: (j['ai_summary'] ?? j['executive_summary'] ?? j['aiSummary'])?.toString(),
+    fullReportMarkdown: j['full_report_markdown']?.toString(),
+    strategicActionPlan: List<String>.from(j['strategic_action_plan'] ?? []),
+    audimatAnalysis: j['audimat_analysis']?.toString(),
+    showsAnalysis: j['shows_analysis']?.toString(),
+    revenueStrategy: j['revenue_strategy']?.toString(),
+    schedulingRecommendations: j['scheduling_recommendations'] is String
+        ? j['scheduling_recommendations'].toString()
+        : null,
+    audimat: j['audimat'] is Map ? AudimatInsights.fromJson(j['audimat'] as Map<String, dynamic>) : null,
+    shows: j['shows'] is Map ? ShowInsights.fromJson(j['shows'] as Map<String, dynamic>) : null,
     comparisons: (j['comparisons'] as List? ?? [])
         .map((e) => ShowComparison.fromJson(e as Map<String, dynamic>))
         .toList(),
     diagnostics: (j['diagnostics'] as List? ?? [])
         .map((e) => ShowDiagnostic.fromJson(e as Map<String, dynamic>))
         .toList(),
-    revenue: j['revenue'] != null ? RevenueInsights.fromJson(j['revenue'] as Map<String, dynamic>) : null,
-    scheduling: j['scheduling'] != null ? SchedulingInsights.fromJson(j['scheduling'] as Map<String, dynamic>) : null,
+    revenue: j['revenue'] is Map ? RevenueInsights.fromJson(j['revenue'] as Map<String, dynamic>) : null,
+    scheduling: j['scheduling'] is Map ? SchedulingInsights.fromJson(j['scheduling'] as Map<String, dynamic>) : null,
     meta: j['meta'] as Map<String, dynamic>?,
     generatedAt: j['meta'] != null && j['meta']['generated_at'] != null
         ? DateTime.tryParse(j['meta']['generated_at'].toString()) ?? DateTime.now()
@@ -365,6 +405,7 @@ class RadioInsights {
   );
 
   static RadioInsights mock(String radioId) => RadioInsights.fromJson({
+    'ai_summary': 'Performance this period shows strong morning and midday engagement driven by "Mid-Day Talk". Listenership dips sharply at 15:00, presenting an opportunity to adjust programming or automate music blocks. Projected revenue is on track, with birthday and promotional announcements remaining the primary drivers.',
     'audimat': {
       'peak_hours': [
         {'hour': '08:00', 'avg_listeners': 2456, 'recommendation': 'Audience peaks at 08:00. Schedule high-value shows here.'},

@@ -69,43 +69,13 @@ class _UsersScreenState extends State<UsersScreen> {
                   children: [
                     Expanded(
                       child: _buildRoleCountCard(
-                        title: 'Listeners',
-                        count: overview.totalListeners,
-                        icon: Icons.headphones_rounded,
-                        roleKey: 'listener',
-                        isSelected: viewModel.userRoleFilter == 'listener',
-                        color: AppColors.chartTalk,
-                        onTap: () => viewModel.setUserRoleFilter(
-                          viewModel.userRoleFilter == 'listener' ? 'all' : 'listener',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildRoleCountCard(
-                        title: 'Hosts',
-                        count: overview.totalHosts,
-                        icon: Icons.mic_rounded,
-                        roleKey: 'host',
-                        isSelected: viewModel.userRoleFilter == 'host',
-                        color: AppColors.chartMusic,
-                        onTap: () => viewModel.setUserRoleFilter(
-                          viewModel.userRoleFilter == 'host' ? 'all' : 'host',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildRoleCountCard(
-                        title: 'Technicians',
-                        count: overview.totalTechnicians,
-                        icon: Icons.tune_rounded,
-                        roleKey: 'technician',
-                        isSelected: viewModel.userRoleFilter == 'technician',
-                        color: AppColors.chartSports,
-                        onTap: () => viewModel.setUserRoleFilter(
-                          viewModel.userRoleFilter == 'technician' ? 'all' : 'technician',
-                        ),
+                        title: 'All Accounts',
+                        count: overview.totalListeners + overview.totalRadioAdmins,
+                        icon: Icons.people_alt_rounded,
+                        roleKey: 'all',
+                        isSelected: viewModel.userRoleFilter == 'all',
+                        color: AppColors.primaryLight,
+                        onTap: () => viewModel.setUserRoleFilter('all'),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -116,9 +86,23 @@ class _UsersScreenState extends State<UsersScreen> {
                         icon: Icons.admin_panel_settings_rounded,
                         roleKey: 'radio_admin',
                         isSelected: viewModel.userRoleFilter == 'radio_admin',
-                        color: AppColors.primaryLight,
+                        color: AppColors.chartMusic,
                         onTap: () => viewModel.setUserRoleFilter(
                           viewModel.userRoleFilter == 'radio_admin' ? 'all' : 'radio_admin',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildRoleCountCard(
+                        title: 'Listeners',
+                        count: overview.totalListeners,
+                        icon: Icons.headphones_rounded,
+                        roleKey: 'listener',
+                        isSelected: viewModel.userRoleFilter == 'listener',
+                        color: AppColors.chartTalk,
+                        onTap: () => viewModel.setUserRoleFilter(
+                          viewModel.userRoleFilter == 'listener' ? 'all' : 'listener',
                         ),
                       ),
                     ),
@@ -182,11 +166,9 @@ class _UsersScreenState extends State<UsersScreen> {
                             value: viewModel.userRoleFilter,
                             style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                             items: const [
-                              DropdownMenuItem(value: 'all', child: Text('All Roles')),
-                              DropdownMenuItem(value: 'listener', child: Text('🎧 Listeners')),
-                              DropdownMenuItem(value: 'host', child: Text('🎙️ Hosts')),
-                              DropdownMenuItem(value: 'technician', child: Text('🎛️ Technicians')),
+                              DropdownMenuItem(value: 'all', child: Text('All Accounts')),
                               DropdownMenuItem(value: 'radio_admin', child: Text('👤 RadioAdmins')),
+                              DropdownMenuItem(value: 'listener', child: Text('🎧 Listeners')),
                             ],
                             onChanged: (val) {
                               if (val != null) viewModel.setUserRoleFilter(val);

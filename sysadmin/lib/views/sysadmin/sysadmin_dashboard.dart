@@ -9,6 +9,7 @@ import 'radios/radios_screen.dart';
 import 'radio_detail/radio_detail_screen.dart';
 import 'shows/shows_statistics_screen.dart';
 import 'transactions/transactions_screen.dart';
+import 'plans/subscription_plans_screen.dart';
 import 'settings/settings_screen.dart';
 
 class SysAdminDashboard extends StatelessWidget {
@@ -55,6 +56,8 @@ class SysAdminDashboard extends StatelessWidget {
       case 4:
         return const TransactionsScreen();
       case 5:
+        return const SubscriptionPlansScreen();
+      case 6:
         return const SettingsScreen();
       default:
         return const DashboardScreen();

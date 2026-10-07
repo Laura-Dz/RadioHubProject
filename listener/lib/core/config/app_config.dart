@@ -24,7 +24,11 @@ class AppConfig {
       return 'http://${Uri.base.host}:$defaultBackendPort';
     }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://127.0.0.1:$defaultBackendPort';
+      const customHost = String.fromEnvironment('BACKEND_HOST');
+      if (customHost.isNotEmpty) {
+        return 'http://$customHost:$defaultBackendPort';
+      }
+      return 'http://$defaultBackendHost:$defaultBackendPort';
     }
     return 'http://$defaultBackendHost:$defaultBackendPort';
   }
@@ -43,7 +47,9 @@ class AppConfig {
         !configuredLink.contains(':8000')) {
       var link = configuredLink.trim();
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        link = link.replaceAll('://localhost:', '://127.0.0.1:');
+        link = link
+            .replaceAll('://localhost:', '://$defaultBackendHost:')
+            .replaceAll('://127.0.0.1:', '://$defaultBackendHost:');
       }
       return link;
     }
@@ -54,13 +60,13 @@ class AppConfig {
   static const String openaiApiKey = String.fromEnvironment(
     'OPENAI_API_KEY',
     defaultValue:
-        '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',
+        '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',
   );
 
   /// Gemini API Key for announcement amelioration.
   static const String geminiApiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
-    defaultValue: 'AQ.Ab8RN6IhPptg5tRK0sTYWMfyiLTj3KSKEsHNFFwSGDtRzeS8Xw',
+    defaultValue: 'AQ.Ab8RN6K5NisMXNB4wrV6LG80cjS0RvTjJ3xBp1ferZ7SejQ1Ig',
   );
 
   /// DigiPay API Key for Mobile Money transactions & donations.

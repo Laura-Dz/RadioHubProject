@@ -6,7 +6,6 @@ import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
 import '../../../core/models/technician/host_model.dart';
 import '../../../core/utils/app_avatar.dart';
-import '../../../core/services/network_time_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../widgets/live_broadcast_timer.dart';
 import 'session_detail_screen.dart';

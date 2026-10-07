@@ -91,7 +91,9 @@ class _SafeImageState extends State<SafeImage> {
 
     final clean = S3StorageHelper.ensureValidUrl(rawUrl);
 
-    if (clean.toLowerCase().contains('.svg') || clean.toLowerCase().contains('image/svg')) {
+    if (clean.toLowerCase().contains('.svg') ||
+        clean.toLowerCase().contains('image/svg') ||
+        clean.toLowerCase().contains('placehold.co')) {
       _loadedBytes = null;
       _isLoading = false;
       _hasFailed = true;
@@ -214,7 +216,7 @@ class _SafeImageState extends State<SafeImage> {
     final defaultFallback = _buildDefaultFallback(isLoading: false);
     final defaultLoading = _buildDefaultFallback(isLoading: true);
 
-    if (clean.isEmpty || _hasFailed) {
+    if (clean.isEmpty || _hasFailed || clean.toLowerCase().contains('placehold.co')) {
       imageWidget = widget.fallback ?? widget.placeholder ?? defaultFallback;
     } else if (_loadedBytes != null) {
       imageWidget = Image.memory(

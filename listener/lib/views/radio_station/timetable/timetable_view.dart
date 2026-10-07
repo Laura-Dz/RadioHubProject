@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/models/timetable_slot.dart';
 import '../../../core/services/radio_schedule_service.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../view_models/radio_station_view_model.dart';
 
 class TimetableView extends StatefulWidget {
   final String radioId;

@@ -50,6 +50,7 @@ class DataSeeder {
     final hosts = [
       Host(
         id: 'host_1',
+        radioId: 'radio_1',
         name: 'Sarah Johnson',
         email: 'sarah@radiohub.com',
         phone: '+1234567890',
@@ -60,6 +61,7 @@ class DataSeeder {
       ),
       Host(
         id: 'host_2',
+        radioId: 'radio_1',
         name: 'Mike Chen',
         email: 'mike@radiohub.com',
         phone: '+1987654321',
@@ -70,6 +72,7 @@ class DataSeeder {
       ),
       Host(
         id: 'host_3',
+        radioId: 'radio_1',
         name: 'Emma Wilson',
         email: 'emma@radiohub.com',
         phone: '+1122334455',
@@ -80,6 +83,7 @@ class DataSeeder {
       ),
       Host(
         id: 'host_4',
+        radioId: 'radio_1',
         name: 'James Brown',
         email: 'james@radiohub.com',
         phone: '+1555666777',
@@ -90,6 +94,7 @@ class DataSeeder {
       ),
       Host(
         id: 'host_5',
+        radioId: 'radio_1',
         name: 'Lisa Thompson',
         email: 'lisa@radiohub.com',
         phone: '+1444333222',
@@ -114,79 +119,91 @@ class DataSeeder {
     final programs = [
       Program(
         id: 'prog_1',
+        radioId: 'radio_1',
         name: 'Morning Drive',
         description: 'Start your day with energy, news, and great music.',
         imageUrl: 'https://picsum.photos/seed/prog1/400/400',
         category: 'talk',
-        hosts: ['host_1'],
-        coHosts: [],
-        defaultDuration: const Duration(hours: 2),
-        metadata: {'slot': '08:00-10:00'},
+        hostIds: ['host_1'],
+        hostNames: ['Sarah Johnson'],
+        defaultDurationMinutes: 120,
+        defaultStartHour: 8,
+        defaultStartMinute: 0,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 30)),
       ),
       Program(
         id: 'prog_2',
+        radioId: 'radio_1',
         name: 'Morning Prayer',
         description: 'A moment of reflection and prayer to start the day.',
         imageUrl: 'https://picsum.photos/seed/prog2/400/400',
         category: 'religious',
-        hosts: ['host_1'],
-        coHosts: [],
-        defaultDuration: const Duration(minutes: 30),
-        metadata: {'slot': '06:00-07:00'},
+        hostIds: ['host_1'],
+        hostNames: ['Sarah Johnson'],
+        defaultDurationMinutes: 30,
+        defaultStartHour: 6,
+        defaultStartMinute: 0,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 25)),
       ),
       Program(
         id: 'prog_3',
+        radioId: 'radio_1',
         name: 'Tech Talk',
         description: 'Latest in technology, AI, and gadgets.',
         imageUrl: 'https://picsum.photos/seed/prog3/400/400',
         category: 'education',
-        hosts: ['host_2'],
-        coHosts: [],
-        defaultDuration: const Duration(hours: 1),
-        metadata: {'slot': '10:00-11:00'},
+        hostIds: ['host_2'],
+        hostNames: ['Mike Chen'],
+        defaultDurationMinutes: 60,
+        defaultStartHour: 10,
+        defaultStartMinute: 0,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 20)),
       ),
       Program(
         id: 'prog_4',
+        radioId: 'radio_1',
         name: 'Music Mix',
         description: 'Your daily dose of hit music across genres.',
         imageUrl: 'https://picsum.photos/seed/prog4/400/400',
         category: 'music',
-        hosts: ['host_3'],
-        coHosts: [],
-        defaultDuration: const Duration(hours: 1),
-        metadata: {'slot': '12:00-13:00'},
+        hostIds: ['host_3'],
+        hostNames: ['Emma Wilson'],
+        defaultDurationMinutes: 60,
+        defaultStartHour: 12,
+        defaultStartMinute: 0,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 18)),
       ),
       Program(
         id: 'prog_5',
+        radioId: 'radio_1',
         name: 'Sports Central',
         description: 'Live sports news and analysis.',
         imageUrl: 'https://picsum.photos/seed/prog5/400/400',
         category: 'sports',
-        hosts: ['host_4'],
-        coHosts: [],
-        defaultDuration: const Duration(hours: 1),
-        metadata: {'slot': '14:00-15:00'},
+        hostIds: ['host_4'],
+        hostNames: ['James Brown'],
+        defaultDurationMinutes: 60,
+        defaultStartHour: 14,
+        defaultStartMinute: 0,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 15)),
       ),
       Program(
         id: 'prog_6',
+        radioId: 'radio_1',
         name: 'Classical Hour',
         description: 'Timeless pieces from the masters.',
         imageUrl: 'https://picsum.photos/seed/prog6/400/400',
         category: 'music',
-        hosts: ['host_5'],
-        coHosts: [],
-        defaultDuration: const Duration(hours: 1),
-        metadata: {'slot': '16:00-17:00'},
+        hostIds: ['host_5'],
+        hostNames: ['Lisa Thompson'],
+        defaultDurationMinutes: 60,
+        defaultStartHour: 16,
+        defaultStartMinute: 0,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 10)),
       ),
@@ -209,7 +226,7 @@ class DataSeeder {
 
     final programSnapshots = await _firestore.collection('programs').where('isActive', isEqualTo: true).get();
     final programs = programSnapshots.docs
-        .map((doc) => Program.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+        .map((doc) => Program.fromFirestore(doc.data(), doc.id))
         .toList();
 
     final hostMap = {
@@ -229,18 +246,15 @@ class DataSeeder {
       if (weekday == 6 || weekday == 7) continue;
 
       for (final program in programs) {
-        final slot = program.metadata['slot'] as String?;
-        if (slot == null) continue;
+        final startHour = program.defaultStartHour ?? 8;
+        final startMin = program.defaultStartMinute ?? 0;
+        final durationMin = program.defaultDurationMinutes;
 
-        final parts = slot.split('-');
-        final startHour = int.parse(parts[0].split(':').first);
-        final endHour = int.parse(parts[1].split(':').first);
+        final startTime = DateTime(date.year, date.month, date.day, startHour, startMin);
+        final endTime = startTime.add(Duration(minutes: durationMin));
 
-        final startTime = DateTime(date.year, date.month, date.day, startHour);
-        final endTime = DateTime(date.year, date.month, date.day, endHour);
-
-        final hostId = program.hosts.isNotEmpty ? program.hosts.first : null;
-        final hostName = hostId != null ? hostMap[hostId] : null;
+        final hostId = program.hostIds.isNotEmpty ? program.hostIds.first : 'host_1';
+        final hostName = program.hostNames.isNotEmpty ? program.hostNames.first : (hostMap[hostId] ?? 'Host');
 
         final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
         final isLive = isToday && startTime.isBefore(now) && endTime.isAfter(now);
@@ -248,11 +262,11 @@ class DataSeeder {
 
         final session = Session(
           id: 'session_${program.id}_${date.toIso8601String().split('T').first}',
+          radioId: 'radio_1',
           programId: program.id,
           programName: program.name,
-          date: date,
-          startTime: startTime,
-          endTime: endTime,
+          scheduledStart: startTime,
+          scheduledEnd: endTime,
           hostId: hostId,
           hostName: hostName,
           thematic: 'Regular ${program.name}',

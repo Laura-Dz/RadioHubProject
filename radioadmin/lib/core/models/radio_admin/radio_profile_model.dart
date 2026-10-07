@@ -33,7 +33,7 @@ class RadioProfile {
     this.vision,
     this.mission,
     this.logoUrl,
-    bannerUrl,
+    this.bannerUrl,
     this.contactEmail,
     this.contactPhone,
     this.website,
@@ -43,7 +43,7 @@ class RadioProfile {
     this.language,
     this.legalStatus = 'profit',
     this.updatedAt,
-  }) : bannerUrl = bannerUrl;
+  });
 
   factory RadioProfile.fromFirestore(Map<String, dynamic> d, String id) => RadioProfile(
     id: id,

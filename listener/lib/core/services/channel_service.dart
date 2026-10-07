@@ -47,7 +47,7 @@ class ChannelService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ChannelModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ChannelModel.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error getting featured channels: $e');
@@ -64,7 +64,7 @@ class ChannelService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ChannelModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ChannelModel.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error getting trending channels: $e');
@@ -75,8 +75,9 @@ class ChannelService {
   Future<ChannelModel?> getChannelById(String channelId) async {
     try {
       final doc = await _firestore.collection(_collection).doc(channelId).get();
-      if (!doc.exists) return null;
-      return ChannelModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+      final data = doc.data();
+      if (!doc.exists || data == null) return null;
+      return ChannelModel.fromFirestore(data, doc.id);
     } catch (e) {
       print('Error getting channel: $e');
       return null;
@@ -94,7 +95,7 @@ class ChannelService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error getting channel shows: $e');
@@ -121,7 +122,7 @@ class ChannelService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ChannelModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ChannelModel.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error getting followed channels: $e');

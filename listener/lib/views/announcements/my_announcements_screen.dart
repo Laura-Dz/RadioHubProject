@@ -41,9 +41,6 @@ class _MyAnnouncementsScreenState extends State<MyAnnouncementsScreen> {
       return;
     }
 
-    final vm = context.read<AnnouncementViewModel>();
-    final items = vm.mine;
-
     if (previous != null) {
       showModalBottomSheet(
         context: context,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/language_selection_view_model.dart';
-import '../../core/models/language_model.dart';
 import '../auth/auth_choice_screen.dart';
 import 'widgets/language_tile.dart';
 

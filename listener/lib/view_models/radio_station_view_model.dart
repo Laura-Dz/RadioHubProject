@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../core/models/radio_model.dart';
 import '../core/models/session_model.dart';
@@ -12,7 +11,9 @@ import '../core/services/user_marks_service.dart';
 import '../core/services/realtime_database_service.dart';
 import '../core/services/cloud_function_caller.dart';
 import '../core/services/voip_audio_service.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+import '../audio_handler.dart';
 import '../core/config/app_config.dart';
 import '../core/services/listener_activity_service.dart';
 
@@ -267,13 +268,23 @@ class RadioStationViewModel extends ChangeNotifier {
   // ---------- Player & Real-Time Listener Stats ----------
 
   AudioPlayer? _audioPlayer;
-  bool _audioPlayerInitialized = false;
 
   Future<void> _initAudioPlayer() async {
+    // If background AudioService handler is active, listen to its state
+    if (globalAudioHandler != null) {
+      globalAudioHandler!.playbackState.listen((state) {
+        final isActuallyPlaying = state.playing && state.processingState != AudioProcessingState.completed;
+        if (_isPlaying != isActuallyPlaying) {
+          _isPlaying = isActuallyPlaying;
+          notifyListeners();
+        }
+      });
+      return;
+    }
+
     if (_audioPlayer != null) return;
     try {
       _audioPlayer = AudioPlayer();
-      _audioPlayerInitialized = true;
 
       _audioPlayer!.playerStateStream.listen((state) {
         final isActuallyPlaying = state.playing && state.processingState != ProcessingState.completed;
@@ -307,9 +318,6 @@ class RadioStationViewModel extends ChangeNotifier {
   Future<void> startPlayback() async {
     try {
       await _initAudioPlayer();
-      if (_audioPlayer == null) {
-        throw Exception('AudioPlayer failed to initialize');
-      }
       _isPlaying = true;
       _isPlayerDismissed = false;
       _playStartedAt = DateTime.now();
@@ -329,12 +337,23 @@ class RadioStationViewModel extends ChangeNotifier {
 
       notifyListeners();
 
-      final primaryUrl = AppConfig.getStreamUrl(_radioId);
+      final primaryUrl = AppConfig.resolveStreamUrl(_radio?.broadcastLink, radioId: _radioId);
       debugPrint('Connecting to live mixer stream: $primaryUrl');
 
-      await _audioPlayer!.stop();
-      await _audioPlayer!.setUrl(primaryUrl);
-      await _audioPlayer!.play();
+      if (globalAudioHandler != null) {
+        await globalAudioHandler!.playLiveStream(
+          primaryUrl,
+          title: _radio?.name ?? 'Live Radio',
+          artist: _liveSession?.programName ?? 'RadioHub Broadcast',
+        );
+      } else {
+        if (_audioPlayer == null) {
+          throw Exception('AudioPlayer failed to initialize');
+        }
+        await _audioPlayer!.stop();
+        await _audioPlayer!.setUrl(primaryUrl);
+        await _audioPlayer!.play();
+      }
     } catch (e) {
       debugPrint('Failed to start mixer playback: $e');
       _isPlaying = false;
@@ -365,7 +384,11 @@ class RadioStationViewModel extends ChangeNotifier {
       _decrementListenerCount();
       notifyListeners();
       try {
-        _audioPlayer?.pause();
+        if (globalAudioHandler != null) {
+          globalAudioHandler!.pause();
+        } else {
+          _audioPlayer?.pause();
+        }
       } catch (e) {
         debugPrint('Error pausing audio player: $e');
       }
@@ -390,7 +413,11 @@ class RadioStationViewModel extends ChangeNotifier {
     }
     _isPlaying = false;
     try {
-      _audioPlayer?.stop();
+      if (globalAudioHandler != null) {
+        globalAudioHandler!.stop();
+      } else {
+        _audioPlayer?.stop();
+      }
     } catch (e) {
       debugPrint('Error stopping audio player: $e');
     }
@@ -427,12 +454,14 @@ class RadioStationViewModel extends ChangeNotifier {
 
         // Post timeseries point for technician metrics
         final currentCount = (_liveSession?.listenerCount ?? 0) + 1;
-        await _db.collection('listener_analytics').add({
-          'sessionId': liveId,
-          'radioId': _radioId,
-          'count': currentCount,
-          'date': FieldValue.serverTimestamp(),
-        }).catchError((_) {});
+        try {
+          await _db.collection('listener_analytics').add({
+            'sessionId': liveId,
+            'radioId': _radioId,
+            'count': currentCount,
+            'date': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {}
       }
 
       await _db.collection('radios').doc(_radioId).update({
@@ -993,7 +1022,6 @@ class RadioStationViewModel extends ChangeNotifier {
       _audioPlayer?.dispose();
     } catch (_) {}
     _audioPlayer = null;
-    _audioPlayerInitialized = false;
     super.dispose();
   }
 

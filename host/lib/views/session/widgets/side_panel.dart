@@ -43,7 +43,18 @@ class SidePanel extends StatelessWidget {
                   Text('Host: ${s.hostName}',
                       style: const TextStyle(
                           fontSize: 12.5, color: AppColors.textSecondary)),
-                  if (s.guestName != null) ...[
+                  if (s.guests.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    ...s.guests.map((g) {
+                      final name = g['name'] ?? '';
+                      final role = (g['role'] ?? '').isNotEmpty ? ' · ${g['role']}' : '';
+                      return Text(
+                        'Guest: $name$role',
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.textSecondary),
+                      );
+                    }),
+                  ] else if (s.guestName != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       'Guest: ${s.guestName}'

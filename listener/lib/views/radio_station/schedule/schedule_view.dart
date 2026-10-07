@@ -24,19 +24,11 @@ class _State extends State<ScheduleView> {
   final _service = RadioScheduleService();
 
   late DateTime _weekStart;
-  List<SessionModel> _sessions = [];
-  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _weekStart = _monday(DateTime.now());
-    _load();
-  }
-
-  void _load() {
-    // The stream is rebuilt every time the week changes
-    setState(() => _loading = true);
   }
 
   static DateTime _monday(DateTime d) =>

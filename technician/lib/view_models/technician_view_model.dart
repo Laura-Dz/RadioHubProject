@@ -388,6 +388,7 @@ class TechnicianViewModel extends ChangeNotifier {
     required String hostName,
     List<String> coHostIds = const [],
     List<String> coHostNames = const [],
+    List<Map<String, String>> guests = const [],
     String? guestName,
     String? guestRole,
     String? thematic,
@@ -399,10 +400,21 @@ class TechnicianViewModel extends ChangeNotifier {
         hostName: hostName,
         coHostIds: coHostIds,
         coHostNames: coHostNames,
+        guests: guests,
         guestName: guestName,
         guestRole: guestRole,
         thematic: thematic,
       );
+
+  Future<void> updateSessionGuests(String sessionId, List<Map<String, String>> guests) async {
+    final guestName = guests.isNotEmpty ? guests.first['name'] : null;
+    final guestRole = guests.isNotEmpty ? guests.first['role'] : null;
+    await _service.updateSession(sessionId, {
+      'guests': guests,
+      'guestName': guestName,
+      'guestRole': guestRole,
+    });
+  }
 
   Future<String> rediffuseSlot({
     required TimetableSlot slot,

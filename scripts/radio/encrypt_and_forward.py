@@ -26,14 +26,14 @@ if not KEY_FILE.exists():
         KEY_FILE = local_key
 
 DJANGO_API_URL = os.environ.get('DJANGO_API_URL', '')
-RADIO_ID = os.environ.get('RADIO_ID', 'radio_love')
+RADIO_ID = os.environ.get('RADIO_ID', 'radio_1790489454722')
 STATION_API_KEY = os.environ.get('STATION_API_KEY', '')
 
 SHOUTCAST_HOST = os.environ.get('SHOUTCAST_HOST', '127.0.0.1')
 SHOUTCAST_PORT = int(os.environ.get('SHOUTCAST_PORT', 8001))
 SOURCE_PASSWORD = os.environ.get('SHOUTCAST_SOURCE_PASSWORD', 'shoutcast_source_password')
 MOUNT = os.environ.get('SHOUTCAST_MOUNT', '/stream/1')
-ICY_NAME = os.environ.get('ICY_NAME', 'RadioHub Station')
+ICY_NAME = os.environ.get('ICY_NAME', 'Radio Maria Cameroon')
 ICY_GENRE = os.environ.get('ICY_GENRE', 'Various')
 BITRATE = int(os.environ.get('BITRATE', 320))
 

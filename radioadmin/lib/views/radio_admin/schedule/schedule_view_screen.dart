@@ -505,8 +505,20 @@ class _SessionCardState extends State<_SessionCard> {
               ),
               if (s.hostName != null && s.hostName!.isNotEmpty)
                 _detailRow(Icons.mic, 'Host', s.hostName!),
-              if (s.coHostName != null && s.coHostName!.isNotEmpty)
+              if (s.coHostNames.isNotEmpty)
+                _detailRow(Icons.people_outline, 'Co-Hosts', s.coHostNames.join(', '))
+              else if (s.coHostName != null && s.coHostName!.isNotEmpty)
                 _detailRow(Icons.people_outline, 'Co-Host', s.coHostName!),
+              if (s.guests.isNotEmpty)
+                ...s.guests.asMap().entries.map((e) {
+                  final g = e.value;
+                  final name = g['name'] ?? '';
+                  final role = (g['role'] ?? '').isNotEmpty ? ' (${g['role']})' : '';
+                  final label = s.guests.length == 1 ? 'Guest' : 'Guest ${e.key + 1}';
+                  return _detailRow(Icons.person_outline, label, '$name$role');
+                })
+              else if (s.guestName != null && s.guestName!.isNotEmpty)
+                _detailRow(Icons.person_outline, 'Guest', s.guestName!),
               if (s.thematic != null && s.thematic!.isNotEmpty)
                 _detailRow(Icons.topic_outlined, 'Thematic', s.thematic!),
               if (s.description != null && s.description!.isNotEmpty)

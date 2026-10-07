@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/main_layout_view_model.dart';
-import '../../view_models/auth_view_model.dart';
 import 'widgets/custom_app_bar.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 import '../widgets/mini_player_bar.dart';
@@ -50,7 +49,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final authViewModel = context.watch<AuthViewModel>();
     _viewModel = context.watch<MainLayoutViewModel>();
 
     return Scaffold(

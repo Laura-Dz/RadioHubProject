@@ -1,12 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/utils/app_program_image.dart';
 
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/program_model.dart';
-import '../../../core/models/technician/host_model.dart';
 import '../../../core/models/technician/timetable_slot_model.dart';
 import '../../../core/utils/app_file_picker.dart';
 import '../../../core/constants/app_colors.dart';

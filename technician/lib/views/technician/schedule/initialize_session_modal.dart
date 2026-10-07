@@ -19,10 +19,22 @@ class InitializeSessionModal extends StatefulWidget {
 class _InitializeSessionModalState extends State<InitializeSessionModal> {
   Host? _host;
   List<String> _coHostIds = [];
+  final List<Map<String, String>> _guests = [];
   final _guestName = TextEditingController();
   final _guestRole = TextEditingController();
   final _thematic = TextEditingController();
   bool _submitting = false;
+
+  void _addGuest() {
+    final name = _guestName.text.trim();
+    if (name.isEmpty) return;
+    final role = _guestRole.text.trim();
+    setState(() {
+      _guests.add({'name': name, 'role': role});
+      _guestName.clear();
+      _guestRole.clear();
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -168,19 +180,67 @@ class _InitializeSessionModalState extends State<InitializeSessionModal> {
                       ),
                       const SizedBox(height: 16),
 
-                      const Text('Guest (optional)',
+                      const Text('Guests (optional)',
                           style: TextStyle(
                               fontSize: 12.5, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 6),
-                      TextField(
-                        controller: _guestName,
-                        decoration: _dec('Guest name'),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: _guestName,
+                              decoration: _dec('Guest full name'),
+                              onSubmitted: (_) => _addGuest(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: _guestRole,
+                              decoration: _dec('Role (e.g. Expert)'),
+                              onSubmitted: (_) => _addGuest(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary.withOpacity(0.12),
+                              foregroundColor: AppColors.primary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: _addGuest,
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 16),
+                                SizedBox(width: 4),
+                                Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _guestRole,
-                        decoration: _dec('Guest role, e.g. Psychologist'),
-                      ),
+                      if (_guests.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: _guests.map((g) {
+                            final hasRole = (g['role'] ?? '').isNotEmpty;
+                            final display = hasRole ? '${g['name']} (${g['role']})' : g['name']!;
+                            return Chip(
+                              avatar: const Icon(Icons.person, size: 14, color: AppColors.primary),
+                              label: Text(display),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                              onDeleted: () => setState(() => _guests.remove(g)),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -267,6 +327,14 @@ class _InitializeSessionModalState extends State<InitializeSessionModal> {
         if (h.isNotEmpty) coHostNames.add(h.first.name);
       }
 
+      final allGuests = List<Map<String, String>>.from(_guests);
+      if (_guestName.text.trim().isNotEmpty) {
+        allGuests.add({
+          'name': _guestName.text.trim(),
+          'role': _guestRole.text.trim(),
+        });
+      }
+
       await vm.initializeSessionForSlot(
         slot: widget.slot,
         date: widget.date,
@@ -274,12 +342,9 @@ class _InitializeSessionModalState extends State<InitializeSessionModal> {
         hostName: _host!.name,
         coHostIds: _coHostIds,
         coHostNames: coHostNames,
-        guestName: _guestName.text.trim().isEmpty
-            ? null
-            : _guestName.text.trim(),
-        guestRole: _guestRole.text.trim().isEmpty
-            ? null
-            : _guestRole.text.trim(),
+        guests: allGuests,
+        guestName: allGuests.isNotEmpty ? allGuests.first['name'] : null,
+        guestRole: allGuests.isNotEmpty ? allGuests.first['role'] : null,
         thematic:
             _thematic.text.trim().isEmpty ? null : _thematic.text.trim(),
       );

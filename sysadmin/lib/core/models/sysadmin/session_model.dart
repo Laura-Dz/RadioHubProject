@@ -10,6 +10,8 @@ class SessionModel {
   final String hostId;
   final String hostName;
   final String? guestName;
+  final String? guestRole;
+  final List<Map<String, String>> guests;
   final DateTime date;
   final DateTime? startTime;
   final DateTime? endTime;
@@ -29,6 +31,8 @@ class SessionModel {
     required this.hostId,
     required this.hostName,
     this.guestName,
+    this.guestRole,
+    this.guests = const [],
     required this.date,
     this.startTime,
     this.endTime,
@@ -55,6 +59,23 @@ class SessionModel {
       return null;
     }
 
+    List<Map<String, String>> parsedGuests = [];
+    if (data['guests'] is List) {
+      for (final item in (data['guests'] as List)) {
+        if (item is Map) {
+          parsedGuests.add({
+            'name': (item['name'] ?? '').toString(),
+            'role': (item['role'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (data['guestName'] != null && data['guestName'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': data['guestName'].toString(),
+        'role': (data['guestRole'] ?? '').toString(),
+      });
+    }
+
     return SessionModel(
       id: id,
       programId: data['programId'] ?? '',
@@ -64,7 +85,9 @@ class SessionModel {
       thematic: data['thematic'],
       hostId: data['hostId'] ?? '',
       hostName: data['hostName'] ?? 'Unknown Host',
-      guestName: data['guestName'],
+      guestName: data['guestName']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
+      guestRole: data['guestRole']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['role'] : null),
+      guests: parsedGuests,
       date: parseDate(data['date']),
       startTime: parseNullableDate(data['startTime']),
       endTime: parseNullableDate(data['endTime']),
@@ -85,7 +108,9 @@ class SessionModel {
       'thematic': thematic,
       'hostId': hostId,
       'hostName': hostName,
-      'guestName': guestName,
+      'guestName': guestName ?? (guests.isNotEmpty ? guests.first['name'] : null),
+      'guestRole': guestRole ?? (guests.isNotEmpty ? guests.first['role'] : null),
+      'guests': guests,
       'date': Timestamp.fromDate(date),
       'startTime': startTime != null ? Timestamp.fromDate(startTime!) : null,
       'endTime': endTime != null ? Timestamp.fromDate(endTime!) : null,
@@ -108,6 +133,8 @@ class SessionModel {
       'hostId': hostId,
       'hostName': hostName,
       'guestName': guestName,
+      'guestRole': guestRole,
+      'guests': guests,
       'date': date,
       'startTime': startTime,
       'endTime': endTime,

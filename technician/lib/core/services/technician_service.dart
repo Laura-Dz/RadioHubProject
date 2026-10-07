@@ -143,6 +143,7 @@ class TechnicianService {
     required String hostName,
     List<String> coHostIds = const [],
     List<String> coHostNames = const [],
+    List<Map<String, String>> guests = const [],
     String? guestName,
     String? guestRole,
     String? thematic,
@@ -152,6 +153,14 @@ class TechnicianService {
 
     try {
       final ref = _db.collection('sessions').doc();
+      final effectiveGuests = guests.isNotEmpty
+          ? guests
+          : (guestName != null && guestName.isNotEmpty
+              ? [{'name': guestName, 'role': guestRole ?? ''}]
+              : <Map<String, String>>[]);
+      final effectiveGuestName = guestName ?? (effectiveGuests.isNotEmpty ? effectiveGuests.first['name'] : null);
+      final effectiveGuestRole = guestRole ?? (effectiveGuests.isNotEmpty ? effectiveGuests.first['role'] : null);
+
       await ref.set({
         'radioId': slot.radioId,
         'timetableSlotId': slot.id,
@@ -161,8 +170,9 @@ class TechnicianService {
         'hostName': hostName,
         'coHostIds': coHostIds,
         'coHostNames': coHostNames,
-        'guestName': guestName,
-        'guestRole': guestRole,
+        'guests': effectiveGuests,
+        'guestName': effectiveGuestName,
+        'guestRole': effectiveGuestRole,
         'thematic': thematic,
         'scheduledStart': Timestamp.fromDate(start),
         'scheduledEnd': Timestamp.fromDate(end),

@@ -8,6 +8,7 @@ import 'widgets/announcement_card.dart';
 import 'widgets/validate_modal.dart';
 import 'widgets/reject_modal.dart';
 import 'tariffs_management_screen.dart';
+import '../../../core/utils/browser_open.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
   const AnnouncementsScreen({Key? key}) : super(key: key);
@@ -193,13 +194,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         : null,
                     onPrint: (a.isScheduled || a.status == AnnouncementRequestStatus.validated)
                         ? () async {
-                            final url = await context.read<RadioAdminViewModel>().markAsPrinted(
-                                  a.id,
-                                  'https://storage.radiohub.com/announcements/${a.id}.pdf',
-                                );
+                            final url = await context.read<RadioAdminViewModel>().generateAnnouncementPDF(a.id);
+                            openInBrowserTab(url);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('PDF generated and ready to print'), backgroundColor: AppColors.success),
+                                const SnackBar(
+                                  content: Text('Document officiel généré et prêt pour impression'),
+                                  backgroundColor: AppColors.success,
+                                ),
                               );
                             }
                           }

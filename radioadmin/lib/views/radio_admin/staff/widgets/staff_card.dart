@@ -88,7 +88,7 @@ class StaffCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('${s.email} · ${s.phone ?? "No phone"}',
+                Text('${s.email} · ${s.phone.isNotEmpty ? s.phone : "No phone"}',
                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 if (isSusp && s.suspendReason != null) ...[
                   const SizedBox(height: 4),

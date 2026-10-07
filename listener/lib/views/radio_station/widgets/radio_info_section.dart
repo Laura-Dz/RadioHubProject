@@ -129,10 +129,10 @@ class _RadioInfoSectionState extends State<RadioInfoSection> {
                 Text('Founded ${radio.foundedDate!.year}', style: TextStyle(fontSize: 13, color: Colors.grey)),
                 const SizedBox(width: 12),
               ],
-              if (radio.location != null) ...[
+              if (radio.location.isNotEmpty) ...[
                 Icon(Icons.location_on, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text(radio.location!, style: TextStyle(fontSize: 13, color: Colors.grey)),
+                Text(radio.location, style: TextStyle(fontSize: 13, color: Colors.grey)),
               ],
             ],
           ),

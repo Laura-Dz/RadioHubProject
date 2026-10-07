@@ -36,7 +36,7 @@ class RadioService {
           .limit(1)
           .get();
       if (snapshot.docs.isEmpty) return null;
-      return AnnouncementPricing.fromFirestore(snapshot.docs.first.data() as Map<String, dynamic>, snapshot.docs.first.id);
+      return AnnouncementPricing.fromFirestore(snapshot.docs.first.data(), snapshot.docs.first.id);
     } catch (e) {
       print('Error getting pricing: $e');
       return null;

@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import '../core/enums/navigation_tabs.dart';
-import '../core/constants/app_constants.dart';
 import '../core/services/shared_preferences_service.dart';
 import '../core/services/firestore_service.dart';
 import 'base_view_model.dart';

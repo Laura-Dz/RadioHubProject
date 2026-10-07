@@ -1,12 +1,15 @@
 import os
 import secrets
 import requests
+from datetime import datetime, timedelta
 from pathlib import Path
-from django.http import StreamingHttpResponse, HttpResponse
+from django.http import StreamingHttpResponse, HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.core.cache import cache
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets, permissions
@@ -14,6 +17,11 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter, OrderingFilter
+
+try:
+    from firebase_admin_config import get_firestore_db
+except Exception:
+    get_firestore_db = None
 
 from listener_api.models import LiveStreamConfig, Episode, Show, Announcement, StationStreamKey
 from listener_api.serializers import (
@@ -145,6 +153,10 @@ class SuggestAnnouncementTextView(APIView):
             "improved_text": improved_text,
             "word_count": word_count,
             "estimated_duration_seconds": est_duration,
+            "originalText": original_text,
+            "suggestedText": improved_text,
+            "wordCount": word_count,
+            "estimatedDurationSeconds": est_duration,
         }, status=status.HTTP_200_OK)
 
 
@@ -152,9 +164,9 @@ class CalculateAnnouncementPriceView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        word_count = int(request.data.get("wordCount", 20))
-        duration_sec = int(request.data.get("durationSeconds", 30))
-        diffusion_count = int(request.data.get("diffusionCount", 1))
+        word_count = int(request.data.get("wordCount", request.data.get("word_count", 20)))
+        duration_sec = int(request.data.get("durationSeconds", request.data.get("duration_seconds", 30)))
+        diffusion_count = int(request.data.get("diffusionCount", request.data.get("diffusion_count", 1)))
         
         rate_per_word = 5.0
         rate_per_sec = 50.0
@@ -163,13 +175,16 @@ class CalculateAnnouncementPriceView(APIView):
         if base_tariff < 1000.0:
             base_tariff = 1000.0
             
-        transfer_fee = base_tariff * 0.04
-        final_price = base_tariff + transfer_fee
+        transfer_fee = round(base_tariff * 0.04, 2)
+        final_price = round(base_tariff + transfer_fee, 2)
 
         return Response({
             "base_tariff": base_tariff,
             "transfer_fee": transfer_fee,
             "final_price": final_price,
+            "baseTariff": base_tariff,
+            "transferFee": transfer_fee,
+            "finalPrice": final_price,
             "currency": "XAF",
             "fee_percentage": 4.0,
         }, status=status.HTTP_200_OK)
@@ -212,6 +227,18 @@ def _get_station_aes_key(radio_id: str) -> bytes | None:
     return _load_aes_key()
 
 
+def _check_ip_allowed(request) -> bool:
+    """Verifies client IP against ALLOWED_STUDIO_IPS if configured."""
+    allowed_ips_setting = getattr(settings, "ALLOWED_STUDIO_IPS", None) or os.environ.get("ALLOWED_STUDIO_IPS", "")
+    if not allowed_ips_setting or allowed_ips_setting.strip() == "*":
+        return True
+    allowed_ips = [ip.strip() for ip in allowed_ips_setting.split(",") if ip.strip()]
+    allowed_ips.extend(["127.0.0.1", "::1", "localhost", "testserver"])
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    client_ip = x_forwarded_for.split(",")[0].strip() if x_forwarded_for else request.META.get("REMOTE_ADDR")
+    return client_ip in allowed_ips
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def get_or_rotate_stream_key(request, radio_id):
@@ -219,13 +246,22 @@ def get_or_rotate_stream_key(request, radio_id):
     Secure endpoint for studio encoders (encrypt_and_forward.py) to dynamically
     fetch their station's 16-byte AES-128 stream encryption key over HTTPS.
     
-    Authentication via:
-      Header: X-Station-Key: <api_key>
-      OR Header: Authorization: Bearer <api_key>
-    
-    Optional rotation:
-      POST with ?rotate=true or body {"rotate": true} rotates the AES key.
+    Hardened with:
+      - Rate limiting: max 1 request per 10 seconds per station
+      - IP allowlisting: verifies studio encoder IP
+      - Authentication via header: X-Station-Key or Authorization: Bearer
     """
+    # 1. IP Allowlist Verification
+    if not _check_ip_allowed(request):
+        return HttpResponse("Forbidden: Studio IP not authorized", status=403)
+
+    # 2. Rate Limiting (1 request per 10 seconds per station)
+    rate_limit_key = f"ratelimit_stream_key_{radio_id}"
+    if cache.get(rate_limit_key):
+        return HttpResponse("Rate limit exceeded: max 1 request per 10 seconds per station", status=429)
+    cache.set(rate_limit_key, True, timeout=10)
+
+    # 3. Authentication
     auth_key = request.headers.get("X-Station-Key")
     if not auth_key:
         auth_header = request.headers.get("Authorization", "")
@@ -407,6 +443,490 @@ def stream_radio(request, radio_id):
     response["Icy-Name"] = f"RadioHub - {radio_id}"
     response["Icy-Genre"] = "Live Radio"
     return response
+
+
+# ==============================================================================
+# OFFICIAL STAMPED ANNOUNCEMENT PRINT VIEW (CONTINGENCY / BACKUP PRINTING)
+# ==============================================================================
+
+@never_cache
+def announcement_print_view(request, announcement_id: str):
+    """
+    Renders an official stamped broadcast order sheet formatted for A4 printing.
+    Includes station header, verification QR code, official rubber seal, scheduled slots,
+    and broadcast teleprompter copy.
+    """
+    ann_data = {}
+    radio_data = {}
+    
+    if get_firestore_db:
+        try:
+            db = get_firestore_db()
+            if db:
+                doc = db.collection("announcements").doc(announcement_id).get()
+                if doc.exists:
+                    ann_data = doc.to_dict()
+                    radio_id = ann_data.get("radioId")
+                    if radio_id:
+                        r_doc = db.collection("radios").doc(radio_id).get()
+                        if r_doc.exists:
+                            radio_data = r_doc.to_dict()
+        except Exception:
+            pass
+
+    # Extract fields with safe fallbacks
+    radio_name = radio_data.get("name") or ann_data.get("radioName") or "RadioHub Station"
+    radio_freq = radio_data.get("frequency") or "FM Stereo"
+    category = ann_data.get("category") or "Communiqué Général"
+    listener_name = ann_data.get("listenerName") or "Auditeur RadioHub"
+    listener_email = ann_data.get("listenerEmail") or "Non spécifié"
+    final_text = ann_data.get("finalText") or ann_data.get("originalMessage") or "Texte de l'annonce en cours de traitement."
+    word_count = ann_data.get("wordCount") or len(final_text.split())
+    duration_sec = ann_data.get("estimatedDurationSeconds") or max(15, word_count // 2)
+    diffusion_count = ann_data.get("diffusionCount") or 1
+    diffusion_period = ann_data.get("diffusionPeriodDays") or 7
+    final_price = ann_data.get("finalPrice") or ann_data.get("baseTariff") or 0.0
+    currency = ann_data.get("currency") or "XAF"
+    payment_method = ann_data.get("paymentMethod") or "Mobile Money (MoMo)"
+    status_str = (ann_data.get("status") or "VALIDATED").upper()
+    validated_by = ann_data.get("validatedBy") or "Direction des Programmes"
+    
+    val_at = ann_data.get("validatedAt")
+    if hasattr(val_at, "strftime"):
+        validated_at_str = val_at.strftime("%d/%m/%Y à %H:%M")
+    else:
+        validated_at_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=4&data=https://radiohub.cm/verify/announcement/{announcement_id}"
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Ordre de Diffusion - {announcement_id}</title>
+    <style>
+        @page {{
+            size: A4;
+            margin: 15mm;
+        }}
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #1a1a2e;
+            background: #f4f6fa;
+            padding: 24px;
+        }}
+        .no-print {{
+            max-width: 820px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 14px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }}
+        .btn {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #564ECC;
+            color: #ffffff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }}
+        .btn-secondary {{
+            background: #e5e7eb;
+            color: #374151;
+        }}
+        .sheet {{
+            max-width: 820px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 2px solid #1a1a2e;
+            padding: 32px;
+            border-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            position: relative;
+        }}
+        .header-republic {{
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+            color: #4b5563;
+        }}
+        .station-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #564ECC;
+        }}
+        .station-title {{
+            font-size: 24px;
+            font-weight: 900;
+            color: #564ECC;
+        }}
+        .station-meta {{
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 4px;
+        }}
+        .doc-title-badge {{
+            text-align: center;
+            background: #1a1a2e;
+            color: #ffffff;
+            padding: 8px 16px;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+        }}
+        .grid-info {{
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }}
+        .table-info {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }}
+        .table-info td {{
+            padding: 6px 10px;
+            border-bottom: 1px solid #f3f4f6;
+        }}
+        .table-info td.label {{
+            font-weight: 700;
+            color: #4b5563;
+            width: 35%;
+        }}
+        .table-info td.val {{
+            font-weight: 600;
+            color: #111827;
+        }}
+        .stamp-box {{
+            border: 2px dashed #dc2626;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #fef2f2;
+        }}
+        .stamp-seal {{
+            color: #b91c1c;
+            font-size: 14px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 3px solid #b91c1c;
+            padding: 6px 14px;
+            border-radius: 6px;
+            transform: rotate(-4deg);
+            margin-bottom: 8px;
+        }}
+        .script-container {{
+            background: #f8fafc;
+            border-left: 5px solid #564ECC;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 28px;
+        }}
+        .script-label {{
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #564ECC;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }}
+        .script-body {{
+            font-size: 16px;
+            line-height: 1.6;
+            color: #1e293b;
+            font-weight: 500;
+            white-space: pre-wrap;
+        }}
+        .footer-signatures {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 36px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }}
+        .sig-block {{
+            text-align: center;
+            width: 220px;
+        }}
+        .sig-line {{
+            height: 48px;
+            border-bottom: 1.5px solid #1a1a2e;
+            margin-bottom: 6px;
+        }}
+        .sig-label {{
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+        }}
+        .qr-section {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .qr-section img {{
+            width: 90px;
+            height: 90px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }}
+        .qr-meta {{
+            font-size: 10.5px;
+            color: #6b7280;
+            line-height: 1.35;
+        }}
+
+        @media print {{
+            body {{
+                background: #ffffff;
+                padding: 0;
+            }}
+            .no-print {{
+                display: none !important;
+            }}
+            .sheet {{
+                border: none;
+                box-shadow: none;
+                padding: 0;
+                width: 100%;
+                max-width: 100%;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <div>
+            <strong>Fiche Officielle de Diffusion d'Annonce</strong>
+            <span style="color:#6b7280; font-size:12px; margin-left:8px;">(Failsafe & Archival Print)</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" onclick="window.print()">🖨️ Imprimer la fiche (Print)</button>
+            <button class="btn btn-secondary" onclick="window.close()">Fermer</button>
+        </div>
+    </div>
+
+    <div class="sheet">
+        <div class="header-republic">
+            <div>RÉPUBLIQUE DU CAMEROUN<br><span style="font-weight:normal; font-size:9.5px;">Paix – Travail – Patrie</span></div>
+            <div style="text-align:right;">REPUBLIC OF CAMEROON<br><span style="font-weight:normal; font-size:9.5px;">Peace – Work – Fatherland</span></div>
+        </div>
+
+        <div class="station-header">
+            <div>
+                <div class="station-title">{radio_name}</div>
+                <div class="station-meta">Fréquence : {radio_freq} · Suite de Diffusion RadioHub</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:12px; font-weight:bold; color:#4b5563;">RÉFÉRENCE ANNONCE</div>
+                <div style="font-size:13px; font-weight:800; color:#1a1a2e; font-family:monospace;">{announcement_id}</div>
+            </div>
+        </div>
+
+        <div class="doc-title-badge">
+            ORDRE OFFICIEL DE DIFFUSION EN ONDE (BROADCAST ORDER)
+        </div>
+
+        <div class="grid-info">
+            <table class="table-info">
+                <tr><td class="label">Catégorie :</td><td class="val">{category}</td></tr>
+                <tr><td class="label">Demandeur :</td><td class="val">{listener_name} ({listener_email})</td></tr>
+                <tr><td class="label">Diffusions :</td><td class="val">{diffusion_count} passage(s) sur {diffusion_period} jours</td></tr>
+                <tr><td class="label">Durée estimée :</td><td class="val">{duration_sec} sec · {word_count} mots</td></tr>
+                <tr><td class="label">Montant Réglé :</td><td class="val" style="color:#059669; font-weight:bold;">{final_price:,.0f} {currency} ({payment_method})</td></tr>
+                <tr><td class="label">Validation :</td><td class="val">{validated_at_str} par {validated_by}</td></tr>
+            </table>
+
+            <div class="stamp-box">
+                <div class="stamp-seal">BON POUR DIFFUSION</div>
+                <div style="font-size:11px; font-weight:bold; color:#991b1b;">ESCROW VALIDÉ & LIBÉRÉ</div>
+                <div style="font-size:10px; color:#6b7280; margin-top:4px;">Visa Direction des Programmes</div>
+            </div>
+        </div>
+
+        <div class="script-container">
+            <div class="script-label">TEXTE À LIRE À L'ANTENNE (SCRIPT PROMPTER) :</div>
+            <div class="script-body">{final_text}</div>
+        </div>
+
+        <div class="footer-signatures">
+            <div class="qr-section">
+                <img src="{qr_url}" alt="Verification QR Code">
+                <div class="qr-meta">
+                    <strong>Vérification Numérique</strong><br>
+                    Scannez pour valider le statut en direct sur RadioHub.<br>
+                    ID: {announcement_id[:16]}...
+                </div>
+            </div>
+
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Signature du Présentateur / Opérateur</div>
+            </div>
+
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Visa & Cachet Station</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+    return HttpResponse(html_content, content_type="text/html; charset=utf-8")
+
+
+# ==============================================================================
+# 72-HOUR LAPSED SUBSCRIPTION ESCROW REFUND ENGINE
+# ==============================================================================
+
+def process_lapsed_subscriptions_escrow() -> dict:
+    """
+    Scans Firestore for radio stations whose subscription expired past the 72-hour grace period.
+    Automatically refunds pending 'inEscrow' announcements back to listeners.
+    """
+    if not get_firestore_db:
+        return {"status": "error", "message": "Firestore DB client not available"}
+
+    db = get_firestore_db()
+    if not db:
+        return {"status": "error", "message": "Firestore connection could not be established"}
+
+    now = datetime.utcnow()
+    grace_cutoff = now - timedelta(hours=72)
+    refunded_count = 0
+    radios_affected = []
+
+    try:
+        radios_stream = db.collection("radios").stream(timeout=5)
+        for r_doc in radios_stream:
+            r_data = r_doc.to_dict()
+            radio_id = r_doc.id
+            sub_status = (r_data.get("subscriptionStatus") or "active").lower()
+            expires_at = r_data.get("subscriptionExpiresAt")
+
+            is_lapsed = False
+            if sub_status in ("suspended", "expired"):
+                is_lapsed = True
+            elif expires_at:
+                exp_dt = None
+                if hasattr(expires_at, "to_datetime"):
+                    exp_dt = expires_at.to_datetime().replace(tzinfo=None)
+                elif isinstance(expires_at, datetime):
+                    exp_dt = expires_at.replace(tzinfo=None)
+                if exp_dt and exp_dt < grace_cutoff:
+                    is_lapsed = True
+
+            if not is_lapsed:
+                continue
+
+            ann_query = db.collection("announcements").where("radioId", "==", radio_id).where("status", "==", "inEscrow")
+            announcements = list(ann_query.stream(timeout=5))
+
+            if announcements:
+                radios_affected.append(radio_id)
+                for a_doc in announcements:
+                    a_data = a_doc.to_dict()
+                    a_id = a_doc.id
+                    price = float(a_data.get("finalPrice", 0.0))
+                    currency = a_data.get("currency", "XAF")
+                    listener_id = a_data.get("listenerId", "")
+
+                    # 1. Transition status to expired_refunded
+                    a_doc.reference.update({
+                        "status": "expired_refunded",
+                        "refundedAt": now,
+                        "refundReason": "Station subscription expired past 72-hour grace period",
+                    })
+
+                    # 2. Add refund ledger record in transactions
+                    db.collection("transactions").add({
+                        "radioId": radio_id,
+                        "announcementId": a_id,
+                        "listenerId": listener_id,
+                        "type": "announcement_refund",
+                        "amount": price,
+                        "currency": currency,
+                        "status": "refunded",
+                        "reason": "Station subscription expired past 72-hour grace period",
+                        "createdAt": now,
+                    })
+
+                    # 3. Notify listener
+                    if listener_id:
+                        db.collection("notifications").add({
+                            "userId": listener_id,
+                            "type": "announcement_refunded",
+                            "title": "⚠️ Remboursement d'annonce (Station expirée)",
+                            "body": f"Votre annonce n'a pu être diffusée car l'abonnement de la station a expiré. Le montant de {price:,.0f} {currency} a été remboursé.",
+                            "data": {
+                                "announcementId": a_id,
+                                "radioId": radio_id,
+                                "refundedAt": now.isoformat(),
+                            },
+                            "isRead": False,
+                            "createdAt": now,
+                        })
+
+                    refunded_count += 1
+
+        return {
+            "status": "success",
+            "refunded_announcements": refunded_count,
+            "radios_affected": len(radios_affected),
+            "processed_at": now.isoformat(),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
+def process_lapsed_escrow_view(request):
+    """
+    Internal API endpoint for automated cron / maintenance workers
+    to trigger the 72-hour grace period lapsed escrow refund engine.
+    """
+    cron_key = os.environ.get("CRON_SECRET_KEY")
+    req_key = request.headers.get("X-Cron-Key") or request.GET.get("key")
+    if cron_key and req_key != cron_key:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    result = process_lapsed_subscriptions_escrow()
+    return JsonResponse(result)
 
 
 

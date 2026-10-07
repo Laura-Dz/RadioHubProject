@@ -127,7 +127,7 @@ class HomeViewModel extends BaseViewModel {
           .get();
       final list = snapshot.docs
           .where((doc) => (doc.data()['isActive'] ?? true) != false)
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
           .toList();
       list.sort((a, b) {
         if (a.startTime == null) return 1;
@@ -155,7 +155,7 @@ class HomeViewModel extends BaseViewModel {
       }
       final list = snapshot.docs
           .where((doc) => (doc.data()['isActive'] ?? true) != false)
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
           .toList();
       list.sort((a, b) => (b.followerCount ?? 0).compareTo(a.followerCount ?? 0));
       _channels = list.take(10).toList();
@@ -173,7 +173,7 @@ class HomeViewModel extends BaseViewModel {
           .get();
       final list = snapshot.docs
           .where((doc) => (doc.data()['isActive'] ?? true) != false)
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
           .toList();
       list.sort((a, b) => b.rating.compareTo(a.rating));
       _recommendedShows = list.take(10).toList();
@@ -191,7 +191,7 @@ class HomeViewModel extends BaseViewModel {
           .get();
       final list = snapshot.docs
           .where((doc) => (doc.data()['isActive'] ?? true) != false)
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
           .toList();
       list.sort((a, b) => b.listenerCount.compareTo(a.listenerCount));
       _trendingShows = list.take(10).toList();
@@ -209,7 +209,7 @@ class HomeViewModel extends BaseViewModel {
           .get();
       final list = snapshot.docs
           .where((doc) => (doc.data()['isActive'] ?? true) != false)
-          .map((doc) => ShowModel.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ShowModel.fromFirestore(doc.data(), doc.id))
           .toList();
       list.sort((a, b) {
         final aDate = a.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);

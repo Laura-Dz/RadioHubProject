@@ -20,6 +20,10 @@ urlpatterns = [
     path("stream/<str:radio_id>", views.stream_radio, name="stream-radio-noslash"),
     path("internal/stream-key/<str:radio_id>/", views.get_or_rotate_stream_key, name="internal-stream-key"),
     path("internal/stream-key/<str:radio_id>", views.get_or_rotate_stream_key, name="internal-stream-key-noslash"),
+    path("announcement/<str:announcement_id>/print/", views.announcement_print_view, name="announcement-print"),
+    path("announcement/<str:announcement_id>/print", views.announcement_print_view, name="announcement-print-noslash"),
+    path("internal/escrow/process-lapsed/", views.process_lapsed_escrow_view, name="internal-process-lapsed-escrow"),
+    path("internal/escrow/process-lapsed", views.process_lapsed_escrow_view, name="internal-process-lapsed-escrow-noslash"),
 ]
 
 

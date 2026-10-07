@@ -452,62 +452,6 @@ class _RadioDetailScreenState extends State<RadioDetailScreen> {
       ),
     );
   }
-
-  Widget _buildPersonRow({
-    required String name,
-    required String subtitle,
-    required String status,
-    required String stat,
-    required bool isOnline,
-  }) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: AppColors.primary.withOpacity(0.2),
-          child: Text(
-            name[0],
-            style: const TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: isOnline ? AppColors.success.withOpacity(0.15) : AppColors.warning.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            isOnline ? '🟢 $status' : '🟡 $status',
-            style: TextStyle(
-              color: isOnline ? AppColors.success : AppColors.warning,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(
-          flex: 2,
-          child: Text(
-            stat,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildChartBar(String label, int value, int maxVal, {bool isHighlight = false}) {
     final heightRatio = (value / maxVal).clamp(0.1, 1.0);
 

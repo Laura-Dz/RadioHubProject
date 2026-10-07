@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/session_model.dart';
-import '../../../core/models/technician/timetable_slot_model.dart';
 import '../../../core/services/network_time_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../schedule/forced_session_init_modal.dart';

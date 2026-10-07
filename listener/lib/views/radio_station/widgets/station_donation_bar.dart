@@ -102,7 +102,7 @@ class StationDonationBar extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     const Text(
-                      'Listener funded • Help keep independent broadcasts on air',
+                      'Listener funded • MoMo (DigiPay) & Bank Transfer accepted',
                       style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textSecondary,

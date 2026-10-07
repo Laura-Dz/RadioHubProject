@@ -1,8 +1,19 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
+AudioPlayerHandler? globalAudioHandler;
+
 class AudioPlayerHandler extends BaseAudioHandler {
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player = AudioPlayer(
+    audioLoadConfiguration: const AudioLoadConfiguration(
+      androidLoadControl: AndroidLoadControl(
+        minBufferDuration: Duration(seconds: 4),
+        maxBufferDuration: Duration(seconds: 15),
+        bufferForPlaybackDuration: Duration(milliseconds: 1500),
+        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 3),
+      ),
+    ),
+  );
   final ConcatenatingAudioSource _playlist = ConcatenatingAudioSource(children: []);
 
   AudioPlayerHandler() {
@@ -80,26 +91,10 @@ class AudioPlayerHandler extends BaseAudioHandler {
   List<MediaControl> _buildControls() {
     final playing = playbackState.valueOrNull?.playing ?? false;
     return [
-      MediaControl(
-        androidIcon: 'drawable/ic_skip_previous',
-        label: 'Previous',
-        action: MediaAction.skipToPrevious,
-      ),
-      MediaControl(
-        androidIcon: playing ? 'drawable/ic_pause' : 'drawable/ic_play',
-        label: playing ? 'Pause' : 'Play',
-        action: playing ? MediaAction.pause : MediaAction.play,
-      ),
-      MediaControl(
-        androidIcon: 'drawable/ic_skip_next',
-        label: 'Next',
-        action: MediaAction.skipToNext,
-      ),
-      MediaControl(
-        androidIcon: 'drawable/ic_stop',
-        label: 'Stop',
-        action: MediaAction.stop,
-      ),
+      MediaControl.skipToPrevious,
+      if (playing) MediaControl.pause else MediaControl.play,
+      MediaControl.skipToNext,
+      MediaControl.stop,
     ];
   }
 
@@ -182,23 +177,28 @@ class AudioPlayerHandler extends BaseAudioHandler {
     await _player.play();
   }
 
+  @override
   Future<void> pause() async {
     await _player.pause();
   }
 
+  @override
   Future<void> play() async {
     await _player.play();
   }
 
+  @override
   Future<void> stop() async {
     await _player.stop();
     await _playlist.clear();
   }
 
+  @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
   }
 
+  @override
   Future<void> setSpeed(double speed) async {
     await _player.setSpeed(speed);
   }

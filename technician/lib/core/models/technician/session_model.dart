@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/network_time_service.dart';
 import '../../utils/firestore_parsers.dart';
@@ -327,4 +328,25 @@ class Session {
       !isRediffusion && status == SessionStatus.onAir;
 
   bool get showsRediffusionIndicator => isRediffusion;
+
+  String get startTime =>
+      '${scheduledStart.hour.toString().padLeft(2, '0')}:${scheduledStart.minute.toString().padLeft(2, '0')}';
+
+  String get endTime =>
+      '${scheduledEnd.hour.toString().padLeft(2, '0')}:${scheduledEnd.minute.toString().padLeft(2, '0')}';
+
+  String get timeRange => '$startTime - $endTime';
+
+  Color get statusColor {
+    switch (status) {
+      case SessionStatus.onAir:
+        return const Color(0xFFFF4757);
+      case SessionStatus.scheduled:
+        return const Color(0xFF2ED573);
+      case SessionStatus.ended:
+        return const Color(0xFF6E6E8A);
+      case SessionStatus.cancelled:
+        return const Color(0xFFFFA502);
+    }
+  }
 }

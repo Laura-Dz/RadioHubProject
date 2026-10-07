@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/firestore_parsers.dart';
 import '../../services/storage_service.dart';
 
@@ -52,4 +53,19 @@ class Host {
         createdAt: FSParsers.toDate(d['createdAt']),
         lastActive: FSParsers.toDate(d['lastActive']),
       );
+
+  Map<String, dynamic> toFirestore() => {
+        'id': id,
+        'name': name,
+        'displayName': name,
+        'email': email,
+        'phone': phone,
+        'bio': bio,
+        'photoUrl': photoUrl,
+        'radioId': radioId,
+        'status': status,
+        'programIds': programIds,
+        'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+        'lastActive': lastActive != null ? Timestamp.fromDate(lastActive!) : null,
+      };
 }

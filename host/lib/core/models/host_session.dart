@@ -7,6 +7,7 @@ class HostSession {
   final String hostName;
   final String? guestName;
   final String? guestRole;
+  final List<Map<String, String>> guests;
   final List<String> coHostNames;
   final String? thematic;
   final DateTime scheduledStart;
@@ -27,6 +28,7 @@ class HostSession {
     required this.hostName,
     this.guestName,
     this.guestRole,
+    this.guests = const [],
     this.coHostNames = const [],
     this.thematic,
     required this.scheduledStart,
@@ -42,13 +44,31 @@ class HostSession {
   });
 
   factory HostSession.fromFirestore(Map<String, dynamic> d, String id) {
+    final List<Map<String, String>> parsedGuests = [];
+    if (d['guests'] is List) {
+      for (final item in (d['guests'] as List)) {
+        if (item is Map) {
+          parsedGuests.add({
+            'name': (item['name'] ?? '').toString(),
+            'role': (item['role'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (d['guestName'] != null && d['guestName'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': d['guestName'].toString(),
+        'role': (d['guestRole'] ?? '').toString(),
+      });
+    }
+
     return HostSession(
       id: id,
       radioId: (d['radioId'] ?? '').toString(),
       programName: (d['programName'] ?? '').toString(),
       hostName: (d['hostName'] ?? '').toString(),
-      guestName: d['guestName']?.toString(),
-      guestRole: d['guestRole']?.toString(),
+      guestName: d['guestName']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
+      guestRole: d['guestRole']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['role'] : null),
+      guests: parsedGuests,
       coHostNames: List<String>.from(d['coHostNames'] ?? []),
       thematic: d['thematic']?.toString(),
       scheduledStart: (d['scheduledStart'] as Timestamp?)?.toDate().toLocal() ??

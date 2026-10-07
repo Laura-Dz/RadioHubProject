@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -663,7 +662,7 @@ class _RadioPageEditorScreenState extends State<RadioPageEditorScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     (profile?.isNonProfit ?? false)
-                                        ? 'Eligible for listener donations via DigiPay on your station stream page.'
+                                        ? 'Eligible for listener donations via DigiPay & Bank Transfer on your station stream page.'
                                         : 'Standard commercial broadcasting status. Managed by platform SysAdmin.',
                                     style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                                   ),

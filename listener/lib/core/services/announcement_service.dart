@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import 'cloud_function_caller.dart';
 import 'announcement_ai_service.dart';
 import '../models/announcement_request.dart';

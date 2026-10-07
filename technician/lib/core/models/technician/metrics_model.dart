@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class RadioMetrics {
   // Audimat
   final int totalListeners;
@@ -126,13 +128,18 @@ class LiveMetrics {
   final int waitingCalls;
   final int acceptedCalls;
   final int rejectedCalls;
+  final double avgListenDurationSeconds;
+  final Map<String, int> listenersByRegion;
+  final DateTime? updatedAt;
 
   LiveMetrics({
     this.sessionId = '',
     this.currentListeners = 0,
     this.peakListeners = 0,
-    this.comments = 0,
-    this.calls = 0,
+    int? comments,
+    int? totalComments,
+    int? calls,
+    int? totalCalls,
     this.likes = 0,
     this.shares = 0,
     DateTime? since,
@@ -140,7 +147,12 @@ class LiveMetrics {
     this.waitingCalls = 0,
     this.acceptedCalls = 0,
     this.rejectedCalls = 0,
-  }) : since = since ?? DateTime.fromMillisecondsSinceEpoch(0);
+    this.avgListenDurationSeconds = 0.0,
+    this.listenersByRegion = const {},
+    this.updatedAt,
+  })  : comments = comments ?? totalComments ?? 0,
+        calls = calls ?? totalCalls ?? 0,
+        since = since ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   int get totalInteractions => comments + calls + likes + shares;
   double get interactionsPerListener =>
@@ -148,4 +160,21 @@ class LiveMetrics {
 
   int get totalComments => comments;
   int get totalCalls => calls;
+
+  Map<String, dynamic> toFirestore() => {
+        'sessionId': sessionId,
+        'currentListeners': currentListeners,
+        'peakListeners': peakListeners,
+        'comments': comments,
+        'calls': calls,
+        'likes': likes,
+        'shares': shares,
+        'waitingCalls': waitingCalls,
+        'acceptedCalls': acceptedCalls,
+        'rejectedCalls': rejectedCalls,
+        'avgListenDurationSeconds': avgListenDurationSeconds,
+        'listenersByRegion': listenersByRegion,
+        'since': Timestamp.fromDate(since),
+        'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      };
 }

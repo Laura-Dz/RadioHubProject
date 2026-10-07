@@ -9,6 +9,7 @@ class ScheduleItem {
   final String? guestTitle;
   final String? guestBio;
   final String? guestImageUrl;
+  final List<Map<String, String>> guests;
   final DateTime startTime;
   final DateTime endTime;
   final ScheduleItemType type;
@@ -33,6 +34,7 @@ class ScheduleItem {
     this.guestTitle,
     this.guestBio,
     this.guestImageUrl,
+    this.guests = const [],
     required this.startTime,
     required this.endTime,
     required this.type,
@@ -64,14 +66,37 @@ class ScheduleItem {
         type = ScheduleItemType.regular;
     }
 
+    final List<Map<String, String>> parsedGuests = [];
+    if (data['guests'] is List) {
+      for (final item in (data['guests'] as List)) {
+        if (item is Map) {
+          parsedGuests.add({
+            'name': (item['name'] ?? '').toString(),
+            'role': (item['role'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (data['guest'] != null && data['guest'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': data['guest'].toString(),
+        'role': (data['guestTitle'] ?? '').toString(),
+      });
+    } else if (data['guestName'] != null && data['guestName'].toString().isNotEmpty) {
+      parsedGuests.add({
+        'name': data['guestName'].toString(),
+        'role': (data['guestRole'] ?? '').toString(),
+      });
+    }
+
     return ScheduleItem(
       id: id,
       title: data['title'] ?? 'Untitled Show',
       host: data['host'] ?? 'Unknown Host',
-      guest: data['guest'],
-      guestTitle: data['guestTitle'],
+      guest: data['guest'] ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
+      guestTitle: data['guestTitle'] ?? (parsedGuests.isNotEmpty ? parsedGuests.first['role'] : null),
       guestBio: data['guestBio'],
       guestImageUrl: data['guestImageUrl'],
+      guests: parsedGuests,
       startTime: (data['startTime'] as Timestamp).toDate(),
       endTime: (data['endTime'] as Timestamp).toDate(),
       type: type,

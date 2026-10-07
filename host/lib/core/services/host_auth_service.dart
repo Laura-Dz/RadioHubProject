@@ -91,7 +91,7 @@ class HostAuthService {
 
   Future<void> logout() async => _auth.signOut();
 
-  String? get currentSessionId => _auth.currentUser?.uid?.startsWith('host_') == true
+  String? get currentSessionId => _auth.currentUser?.uid.startsWith('host_') == true
       ? _auth.currentUser!.uid.substring(5)
       : null;
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/models/host_announcement.dart';
 import '../../../view_models/host_view_model.dart';
 
 class LiveAnnouncementBanner extends StatelessWidget {

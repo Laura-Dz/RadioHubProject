@@ -20,6 +20,7 @@ import '../models/radio_admin/program_model.dart';
 import 'escrow_service.dart';
 import 'ai_recommendation_service.dart';
 import '../utils/firestore_parsers.dart';
+import '../config/app_config.dart';
 
 class RadioAdminService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -601,7 +602,7 @@ class RadioAdminService {
   }
 
   Future<String> generateAnnouncementPDF(String announcementId) async {
-    final pdfUrl = 'https://storage.radiohub.com/announcements/$announcementId.pdf';
+    final pdfUrl = '${AppConfig.backendUrl}/api/announcement/$announcementId/print/';
     try {
       await _firestore.collection('announcements').doc(announcementId).update({
         'pdfUrl': pdfUrl,

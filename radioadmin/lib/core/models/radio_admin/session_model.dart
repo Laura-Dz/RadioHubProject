@@ -27,6 +27,7 @@ class Session {
   final String? guestId;
   final List<Map<String, String>> guests;
   final String? guestName;
+  final String? guestRole;
   final String? thematic;
   final String? description;
   final SessionStatus status;
@@ -63,6 +64,7 @@ class Session {
     this.guestId,
     this.guests = const [],
     String? guestName,
+    this.guestRole,
     this.thematic,
     this.description,
     this.status = SessionStatus.scheduled,
@@ -162,6 +164,7 @@ class Session {
       guestId: data['guestId']?.toString(),
       guests: parsedGuests,
       guestName: data['guestName']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['name'] : null),
+      guestRole: data['guestRole']?.toString() ?? (parsedGuests.isNotEmpty ? parsedGuests.first['role'] : null),
       thematic: data['thematic']?.toString(),
       description: data['description']?.toString(),
       status: parsedStatus,
@@ -199,6 +202,7 @@ class Session {
     'guestId': guestId,
     'guests': guests,
     'guestName': guestName ?? (guests.isNotEmpty ? guests.first['name'] : null),
+    'guestRole': guestRole ?? (guests.isNotEmpty ? guests.first['role'] : null),
     'thematic': thematic,
     'description': description,
     'status': status.toString().split('.').last,

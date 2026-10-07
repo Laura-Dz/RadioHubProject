@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../../../core/models/session_model.dart';
 import '../../../core/constants/app_colors.dart';
-import 'session_detail_sheet.dart';
 
 class QueueSheet extends StatelessWidget {
   final SessionModel? liveSession;

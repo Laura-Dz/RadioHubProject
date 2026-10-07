@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/services/cloud_function_caller.dart';
 import '../../core/services/campay_service.dart';
+import '../../core/services/digi_pay_service.dart';
+import '../../core/services/flutterwave_service.dart';
 import 'announcement_submitted_screen.dart';
 
 class AnnouncementPaymentScreen extends StatefulWidget {
@@ -24,7 +26,10 @@ class AnnouncementPaymentScreen extends StatefulWidget {
 
 class _State extends State<AnnouncementPaymentScreen> {
   final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final CampayService _campayService = CampayService();
+  final DigiPayService _digiPayService = DigiPayService();
+  final FlutterwaveService _flutterwaveService = FlutterwaveService();
 
   String _method = 'momo';
   bool _processing = false;
@@ -48,18 +53,20 @@ class _State extends State<AnnouncementPaymentScreen> {
       needsPhone: true,
     ),
     _Method(
-      key: 'ecobank',
-      label: 'Ecobank Card',
-      short: 'Ecobank',
-      icon: Icons.credit_card,
-      color: Color(0xFF0066B3),
+      key: 'bank_transfer',
+      label: 'Bank Transfer (Flutterwave)',
+      short: 'Bank',
+      icon: Icons.account_balance,
+      color: Color(0xFF0A2540),
       needsPhone: false,
+      needsEmail: true,
     ),
   ];
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
@@ -180,6 +187,44 @@ class _State extends State<AnnouncementPaymentScreen> {
                   const SizedBox(height: 8),
                   const Text(
                     'You will receive a prompt on this number to approve the payment.',
+                    style: TextStyle(
+                        fontSize: 11.5, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // ---- Email (only for Flutterwave Bank Transfer) ----
+                if (_selectedMethod.needsEmail) ...[
+                  const Text('Email address',
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. listener@example.com',
+                      prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 1.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Flutterwave will generate a dedicated virtual bank account linked to your email.',
                     style: TextStyle(
                         fontSize: 11.5, color: AppColors.textSecondary),
                   ),
@@ -341,6 +386,11 @@ class _State extends State<AnnouncementPaymentScreen> {
       return;
     }
 
+    if (_selectedMethod.needsEmail && _emailCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Enter your email address for the bank transfer reference');
+      return;
+    }
+
     setState(() {
       _processing = true;
       _error = null;
@@ -348,17 +398,44 @@ class _State extends State<AnnouncementPaymentScreen> {
 
     try {
       if (_selectedMethod.needsPhone) {
-        // --- 1. Initiate CamPay USSD Collection ---
-        final externalRef = 'ANN_${widget.announcementId}_${DateTime.now().millisecondsSinceEpoch}';
-        final collectResult = await _campayService.collect(
-          amount: widget.finalPrice,
-          phone: _phoneCtrl.text.trim(),
-          description: 'Announcement broadcast for ${widget.radioName}',
-          externalReference: externalRef,
-        );
+        // --- 1. Initiate Mobile Money Collection (DigiPay with CamPay fallback) ---
+        final phone = _phoneCtrl.text.trim();
+        final op = _method == 'momo' ? 'MTN' : 'ORANGE';
+        final ussd = op == 'MTN' ? '*126#' : '#150*50#';
 
-        if (!collectResult.success && collectResult.reference == null) {
-          throw Exception(collectResult.message ?? 'Failed to initiate mobile money collection.');
+        String reference = 'ANN_${widget.announcementId}_${DateTime.now().millisecondsSinceEpoch}';
+        bool promptSent = false;
+
+        // Try DigiPay first
+        try {
+          final digiResult = await _digiPayService.initiateDonation(
+            amount: widget.finalPrice,
+            phone: phone,
+            radioId: widget.announcementId,
+            radioName: widget.radioName,
+            operatorChoice: op,
+            note: 'Announcement Broadcast Escrow',
+          );
+          if (digiResult.success) {
+            reference = digiResult.transactionId ?? reference;
+            promptSent = true;
+          }
+        } catch (e) {
+          debugPrint('DigiPay initiate notice: $e');
+        }
+
+        // Fallback to CamPay if DigiPay did not dispatch
+        if (!promptSent) {
+          final collectResult = await _campayService.collect(
+            amount: widget.finalPrice,
+            phone: phone,
+            description: 'Announcement broadcast for ${widget.radioName}',
+            externalReference: reference,
+          );
+          if (!collectResult.success && collectResult.reference == null) {
+            throw Exception(collectResult.message ?? 'Failed to initiate mobile money collection.');
+          }
+          reference = collectResult.reference ?? reference;
         }
 
         if (!mounted) return;
@@ -367,9 +444,9 @@ class _State extends State<AnnouncementPaymentScreen> {
         // --- 2. Show USSD Approval Modal & Poll Confirmation ---
         final bool paid = await _showUssdWaitingModal(
           context: context,
-          reference: collectResult.reference ?? externalRef,
-          ussdCode: collectResult.ussdCode ?? (_method == 'momo' ? '*126#' : '#150*50#'),
-          phone: _phoneCtrl.text.trim(),
+          reference: reference,
+          ussdCode: ussd,
+          phone: phone,
         );
 
         if (!paid) {
@@ -378,9 +455,40 @@ class _State extends State<AnnouncementPaymentScreen> {
         }
 
         // --- 3. Payment Confirmed: Hold in Escrow ---
-        await _recordEscrowAndNavigate(collectResult.reference ?? externalRef);
+        await _recordEscrowAndNavigate(reference);
+      } else if (_method == 'bank_transfer') {
+        // --- Flutterwave Bank Transfer ---
+        final txRef = 'FLW_BANK_${widget.announcementId}_${DateTime.now().millisecondsSinceEpoch}';
+        final user = FirebaseAuth.instance.currentUser;
+        final email = _emailCtrl.text.trim().isNotEmpty
+            ? _emailCtrl.text.trim()
+            : (user?.email ?? 'listener@radiohub.app');
+
+        final details = await _flutterwaveService.initiateBankTransfer(
+          amount: widget.finalPrice,
+          email: email,
+          txRef: txRef,
+          currency: 'XAF',
+          fullName: user?.displayName ?? 'RadioHub Listener',
+          phoneNumber: user?.phoneNumber ?? '',
+        );
+
+        if (!mounted) return;
+        setState(() => _processing = false);
+
+        final bool transferred = await _showBankTransferModal(
+          context: context,
+          details: details,
+        );
+
+        if (!transferred) {
+          setState(() => _error = 'Bank transfer was cancelled or not confirmed.');
+          return;
+        }
+
+        await _recordEscrowAndNavigate(details.txRef ?? txRef);
       } else {
-        // --- Card / Direct Processing ---
+        // --- Fallback Direct Processing ---
         final ref = 'CARD_${DateTime.now().millisecondsSinceEpoch}';
         await _recordEscrowAndNavigate(ref);
       }
@@ -485,7 +593,6 @@ class _State extends State<AnnouncementPaymentScreen> {
     required String phone,
   }) async {
     bool isCompleted = false;
-    bool isSuccess = false;
 
     return await showDialog<bool>(
           context: context,
@@ -496,15 +603,25 @@ class _State extends State<AnnouncementPaymentScreen> {
                 // Background polling timer inside modal
                 Future.microtask(() async {
                   if (isCompleted) return;
-                  final status = await _campayService.pollTransactionStatus(
-                    reference: reference,
-                    interval: const Duration(seconds: 3),
-                    maxAttempts: 15,
-                  );
+                  bool isSuccess = false;
+                  if (reference.startsWith('TXN_') || reference.startsWith('DP_')) {
+                    final status = await _digiPayService.pollTransactionStatus(
+                      transactionId: reference,
+                      interval: const Duration(seconds: 3),
+                      maxAttempts: 15,
+                    );
+                    isSuccess = (status == DigiPayTransactionStatus.successful);
+                  } else {
+                    final status = await _campayService.pollTransactionStatus(
+                      reference: reference,
+                      interval: const Duration(seconds: 3),
+                      maxAttempts: 15,
+                    );
+                    isSuccess = (status == CampayTransactionStatus.successful);
+                  }
                   if (!dialogCtx.mounted || isCompleted) return;
                   isCompleted = true;
-                  if (status == CampayTransactionStatus.successful) {
-                    isSuccess = true;
+                  if (isSuccess) {
                     Navigator.of(dialogCtx).pop(true);
                   }
                 });
@@ -626,6 +743,187 @@ class _State extends State<AnnouncementPaymentScreen> {
         ) ??
         false;
   }
+
+  Future<bool> _showBankTransferModal({
+    required BuildContext context,
+    required FlutterwaveBankTransferDetails details,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0A2540).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.account_balance,
+                        color: Color(0xFF0A2540),
+                        size: 38,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Flutterwave Bank Transfer',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Please complete the wire transfer with the details below to fund the announcement escrow:',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Details Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        children: [
+                          _bankDetailRow('Bank Name', details.bankName ?? 'Ecobank Cameroon'),
+                          const Divider(height: 16),
+                          _bankDetailRow(
+                            'Account Number',
+                            details.accountNumber ?? '10002849182',
+                            isCopyable: true,
+                            dialogCtx: dialogCtx,
+                          ),
+                          const Divider(height: 16),
+                          _bankDetailRow(
+                            'Amount',
+                            '${details.amount.toStringAsFixed(0)} ${details.currency}',
+                            highlight: true,
+                          ),
+                          const Divider(height: 16),
+                          _bankDetailRow(
+                            'Reference',
+                            details.txRef ?? '',
+                            isCopyable: true,
+                            dialogCtx: dialogCtx,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.timer_outlined, size: 14, color: AppColors.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Expires: ${details.expiresAt ?? "60 mins"}',
+                          style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogCtx).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.of(dialogCtx).pop(true),
+                            icon: const Icon(Icons.check_circle_outline, size: 16),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0A2540),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            label: const Text('I Have Transferred'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ) ??
+        false;
+  }
+
+  Widget _bankDetailRow(
+    String label,
+    String value, {
+    bool highlight = false,
+    bool isCopyable = false,
+    BuildContext? dialogCtx,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: highlight ? FontWeight.bold : FontWeight.w600,
+                color: highlight ? AppColors.primary : AppColors.textPrimary,
+              ),
+            ),
+            if (isCopyable && dialogCtx != null) ...[
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: value));
+                  ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                    SnackBar(
+                      content: Text('Copied $label: $value'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.copy, size: 14, color: AppColors.primary),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Method {
@@ -635,6 +933,7 @@ class _Method {
   final IconData icon;
   final Color color;
   final bool needsPhone;
+  final bool needsEmail;
 
   const _Method({
     required this.key,
@@ -643,5 +942,6 @@ class _Method {
     required this.icon,
     required this.color,
     required this.needsPhone,
+    this.needsEmail = false,
   });
 }

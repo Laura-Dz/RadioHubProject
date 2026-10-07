@@ -33,6 +33,12 @@ class S3StorageHelper {
       return trimmed;
     }
 
+    // Normalize placehold.co URLs to .png to prevent SVG raster decoding failure
+    if (trimmed.contains('placehold.co') && !trimmed.contains('.png') && !trimmed.contains('.jpg') && !trimmed.contains('.jpeg')) {
+      final sanitized = trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
+      return '$sanitized.png';
+    }
+
     if (!trimmed.contains(host) && !trimmed.contains('s3.eu-central-1.idrivee2.com')) {
       return trimmed;
     }

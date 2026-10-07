@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 
 enum DigiPayTransactionStatus {
   pending,
@@ -51,9 +52,10 @@ class DigiPayTransactionResult {
 class DigiPayService {
   static const String _baseUrl = 'https://digitalcertify.tech/v1/api';
 
-  final String? _apiKey;
+  final String _apiKey;
 
-  DigiPayService({String? apiKey}) : _apiKey = apiKey;
+  DigiPayService({String? apiKey})
+      : _apiKey = (apiKey != null && apiKey.isNotEmpty) ? apiKey : AppConfig.digipayApiKey;
 
   /// Formats Cameroon phone number to international format (2376XXXXXXXX)
   static String formatPhone(String raw) {
@@ -92,8 +94,9 @@ class DigiPayService {
     final op = operatorChoice ?? detectOperator(formattedPhone);
     final ussd = op == 'MTN' ? '*126#' : '#150*50#';
 
+    final apiKey = _apiKey;
     // If no API key provided or API endpoint times out / fails, fallback cleanly
-    if (_apiKey == null || _apiKey!.isEmpty || _apiKey == 'DEMO_KEY') {
+    if (apiKey.isEmpty || apiKey == 'DEMO_KEY') {
       final simTxId = 'DP_SIM_${DateTime.now().millisecondsSinceEpoch}';
       return DigiPayInitiateResult(
         success: true,
@@ -111,7 +114,7 @@ class DigiPayService {
             Uri.parse('$_baseUrl/payments/initiate'),
             headers: {
               'Content-Type': 'application/json',
-              'x-api-key': _apiKey!,
+              'x-api-key': apiKey,
             },
             body: jsonEncode({
               'amount': amount.toInt(),
@@ -131,14 +134,17 @@ class DigiPayService {
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        final txId = data['transactionId'] ?? data['id'] ?? data['reference'];
+        final raw = jsonDecode(response.body);
+        final data = (raw is Map && raw['data'] is Map<String, dynamic>)
+            ? (raw['data'] as Map<String, dynamic>)
+            : (raw is Map<String, dynamic> ? raw : <String, dynamic>{});
+        final txId = data['transactionId'] ?? data['id'] ?? data['reference'] ?? (raw is Map ? raw['transactionId'] : null);
         return DigiPayInitiateResult(
           success: true,
           transactionId: txId?.toString() ?? 'DP_${DateTime.now().millisecondsSinceEpoch}',
           ussdCode: data['ussdCode'] ?? ussd,
           operator: op,
-          message: data['message'] ?? 'Payment prompt sent to $formattedPhone ($ussd)',
+          message: data['message'] ?? (raw is Map ? raw['message'] : null) ?? 'Payment prompt sent to $formattedPhone ($ussd)',
         );
       } else {
         debugPrint('DigiPay initiate failed: ${response.statusCode} - ${response.body}');
@@ -184,7 +190,8 @@ class DigiPayService {
       );
     }
 
-    if (_apiKey == null || _apiKey!.isEmpty) {
+    final apiKey = _apiKey;
+    if (apiKey.isEmpty) {
       return DigiPayTransactionResult(
         status: DigiPayTransactionStatus.successful,
         transactionId: transactionId,
@@ -196,15 +203,18 @@ class DigiPayService {
     try {
       final response = await http
           .get(
-            Uri.parse('$_baseUrl/payments/$transactionId'),
+            Uri.parse('$_baseUrl/payments/transactions/$transactionId'),
             headers: {
-              'x-api-key': _apiKey!,
+              'x-api-key': apiKey,
             },
           )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final raw = jsonDecode(response.body);
+        final data = (raw is Map && raw['data'] is Map<String, dynamic>)
+            ? (raw['data'] as Map<String, dynamic>)
+            : (raw is Map<String, dynamic> ? raw : <String, dynamic>{});
         final statusStr = (data['status'] ?? '').toString().toUpperCase();
 
         DigiPayTransactionStatus status;
@@ -221,7 +231,7 @@ class DigiPayService {
         return DigiPayTransactionResult(
           status: status,
           transactionId: transactionId,
-          amount: ((data['amount'] ?? 0) as num).toDouble(),
+          amount: ((data['totalAmount'] ?? data['amount'] ?? data['baseAmount'] ?? 0) as num).toDouble(),
           currency: (data['currency'] ?? 'XAF').toString(),
           operator: data['operator']?.toString(),
           message: data['message']?.toString(),

@@ -55,19 +55,6 @@ class Announcement {
   });
 
   factory Announcement.fromFirestore(Map<String, dynamic> data, String id) {
-    DateTime parseDate(dynamic val) {
-      if (val is Timestamp) return val.toDate();
-      if (val is DateTime) return val;
-      return DateTime.now();
-    }
-
-    DateTime? parseNullableDate(dynamic val) {
-      if (val == null) return null;
-      if (val is Timestamp) return val.toDate();
-      if (val is DateTime) return val;
-      return null;
-    }
-
     final statusStr = (data['status'] ?? 'pending').toString().toLowerCase();
     AnnouncementStatus statusEnum;
     if (statusStr.contains('broadcast') || statusStr.contains('aired')) {

@@ -29,6 +29,7 @@ class RadioModel {
   final Map<String, dynamic> settings;
   final List<String> socialLinks;
   final String legalStatus; // 'profit', 'nonProfit', 'stateOwned'
+  final String? broadcastLink;
 
   RadioModel({
     required this.id,
@@ -57,6 +58,7 @@ class RadioModel {
     this.settings = const {},
     this.socialLinks = const [],
     this.legalStatus = 'profit',
+    this.broadcastLink,
   });
 
   bool get isNonProfit => legalStatus == 'nonProfit';
@@ -82,7 +84,7 @@ class RadioModel {
       hosts: List<String>.from(d['hosts'] ?? []),
       followerCount: (d['followerCount'] ?? 0) as int,
       isFollowed: d['isFollowed'] == true,
-      isLive: d['isLive'] == true,
+      isLive: d['isLive'] == true || d['status'] == 'live',
       listenerCount: (d['listenerCount'] ?? 0) as int,
       rating: (d['rating'] ?? 0.0).toDouble(),
       tags: List<String>.from(d['tags'] ?? []),
@@ -97,6 +99,7 @@ class RadioModel {
       settings: d['settings'] is Map<String, dynamic> ? d['settings'] : const {},
       socialLinks: List<String>.from(d['socialLinks'] ?? []),
       legalStatus: (d['legalStatus'] ?? 'profit').toString(),
+      broadcastLink: (d['broadcastLink'] ?? d['streamUrl'] ?? d['livestreamUrl'])?.toString(),
     );
   }
 
@@ -113,6 +116,7 @@ class RadioModel {
       'followerCount': followerCount,
       'isFollowed': isFollowed,
       'isLive': isLive,
+      'broadcastLink': broadcastLink,
       'listenerCount': listenerCount,
       'rating': rating,
       'tags': tags,
@@ -155,6 +159,7 @@ class RadioModel {
     Map<String, dynamic>? settings,
     List<String>? socialLinks,
     String? legalStatus,
+    String? broadcastLink,
   }) {
     return RadioModel(
       id: id ?? this.id,
@@ -182,6 +187,7 @@ class RadioModel {
       settings: settings ?? this.settings,
       socialLinks: socialLinks ?? this.socialLinks,
       legalStatus: legalStatus ?? this.legalStatus,
+      broadcastLink: broadcastLink ?? this.broadcastLink,
     );
   }
 }

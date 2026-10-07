@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import '../core/models/user_model.dart';
 import '../core/services/firestore_service.dart';
 import '../core/services/shared_preferences_service.dart';
-import '../core/utils/validators.dart';
 import 'base_view_model.dart';
 
 class LoginViewModel extends BaseViewModel {

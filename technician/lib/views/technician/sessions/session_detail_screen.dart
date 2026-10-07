@@ -107,13 +107,36 @@ class SessionDetailScreen extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Details
-                _section('Session details', [
-                  _row('Host', live.hostName),
-                  if (live.guestName != null) _row('Guest', live.guestName!),
-                  if (live.guestRole != null) _row('Guest role', live.guestRole!),
-                  if (live.format != null) _row('Format', live.format!.replaceAll('_', ' ')),
-                  if (live.thematic != null) _row('Thematic', live.thematic!),
-                ]),
+                _section(
+                  'Session details',
+                  [
+                    _row('Host', live.hostName),
+                    if (live.coHostNames.isNotEmpty)
+                      _row('Co-Hosts', live.coHostNames.join(', ')),
+                    if (live.guests.isNotEmpty)
+                      ...live.guests.asMap().entries.map((e) {
+                        final g = e.value;
+                        final name = g['name'] ?? '';
+                        final role = (g['role'] ?? '').isNotEmpty ? ' (${g['role']})' : '';
+                        final label = live.guests.length == 1 ? 'Guest' : 'Guest ${e.key + 1}';
+                        return _row(label, '$name$role');
+                      })
+                    else if (live.guestName != null && live.guestName!.isNotEmpty) ...[
+                      _row('Guest', live.guestName!),
+                      if (live.guestRole != null && live.guestRole!.isNotEmpty)
+                        _row('Guest role', live.guestRole!),
+                    ],
+                    if (live.format != null) _row('Format', live.format!.replaceAll('_', ' ')),
+                    if (live.thematic != null) _row('Thematic', live.thematic!),
+                  ],
+                  trailing: !live.isPast
+                      ? TextButton.icon(
+                          onPressed: () => _manageGuests(context, vm, live),
+                          icon: const Icon(Icons.people_outline, size: 16),
+                          label: Text(live.guests.isEmpty && live.guestName == null ? 'Add guests' : 'Manage guests'),
+                        )
+                      : null,
+                ),
                 if (live.description != null) ...[
                   const SizedBox(height: 16),
                   _section('Description', [
@@ -231,7 +254,7 @@ class SessionDetailScreen extends StatelessWidget {
         ),
       );
 
-  Widget _section(String title, List<Widget> rows) => Container(
+  Widget _section(String title, List<Widget> rows, {Widget? trailing}) => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -241,8 +264,14 @@ class SessionDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                if (trailing != null) trailing,
+              ],
+            ),
             const SizedBox(height: 8),
             ...rows,
           ],
@@ -263,6 +292,201 @@ class SessionDetailScreen extends StatelessWidget {
           ],
         ),
       );
+
+  Future<void> _manageGuests(BuildContext context, TechnicianViewModel vm, Session s) async {
+    final guestsList = List<Map<String, String>>.from(s.guests);
+    if (guestsList.isEmpty && s.guestName != null && s.guestName!.isNotEmpty) {
+      guestsList.add({
+        'name': s.guestName!,
+        'role': s.guestRole ?? '',
+      });
+    }
+
+    final nameCtrl = TextEditingController();
+    final roleCtrl = TextEditingController();
+    bool saving = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          void addGuest() {
+            final name = nameCtrl.text.trim();
+            if (name.isEmpty) return;
+            final role = roleCtrl.text.trim();
+            setDialogState(() {
+              guestsList.add({'name': name, 'role': role});
+              nameCtrl.clear();
+              roleCtrl.clear();
+            });
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: const [
+                Icon(Icons.people_outline, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('Manage Session Guests', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Current guests:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  if (guestsList.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('No guests registered for this session.', style: TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: guestsList.asMap().entries.map((e) {
+                            final idx = e.key;
+                            final g = e.value;
+                            final name = g['name'] ?? '';
+                            final role = (g['role'] ?? '').isNotEmpty ? ' (${g['role']})' : '';
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.person, size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '$name$role',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+                                    onPressed: () => setDialogState(() => guestsList.removeAt(idx)),
+                                    tooltip: 'Remove',
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  const Divider(height: 24),
+                  const Text('Add new guest:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: nameCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Full name',
+                            filled: true,
+                            fillColor: AppColors.background,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onSubmitted: (_) => addGuest(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: roleCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Role (e.g. Expert)',
+                            filled: true,
+                            fillColor: AppColors.background,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onSubmitted: (_) => addGuest(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: addGuest,
+                        child: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: saving
+                    ? null
+                    : () async {
+                        // Check if text was typed without clicking Add
+                        if (nameCtrl.text.trim().isNotEmpty) {
+                          guestsList.add({
+                            'name': nameCtrl.text.trim(),
+                            'role': roleCtrl.text.trim(),
+                          });
+                        }
+                        setDialogState(() => saving = true);
+                        try {
+                          await vm.updateSessionGuests(s.id, guestsList);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Guests updated successfully'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setDialogState(() => saving = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to update guests: $e'), backgroundColor: AppColors.error),
+                            );
+                          }
+                        }
+                      },
+                icon: saving
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check, size: 16),
+                label: const Text('Save Guests'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _start(BuildContext context, TechnicianViewModel vm, Session s) async {
     final confirm = await showDialog<bool>(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../view_models/technician_view_model.dart';
 import '../../../core/models/technician/media_item_model.dart';
 import '../../../core/constants/app_colors.dart';

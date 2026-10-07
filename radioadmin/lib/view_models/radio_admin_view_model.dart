@@ -322,6 +322,10 @@ class RadioAdminViewModel extends ChangeNotifier {
     );
   }
 
+  Future<String> generateAnnouncementPDF(String id) async {
+    return await _service.generateAnnouncementPDF(id);
+  }
+
   Future<void> markAsPrinted(String id, String pdfUrl) async {
     await _service.markAsPrinted(id, pdfUrl);
   }

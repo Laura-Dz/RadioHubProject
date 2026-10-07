@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import '../core/models/director/technician_model.dart';
 import '../core/models/director/subscription_model.dart';
 import '../core/models/director/homepage_config_model.dart';
@@ -35,6 +34,7 @@ class DirectorViewModel extends BaseViewModel {
   HomepageConfig? get homepageConfig => _homepageConfig;
   List<Request> get requests => _requests;
   DirectorMetrics? get metrics => _metrics;
+  @override
   bool get isLoading => _isLoading;
   int get selectedTab => _selectedTab;
 
@@ -200,10 +200,5 @@ class DirectorViewModel extends BaseViewModel {
 
   Future<void> refreshData() async {
     await _loadData();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

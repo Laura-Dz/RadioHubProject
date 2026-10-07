@@ -19,7 +19,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error getting schedule: $e');
@@ -63,7 +63,7 @@ class ScheduleService {
           .get();
 
       for (final doc in snapshot.docs) {
-        final item = ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+        final item = ScheduleItem.fromFirestore(doc.data(), doc.id);
         if (item.endTime.isAfter(now)) {
           return item;
         }
@@ -86,7 +86,7 @@ class ScheduleService {
           .get();
 
       return snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
           .where((item) => item.type.toString().split('.').last != 'flash')
           .take(limit)
           .toList();
@@ -105,7 +105,7 @@ class ScheduleService {
           .get();
 
       final items = snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
           .where((item) => item.startTime.isAfter(now))
           .toList();
       items.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -125,7 +125,7 @@ class ScheduleService {
           .get();
 
       final items = snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
           .toList();
 
       for (final item in items) {
@@ -156,7 +156,7 @@ class ScheduleService {
           .get();
 
       final items = snapshot.docs
-          .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
           .where((item) => item.startTime.isAfter(now) && item.startTime.isBefore(tomorrow))
           .toList();
       items.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -176,7 +176,7 @@ class ScheduleService {
           final now = DateTime.now();
           final tomorrow = now.add(const Duration(hours: 24));
           final items = snapshot.docs
-              .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+              .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
               .where((item) => item.startTime.isAfter(now) && item.startTime.isBefore(tomorrow))
               .toList();
           items.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -191,7 +191,7 @@ class ScheduleService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-             .map((doc) => Comment.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+             .map((doc) => Comment.fromFirestore(doc.data(), doc.id))
              .toList());
   }
 
@@ -205,7 +205,7 @@ class ScheduleService {
           .get();
 
       final list = snapshot.docs
-          .map((doc) => FlashProgram.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => FlashProgram.fromFirestore(doc.data(), doc.id))
           .where((f) => f.expiresAt == null || f.expiresAt!.isAfter(now))
           .toList();
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -228,7 +228,7 @@ class ScheduleService {
         .orderBy('startTime')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => ScheduleItem.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+            .map((doc) => ScheduleItem.fromFirestore(doc.data(), doc.id))
             .toList());
   }
 

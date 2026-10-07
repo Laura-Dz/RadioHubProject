@@ -157,7 +157,7 @@ class HostViewModel extends ChangeNotifier {
     // Cancel any previous replying state
     if (_replyingToId != null && _replyingToId != c.id) {
       try {
-        await _comments.setReplying(_replyingToId!, false);
+        await _comments.setReplying(_replyingToId!, false, sessionId: _session?.id);
       } catch (_) {}
     }
 
@@ -165,7 +165,7 @@ class HostViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _comments.setReplying(c.id, true);
+      await _comments.setReplying(c.id, true, sessionId: _session?.id);
     } catch (e) {
       _error = e.toString();
       _replyingToId = null;
@@ -179,13 +179,13 @@ class HostViewModel extends ChangeNotifier {
     notifyListeners();
     if (id == null) return;
     try {
-      await _comments.setReplying(id, false);
+      await _comments.setReplying(id, false, sessionId: _session?.id);
     } catch (_) {}
   }
 
   Future<void> markCommentReplied(Comment c) async {
     try {
-      await _comments.markReplied(c.id);
+      await _comments.markReplied(c.id, sessionId: _session?.id);
       if (_replyingToId == c.id) {
         _replyingToId = null;
       }

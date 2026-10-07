@@ -152,10 +152,10 @@ class _State extends State<TechnicianLoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text('Station Technicians:',
+                        Text('Station Technicians (password: password123):',
                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                         SizedBox(height: 4),
-                        Text('• christian@example.com (Radio Love)\n• john@radiolove.cm (Radio Love)',
+                        Text('• john@gmail.com (Radio Maria Cameroon)\n• christian@example.com (Radio Love)\n• john@radiolove.cm (Radio Love)',
                             style: TextStyle(fontSize: 11, color: AppColors.textMuted, height: 1.4)),
                       ],
                     ),

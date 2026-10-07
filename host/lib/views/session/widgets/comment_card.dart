@@ -146,8 +146,8 @@ class _State extends State<CommentCard> {
                     children: [
                       ElevatedButton.icon(
                         onPressed: () => _markReplied(context),
-                        icon: const Icon(Icons.check, size: 15),
-                        label: const Text('Mark as Replied'),
+                        icon: const Icon(Icons.check_circle_outline, size: 15),
+                        label: const Text('Mark as Answered'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.success,
                           foregroundColor: Colors.white,
@@ -174,7 +174,7 @@ class _State extends State<CommentCard> {
                     child: OutlinedButton.icon(
                       onPressed: () => _startReplying(context),
                       icon: const Icon(Icons.mic, size: 14),
-                      label: const Text('Reply On Air'),
+                      label: const Text('Answer On Air'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: BorderSide(color: AppColors.primary.withOpacity(0.4)),

@@ -3,20 +3,104 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isTechnician() {
-      return request.auth != null
-        && request.auth.token.role == 'technician';
+      return request.auth != null && (
+        request.auth.token.role == 'technician' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician')
+      );
     }
+
+    function isRadioAdmin() {
+      return request.auth != null && (
+        request.auth.token.role == 'radio_admin' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'radio_admin')
+      );
+    }
+
     function isHostOf(sessionId) {
       return request.auth != null
         && request.auth.token.role == 'host_session'
         && request.auth.token.sessionId == sessionId;
     }
 
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.uid == uid ||
+        isRadioAdmin()
+      );
+    }
+
+    match /radios/{id} {
+      allow read: if true;
+      allow write: if isTechnician() || isRadioAdmin();
+    }
+
+    match /program_categories/{id} {
+      allow read: if true;
+      allow write: if isTechnician() || isRadioAdmin();
+    }
+
+    match /timetable/{id} {
+      allow read: if true;
+      allow write: if isTechnician() || isRadioAdmin();
+    }
+
+    match /programs/{id} {
+      allow read: if true;
+      allow write: if isTechnician() || isRadioAdmin();
+    }
+
+    match /announcements/{id} {
+      allow read: if request.auth != null;
+      allow write: if isRadioAdmin() || isTechnician() || (
+        request.auth != null && (resource == null || resource.data.listenerId == request.auth.uid)
+      );
+    }
+
+    match /announcement_tariffs/{id} {
+      allow read: if true;
+      allow write: if isRadioAdmin();
+    }
+
+    match /transactions/{id} {
+      allow read: if request.auth != null;
+      allow write: if isRadioAdmin() || isTechnician();
+    }
+
+    match /subscriptions/{id} {
+      allow read: if request.auth != null;
+      allow write: if isRadioAdmin();
+    }
+
+    match /media/{id} {
+      allow read: if true;
+      allow write: if isTechnician() || isRadioAdmin();
+    }
+
+    match /notifications/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /listener_activity/{id} {
+      allow read: if isRadioAdmin() || isTechnician();
+      allow create: if true;
+    }
+
+    match /escrow_accounts/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /wallets/{id} {
+      allow read, write: if request.auth != null;
+    }
+
     match /sessions/{id} {
       allow read: if true;
-      allow create: if isTechnician();
-      allow update: if isTechnician() || isHostOf(id);
-      allow delete: if false;
+      allow create: if isTechnician() || isRadioAdmin();
+      allow update: if isTechnician() || isRadioAdmin() || isHostOf(id);
+      allow delete: if isRadioAdmin();
     }
 
     match /comments/{id} {
@@ -31,16 +115,6 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if request.auth != null;
       allow delete: if false;
-    }
-
-    match /radios/{id} {
-      allow read: if true;
-      allow write: if isTechnician() || request.auth.token.role == 'radio_admin';
-    }
-
-    match /users/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     match /polls/{pollId} {

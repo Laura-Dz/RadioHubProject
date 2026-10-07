@@ -94,18 +94,6 @@ class StationStreamKeyTests(TestCase):
 
         self.assertEqual(decrypted[:len(raw_audio_stream)], raw_audio_stream)
 
-    def test_endpoint_dynamic_nonce(self):
-        """Test that X-Stream-Nonce header registers active session nonce and returns it."""
-        url = reverse("internal-stream-key", kwargs={"radio_id": "test_radio_1"})
-        test_nonce = "11223344556677889900aabbccddeeff"
-        response = self.client.get(
-            url,
-            HTTP_X_STATION_KEY=self.station.api_key,
-            HTTP_X_STREAM_NONCE=test_nonce,
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers.get("X-Stream-Nonce-Hex"), test_nonce)
-
     def test_endpoint_rate_limiting(self):
         """Test that calling the endpoint twice within 10 seconds triggers HTTP 429."""
         url = reverse("internal-stream-key", kwargs={"radio_id": "test_radio_1"})

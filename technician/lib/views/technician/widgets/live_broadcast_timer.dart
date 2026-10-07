@@ -57,7 +57,9 @@ class _LiveBroadcastTimerState extends State<LiveBroadcastTimer>
     _now = NetworkTimeService().now();
     _wasOvertime = _now.isAfter(widget.scheduledEnd);
     if (widget.onOvertimeChanged != null) {
-      widget.onOvertimeChanged!(_wasOvertime);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onOvertimeChanged!(_wasOvertime);
+      });
     }
 
     _pulseController = AnimationController(
@@ -85,7 +87,9 @@ class _LiveBroadcastTimerState extends State<LiveBroadcastTimer>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.scheduledEnd != widget.scheduledEnd) {
       _wasOvertime = _now.isAfter(widget.scheduledEnd);
-      widget.onOvertimeChanged?.call(_wasOvertime);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onOvertimeChanged?.call(_wasOvertime);
+      });
     }
   }
 

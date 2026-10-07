@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import 'content_moderation_service.dart';
 
 /// Structured result of an OpenAI Content Moderation check.
 class ModerationResult {
@@ -101,60 +102,28 @@ class AnnouncementAiService {
   // 1. OPENAI CONTENT MODERATION
   // ---------------------------------------------------------------------------
 
-  /// Checks the given text against OpenAI's multi-category safety policy.
+  /// Checks the given text against content safety policy (Local Rules & OpenAI).
   Future<ModerationResult> moderateText(String text) async {
     final clean = text.trim();
-    if (clean.isEmpty) return ModerationResult.clean();
-
-    final apiKey = AppConfig.openaiApiKey.trim();
-    if (apiKey.isEmpty) {
-      debugPrint('AnnouncementAiService: No OpenAI key configured, skipping moderation.');
-      return ModerationResult.clean();
+    if (clean.isEmpty) {
+      return const ModerationResult(
+        passed: false,
+        message: "We can't send an empty message.",
+      );
     }
 
-    try {
-      final uri = Uri.parse('https://api.openai.com/v1/moderations');
-      final response = await _client
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-            },
-            body: jsonEncode({
-              'input': clean,
-              'model': 'omni-moderation-latest',
-            }),
-          )
-          .timeout(const Duration(seconds: 7));
-
-      if (response.statusCode != 200) {
-        debugPrint('OpenAI Moderation API non-200: ${response.statusCode} -> ${response.body}');
-        return ModerationResult.clean();
+    final check = await ContentModerationService.check(clean);
+    if (!check.passed) {
+      if (check.isEmpty) {
+        return const ModerationResult(
+          passed: false,
+          message: "We can't send an empty message.",
+        );
       }
-
-      final data = jsonDecode(response.body);
-      final results = data['results'] as List<dynamic>?;
-      if (results == null || results.isEmpty) return ModerationResult.clean();
-
-      final first = results.first as Map<String, dynamic>;
-      final isFlagged = first['flagged'] == true;
-
-      if (!isFlagged) {
-        return ModerationResult.clean();
-      }
-
-      final categoriesMap = first['categories'] as Map<String, dynamic>? ?? {};
-      final flaggedList = <String>[];
-      categoriesMap.forEach((key, val) {
-        if (val == true) flaggedList.add(key);
-      });
-
-      return ModerationResult.flagged(flaggedList);
-    } catch (e) {
-      debugPrint('OpenAI Moderation check error (safe fallback): $e');
-      return ModerationResult.clean();
+      return ModerationResult.flagged(check.flaggedCategories);
     }
+
+    return ModerationResult.clean();
   }
 
   // ---------------------------------------------------------------------------

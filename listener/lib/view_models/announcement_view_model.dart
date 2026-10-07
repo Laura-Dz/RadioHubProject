@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../core/models/announcement_request.dart';
 import '../core/services/announcement_service.dart';
 import '../core/services/announcement_ai_service.dart';
+import '../core/services/content_moderation_service.dart';
 
 class AnnouncementViewModel extends ChangeNotifier {
   final AnnouncementService _service = AnnouncementService();
@@ -356,6 +357,14 @@ class AnnouncementViewModel extends ChangeNotifier {
         _submitting = false;
         _error = mod.message;
         notifyListeners();
+        if (listenerId.isNotEmpty) {
+          await ContentModerationService.recordModerationNotification(
+            userId: listenerId,
+            flaggedMessage: _message,
+            categories: mod.flaggedCategories.join(', '),
+            contextType: 'announcement',
+          );
+        }
         return null;
       }
 

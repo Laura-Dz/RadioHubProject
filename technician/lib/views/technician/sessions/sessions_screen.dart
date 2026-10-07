@@ -7,6 +7,7 @@ import '../../../core/models/technician/session_model.dart';
 import '../../../core/models/technician/host_model.dart';
 import '../../../core/utils/app_avatar.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/network_time_service.dart';
 import '../widgets/live_broadcast_timer.dart';
 import 'session_detail_screen.dart';
 
@@ -151,7 +152,21 @@ class _LiveCard extends StatefulWidget {
 }
 
 class _LiveCardState extends State<_LiveCard> {
-  bool _isOvertime = false;
+  late bool _isOvertime;
+
+  @override
+  void initState() {
+    super.initState();
+    _isOvertime = NetworkTimeService().now().isAfter(widget.session.scheduledEnd);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LiveCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.scheduledEnd != widget.session.scheduledEnd) {
+      _isOvertime = NetworkTimeService().now().isAfter(widget.session.scheduledEnd);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +213,11 @@ class _LiveCardState extends State<_LiveCard> {
                 isCompact: true,
                 onOvertimeChanged: (overtime) {
                   if (mounted && _isOvertime != overtime) {
-                    setState(() => _isOvertime = overtime);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isOvertime = overtime);
+                      }
+                    });
                   }
                 },
               ),

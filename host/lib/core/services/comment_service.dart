@@ -18,7 +18,7 @@ class CommentService {
         });
   }
 
-  Future<void> setReplying(String commentId, bool replying) async {
+  Future<void> setReplying(String commentId, bool replying, {String? sessionId}) async {
     try {
       await CloudFunctionCaller.call('setCommentReplying', {
         'commentId': commentId,
@@ -26,15 +26,31 @@ class CommentService {
       });
     } catch (e) {
       debugPrint('setReplying cloud function fallback: $e');
-      // Direct Firestore update fallback
+    }
+
+    // Direct Firestore update fallback
+    try {
+      await _db.collection('comments').doc(commentId).update({
+        'status': replying ? 'replying' : 'pending',
+        'replyingSince': replying ? FieldValue.serverTimestamp() : null,
+        'replyingAt': replying ? FieldValue.serverTimestamp() : null,
+      });
+    } catch (dbErr) {
+      debugPrint('Direct firestore comment update error: $dbErr');
+    }
+
+    // Sync to Realtime Database if sessionId is available
+    if (sessionId != null && sessionId.isNotEmpty) {
       try {
-        await _db.collection('comments').doc(commentId).update({
+        await RealtimeDatabaseService.database
+            .ref('comments/$sessionId/$commentId')
+            .update({
           'status': replying ? 'replying' : 'pending',
-          'replyingSince': replying ? FieldValue.serverTimestamp() : null,
-          'replyingAt': replying ? FieldValue.serverTimestamp() : null,
+          'isReplying': replying,
+          'replyingSince': replying ? ServerValue.timestamp : null,
         });
-      } catch (dbErr) {
-        debugPrint('Direct firestore comment update error: $dbErr');
+      } catch (rtdbErr) {
+        debugPrint('RTDB setReplying error: $rtdbErr');
       }
     }
   }
@@ -67,7 +83,7 @@ class CommentService {
     }
   }
 
-  Future<void> markReplied(String commentId) async {
+  Future<void> markReplied(String commentId, {String? sessionId}) async {
     try {
       await _db.collection('comments').doc(commentId).update({
         'status': 'replied',
@@ -78,6 +94,21 @@ class CommentService {
       });
     } catch (e) {
       debugPrint('Direct firestore markReplied error: $e');
+    }
+
+    if (sessionId != null && sessionId.isNotEmpty) {
+      try {
+        await RealtimeDatabaseService.database
+            .ref('comments/$sessionId/$commentId')
+            .update({
+          'status': 'replied',
+          'isReplied': true,
+          'isReplying': false,
+          'replyingSince': null,
+        });
+      } catch (rtdbErr) {
+        debugPrint('RTDB markReplied error: $rtdbErr');
+      }
     }
   }
 }

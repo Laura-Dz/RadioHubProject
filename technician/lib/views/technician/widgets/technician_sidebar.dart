@@ -43,6 +43,10 @@ class _State extends State<TechnicianSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount =
+        context.select<TechnicianViewModel, int>((vm) => vm.unreadNotifications);
+    final dueCount =
+        context.select<TechnicianViewModel, int>((vm) => vm.dueAnnouncementCount);
     final w = _expanded ? 240.0 : 72.0;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -107,7 +111,7 @@ class _State extends State<TechnicianSidebar> {
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: _items.length,
-              itemBuilder: (_, i) => _tile(i),
+              itemBuilder: (_, i) => _tile(i, unreadCount, dueCount),
             ),
           ),
           const Divider(height: 1, color: AppColors.divider),
@@ -127,14 +131,10 @@ class _State extends State<TechnicianSidebar> {
     );
   }
 
-  Widget _tile(int i) {
+  Widget _tile(int i, int unreadCount, int dueCount) {
     final it = _items[i];
     final sel = widget.selectedIndex == i;
     final hov = _hovered == i;
-    final unreadCount =
-        context.select<TechnicianViewModel, int>((vm) => vm.unreadNotifications);
-    final dueCount =
-        context.select<TechnicianViewModel, int>((vm) => vm.dueAnnouncementCount);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

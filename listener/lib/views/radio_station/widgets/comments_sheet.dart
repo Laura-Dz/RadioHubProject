@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/services/cloud_function_caller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../core/services/realtime_database_service.dart';
+import '../../../core/services/content_moderation_service.dart';
 
 import '../../../core/models/session_model.dart';
 import '../../../core/constants/app_colors.dart';
@@ -298,13 +298,58 @@ class _State extends State<CommentsSheet> {
 
   Future<void> _send() async {
     final text = _ctrl.text.trim();
-    if (text.isEmpty) return;
+
+    // 1. Validate empty message
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("We can't send an empty message."),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     setState(() => _sending = true);
     final user = FirebaseAuth.instance.currentUser;
     final userName = await _resolveUserName(user);
     final userId = user?.uid ?? 'anonymous';
 
-    // 1. Send via WebSocket (Firebase Realtime Database)
+    // 2. Content Moderation Check (Local Rules & OpenAI)
+    final modCheck = await ContentModerationService.check(text);
+    if (!modCheck.passed) {
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              modCheck.rejectionReason ??
+                  'Your comment was blocked for violating community guidelines (${modCheck.readableCategories}).',
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+
+      // Record in-app notification to the user's notification center
+      if (user != null) {
+        await ContentModerationService.recordModerationNotification(
+          userId: user.uid,
+          flaggedMessage: text,
+          categories: modCheck.readableCategories,
+          contextType: 'live comment',
+        );
+      }
+      return;
+    }
+
+    bool sentToAny = false;
+
+    // 3. Send via WebSocket (Firebase Realtime Database)
     try {
       final rtdb = RealtimeDatabaseService.database.ref('comments/${widget.session.id}').push();
       await rtdb.set({
@@ -317,58 +362,41 @@ class _State extends State<CommentsSheet> {
         'status': 'visible',
         'timestamp': ServerValue.timestamp,
       });
+      sentToAny = true;
     } catch (e) {
       debugPrint('RTDB send comment: $e');
     }
 
-    // 2. Direct Firestore fallback & Cloud Function moderation
+    // 4. Direct Firestore persistent save
     try {
-      final res = await CloudFunctionCaller.call('submitComment', {
+      await FirebaseFirestore.instance.collection('comments').add({
         'sessionId': widget.session.id,
         'text': text,
+        'userId': userId,
         'userName': userName,
+        'userPhoto': user?.photoURL,
+        'status': 'visible',
+        'createdAt': FieldValue.serverTimestamp(),
       });
-      final data = Map<String, dynamic>.from(res);
-
-      if (data['success'] != true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Your comment was flagged (${(data['categories'] as List?)?.join(", ") ?? "policy"})'),
-              backgroundColor: AppColors.error,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-        return;
-      }
-      _ctrl.clear();
+      sentToAny = true;
     } catch (e) {
-      try {
-        await FirebaseFirestore.instance.collection('comments').add({
-          'sessionId': widget.session.id,
-          'text': text,
-          'userId': userId,
-          'userName': userName,
-          'userPhoto': user?.photoURL,
-          'status': 'visible',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        _ctrl.clear();
-        return;
-      } catch (_) {}
+      debugPrint('Firestore send comment error: $e');
+    }
+
+    if (sentToAny) {
+      _ctrl.clear();
+    } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+          const SnackBar(
+            content: Text('Failed to send comment. Please check your network connection.'),
             backgroundColor: AppColors.error,
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _sending = false);
     }
+
+    if (mounted) setState(() => _sending = false);
   }
 }
 
@@ -384,7 +412,6 @@ class _CommentCard extends StatelessWidget {
         : 'Listener';
     final text = (data['text'] ?? data['message'] ?? '').toString();
     final status = (data['status'] ?? 'pending').toString();
-    final reply = data['hostReply']?.toString();
     DateTime? createdAt;
     final ca = data['createdAt'] ?? data['timestamp'];
     if (ca is Timestamp) {
@@ -452,16 +479,38 @@ class _CommentCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.edit_note, size: 11, color: AppColors.primary),
+                      Icon(Icons.mic, size: 11, color: AppColors.primary),
                       SizedBox(width: 4),
-                      Text('Host is replying…',
+                      Text('Answering on air…',
                           style: TextStyle(
                               fontSize: 10,
                               color: AppColors.primary,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                )
+              else if (status == 'replied')
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle, size: 11, color: AppColors.success),
+                      SizedBox(width: 4),
+                      Text('Answered on air',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.success,
                               fontWeight: FontWeight.w700)),
                     ],
                   ),
@@ -470,43 +519,6 @@ class _CommentCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(text, style: const TextStyle(fontSize: 13.5, height: 1.35)),
-          if (reply != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.success.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: AppColors.success.withOpacity(0.25)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.reply,
-                      size: 13, color: AppColors.success),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Host replied',
-                            style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.success,
-                                letterSpacing: 0.3)),
-                        const SizedBox(height: 2),
-                        Text(reply,
-                            style: const TextStyle(
-                                fontSize: 13, height: 1.35)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );

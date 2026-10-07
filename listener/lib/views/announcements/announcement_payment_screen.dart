@@ -54,7 +54,7 @@ class _State extends State<AnnouncementPaymentScreen> {
     ),
     _Method(
       key: 'bank_transfer',
-      label: 'Bank Transfer (Flutterwave)',
+      label: 'Bank Transfer',
       short: 'Bank',
       icon: Icons.account_balance,
       color: Color(0xFF0A2540),
@@ -224,7 +224,7 @@ class _State extends State<AnnouncementPaymentScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Flutterwave will generate a dedicated virtual bank account linked to your email.',
+                    'A dedicated virtual escrow account will be generated linked to your email.',
                     style: TextStyle(
                         fontSize: 11.5, color: AppColors.textSecondary),
                   ),
@@ -774,7 +774,7 @@ class _State extends State<AnnouncementPaymentScreen> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Flutterwave Bank Transfer',
+                      'Bank Wire Transfer',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 18,

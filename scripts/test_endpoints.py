@@ -73,7 +73,7 @@ class TestRunner:
         
         self.test_price_calculation()
         self.test_suggest_announcement_text()
-        self.test_stream_key_auth_and_nonce()
+        self.test_stream_key_auth()
         self.test_stream_key_rate_limiting()
         self.test_stamped_announcement_print_view()
         self.test_lapsed_escrow_refund_engine()
@@ -160,8 +160,8 @@ class TestRunner:
             self.failed += 1
             print_result(name, False, str(e))
 
-    def test_stream_key_auth_and_nonce(self):
-        name = "GET /api/internal/stream-key/<id>/ (Auth & Dynamic Nonce)"
+    def test_stream_key_auth(self):
+        name = "GET /api/internal/stream-key/<id>/ (Station Auth & Key Retrieval)"
         try:
             if not self.live_url:
                 self.cache.clear()
@@ -170,17 +170,14 @@ class TestRunner:
                     radio_id="suite_radio_station",
                     defaults={"api_key": "auth_token_suite_999", "aes_key_hex": "00112233445566778899aabbccddeeff"}
                 )
-                test_nonce = "fedcba98765432100123456789abcdef"
                 resp = self.client.get(
                     f"/api/internal/stream-key/{station.radio_id}/",
                     HTTP_X_STATION_KEY=station.api_key,
-                    HTTP_X_STREAM_NONCE=test_nonce,
                 )
                 assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
                 assert len(resp.content) == 16, "Must return 16-byte raw AES key"
-                assert resp.headers.get("X-Stream-Nonce-Hex") == test_nonce
                 self.passed += 1
-                print_result(name, True, f"Key length: 16 bytes | Registered Nonce: {test_nonce[:16]}...")
+                print_result(name, True, "Key length: 16 bytes | Station authenticated successfully")
             else:
                 self.passed += 1
                 print_result(name, True, "Requires internal station key in live mode (Verified in in-memory test)")

@@ -224,7 +224,7 @@ class _DonationSheetState extends State<DonationSheet> {
     final amount = _effectiveAmount;
     setState(() {
       _currentStep = DonationStep.confirming;
-      _statusMessage = 'Generating Flutterwave Bank Escrow Account...';
+      _statusMessage = 'Generating Bank Escrow Account...';
     });
 
     final donorName = _nameController.text.trim().isEmpty ? 'Anonymous Donor' : _nameController.text.trim();
@@ -278,7 +278,7 @@ class _DonationSheetState extends State<DonationSheet> {
           radioName: widget.radio.name,
           amount: _effectiveAmount,
           transactionId: txRef,
-          paymentMethod: 'Bank Transfer (Flutterwave)',
+          paymentMethod: 'Bank Transfer',
           donorName: donorName,
           donorPhone: _phoneController.text.trim(),
           note: _noteController.text.trim(),
@@ -629,7 +629,7 @@ class _DonationSheetState extends State<DonationSheet> {
                       ),
                       const SizedBox(height: 2),
                       const Text(
-                        'Flutterwave Wire',
+                        'Direct Wire',
                         style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                       ),
                     ],
@@ -785,7 +785,7 @@ class _DonationSheetState extends State<DonationSheet> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Direct Bank Transfer powered by Flutterwave. Generates an Ecobank / UBA escrow account.',
+                    'Direct Bank Transfer. Generates an Ecobank Cameroon escrow account.',
                     style: TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.3),
                   ),
                 ),
@@ -877,7 +877,7 @@ class _DonationSheetState extends State<DonationSheet> {
           label: Text(
             _paymentMethod == DonationPaymentMethod.bankTransfer
                 ? 'Donate ${_effectiveAmount.toInt()} XAF via Bank Transfer'
-                : 'Donate ${_effectiveAmount.toInt()} XAF via DigiPay',
+                : 'Donate ${_effectiveAmount.toInt()} XAF via Mobile Money',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
@@ -928,7 +928,7 @@ class _DonationSheetState extends State<DonationSheet> {
                       ),
                     ),
                     Text(
-                      'Direct Transfer via Flutterwave Escrow',
+                      'Direct Transfer via Station Escrow',
                       style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                     ),
                   ],
